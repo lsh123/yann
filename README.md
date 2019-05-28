@@ -7,7 +7,7 @@ g++ 8.3 and should compile on most modern compilers).
 
 ### Installing
 
-Install Eigen](https://eigen.tuxfamily.org) library, for example
+Install [Eigen](https://eigen.tuxfamily.org) library, for example
 on Ubuntu:
 
 ```
