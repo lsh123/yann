@@ -1,0 +1,370 @@
+/*
+ * nn.cpp
+ *
+ */
+#include <algorithm>
+#include <sstream>
+#include <fstream>
+#include <string>
+
+#include <boost/assert.hpp>
+
+#include "utils.h"
+#include "functions.h"
+#include "nnlayer.h"
+#include "nntraining.h"
+#include "layers/contlayer.h"
+#include "nn.h"
+
+using namespace std;
+using namespace boost;
+using namespace yann;
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Network implementation
+//
+ostream& std::operator<<(ostream & os, const Network & nn)
+{
+  nn.write(os);
+  return os;
+}
+istream& std::operator>>(istream & is, Network & nn)
+{
+  nn.read(is);
+  return is;
+}
+
+yann::Network::Network() :
+    _container(new SequentialLayer()),
+    _cost_function(new QuadraticCost())
+{
+}
+
+yann::Network::Network(std::unique_ptr<SequentialLayer> & container) :
+    _container(std::move(container)),
+    _cost_function(new QuadraticCost())
+{
+  BOOST_VERIFY(_container);
+}
+
+yann::Network::~Network()
+{
+}
+
+void yann::Network::save(const string & filename) const
+{
+  ofstream ofs(filename, ofstream::out | ofstream::trunc);
+  if(!ofs || ofs.fail()) {
+    throw runtime_error("can't open file " + filename);
+  }
+  ofs << (*this);
+  if(!ofs || ofs.fail()) {
+    throw runtime_error("can't write to file " + filename);
+  }
+  ofs.close();
+
+}
+void yann::Network::load(const std::string & filename)
+{
+  ifstream ifs(filename, ifstream::in);
+  if(!ifs || ifs.fail()) {
+    throw runtime_error("can't open file " + filename);
+  }
+  ifs >> (*this);
+  if(!ifs || ifs.fail()) {
+    throw runtime_error("can't read file " + filename);
+  }
+  ifs.close();
+}
+
+void yann::Network::print_info(ostream & os) const
+{
+  BOOST_VERIFY(_container);
+
+  os << "yann::Network"
+     << "[" << get_input_size() << " -> " << get_output_size() << "]"
+     << " cost: " << _cost_function->get_name()
+     << ", layers: (" << _container->get_info() << ")"
+  ;
+}
+
+string yann::Network::get_info() const
+{
+  ostringstream oss;
+  print_info(oss);
+  return oss.str();
+}
+
+size_t yann::Network::get_layers_num() const
+{
+  BOOST_VERIFY(_container);
+  return _container->get_layers_num();
+}
+
+bool yann::Network::is_valid() const
+{
+  if(!_container) {
+    return false;
+  }
+  if(!_cost_function) {
+    return false;
+  }
+  return true;
+}
+
+bool yann::Network::is_equal(const Network& other, double tolerance) const
+{
+  BOOST_VERIFY(_container);
+  BOOST_VERIFY(other._container);
+
+  // TODO: add deep copy comparison
+  if(_cost_function->get_name() != other._cost_function->get_name()) {
+    return false;
+  }
+  if(!_container->is_equal(*other._container, tolerance)) {
+    return false;
+  }
+  return true;
+}
+
+MatrixSize yann::Network::get_input_size() const
+{
+  BOOST_VERIFY(_container);
+  return _container->get_input_size();
+}
+
+MatrixSize yann::Network::get_output_size() const
+{
+  BOOST_VERIFY(_container);
+  return _container->get_output_size();
+}
+
+const Layer * yann::Network::get_layer(const size_t & pos) const
+{
+  BOOST_VERIFY(_container);
+  return _container->get_layer(pos);
+}
+
+Layer * yann::Network::get_layer(const size_t & pos)
+{
+  BOOST_VERIFY(_container);
+  return _container->get_layer(pos);
+}
+
+void yann::Network::append_layer(unique_ptr<Layer> layer)
+{
+  BOOST_VERIFY(_container);
+  _container->append_layer(std::move(layer));
+}
+
+void yann::Network::set_cost_function(unique_ptr<CostFunction> cost_function)
+{
+  BOOST_VERIFY(cost_function);
+  _cost_function = std::move(cost_function);
+}
+
+
+Value yann::Network::cost(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected) const
+{
+  BOOST_VERIFY(is_valid());
+  BOOST_VERIFY(is_same_size(actual, expected));
+  return _cost_function->f(actual, expected);
+}
+
+unique_ptr<yann::Context> yann::Network::create_context(const MatrixSize & batch_size) const
+{
+  BOOST_VERIFY(is_valid());
+  BOOST_VERIFY(batch_size > 0);
+
+  std::unique_ptr<Context> ctx(new Context());
+  BOOST_VERIFY(ctx);
+
+  ctx->_container_ctx = _container->create_context(batch_size);
+  BOOST_VERIFY(ctx->_container_ctx);
+  return ctx;
+}
+
+unique_ptr<yann::Context> yann::Network::create_context(const RefVectorBatch & output) const
+{
+  BOOST_VERIFY(is_valid());
+  BOOST_VERIFY(get_batch_size(output) > 0);
+  BOOST_VERIFY(get_batch_item_size(output) > 0);
+
+  std::unique_ptr<Context> ctx(new Context());
+  BOOST_VERIFY(ctx);
+
+  ctx->_container_ctx = _container->create_context(output);
+  BOOST_VERIFY(ctx->_container_ctx);
+  return ctx;
+}
+
+unique_ptr<yann::TrainingContext> yann::Network::create_training_context(const MatrixSize & batch_size) const
+{
+  BOOST_VERIFY(is_valid());
+  BOOST_VERIFY(batch_size > 0);
+
+  std::unique_ptr<TrainingContext> ctx(new TrainingContext(batch_size, get_output_size()));
+  BOOST_VERIFY(ctx);
+
+  ctx->_container_ctx = _container->create_training_context(batch_size);
+  BOOST_VERIFY(ctx->_container_ctx);
+  return ctx;
+}
+
+
+unique_ptr<yann::TrainingContext> yann::Network::create_training_context(const RefVectorBatch & output) const
+{
+  BOOST_VERIFY(is_valid());
+  BOOST_VERIFY(get_batch_size(output) > 0);
+  BOOST_VERIFY(get_batch_item_size(output) == get_output_size());
+
+  std::unique_ptr<TrainingContext> ctx(new TrainingContext(get_batch_size(output), get_output_size()));
+  BOOST_VERIFY(ctx);
+
+  ctx->_container_ctx = _container->create_training_context(output);
+  BOOST_VERIFY(ctx->_container_ctx);
+  return ctx;
+}
+
+// This is a slow but convinient method, don't use it in real life
+void yann::Network::calculate(const RefConstVectorBatch & input, RefVectorBatch output) const
+{
+  BOOST_VERIFY(is_valid());
+  BOOST_VERIFY(get_batch_size(input) > 0);
+  BOOST_VERIFY(get_batch_item_size(input) == get_input_size());
+
+  // write directly to the output
+  std::unique_ptr<Context> ctx(create_context(output));
+  feedforward(input, ctx.get());
+}
+
+void yann::Network::calculate(const RefConstVectorBatch & input, Context * ctx) const
+{
+  BOOST_VERIFY(is_valid());
+  BOOST_VERIFY(ctx);
+  BOOST_VERIFY(get_batch_size(input) == ctx->get_batch_size());
+  feedforward(input, ctx);
+}
+
+void yann::Network::feedforward(const RefConstVectorBatch & input, Context * ctx) const
+{
+  BOOST_VERIFY(is_valid());
+  BOOST_VERIFY(ctx);
+  BOOST_VERIFY(ctx->is_valid());
+  BOOST_VERIFY(get_batch_size(input) == ctx->get_batch_size());
+
+  _container->feedforward(input, ctx->_container_ctx.get(), Operation_Assign);
+}
+
+void yann::Network::backprop(const RefConstVectorBatch & input, const RefConstVectorBatch & output, TrainingContext * ctx) const
+{
+  BOOST_VERIFY(is_valid());
+  BOOST_VERIFY(ctx);
+  BOOST_VERIFY(get_batch_size(input) == get_batch_size(output));
+  BOOST_VERIFY(get_batch_size(input) == ctx->get_batch_size());
+
+  ////////////////////////////////////////////////////////////////////
+  // Back propagation: push "gradient" from outputs to inputs
+  // starting from the cost_derivative(actual, expected) output and moving
+  // back through the network
+  //
+
+  // The initial delta is the cost function derivative for the output
+  BOOST_VERIFY(is_same_size(output, ctx->_output_gradient));
+  BOOST_VERIFY(is_same_size(output, ctx->get_output()));
+  _cost_function->derivative(ctx->get_output(), output, ctx->_output_gradient);
+
+  // we don't want to calculate the last delta thus no matrix for the input
+  // gradient
+  _container->backprop(ctx->_output_gradient, input, optional<RefVectorBatch>(), ctx->_container_ctx.get());
+}
+
+void yann::Network::init(enum InitMode mode)
+{
+  BOOST_VERIFY(is_valid());
+  _container->init(mode);
+}
+
+void yann::Network::train(const VectorBatch & input, const VectorBatch & output, TrainingContext * ctx) const
+{
+  BOOST_VERIFY(is_valid());
+  BOOST_VERIFY(ctx);
+  BOOST_VERIFY(get_batch_size(input) == get_batch_size(output));
+  BOOST_VERIFY(get_batch_size(input) == ctx->get_batch_size());
+
+  feedforward(input, ctx);
+  backprop(input, output, ctx);
+}
+
+void yann::Network::update(const TrainingContext * ctx, double learning_factor, double decay_factor)
+{
+  BOOST_VERIFY(is_valid());
+  BOOST_VERIFY(ctx);
+
+  _container->update(ctx->_container_ctx.get(), learning_factor, decay_factor);
+}
+
+// format:
+// (<layer0><layer1>...<layerN>)
+void yann::Network::read(std::istream & is)
+{
+  BOOST_VERIFY(is_valid());
+  _container->read(is);
+}
+
+// format:
+// (<layer0><layer1>...<layerN>)
+void yann::Network::write(std::ostream & os) const
+{
+  BOOST_VERIFY(is_valid());
+  _container->write(os);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Context implementation
+//
+yann::Context::Context()
+{
+}
+
+yann::Context::~Context()
+{
+}
+
+MatrixSize yann::Context::get_batch_size() const
+{
+  BOOST_VERIFY(is_valid());
+  auto ctx = dynamic_cast<const SequentialLayer::Context*>(_container_ctx.get());
+  BOOST_VERIFY(ctx);
+  return ctx->get_batch_size();
+}
+
+RefConstVectorBatch yann::Context::get_output() const
+{
+  BOOST_VERIFY(is_valid());
+  auto ctx = dynamic_cast<const SequentialLayer::Context*>(_container_ctx.get());
+  BOOST_VERIFY(ctx);
+ return ctx->get_output();
+}
+
+void yann::Context::reset_state()
+{
+  BOOST_VERIFY(is_valid());
+  _container_ctx->reset_state();
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// TrainingContext implementation
+//
+yann::TrainingContext::TrainingContext(const MatrixSize & batch_size, const MatrixSize & output_size)
+{
+  resize_batch(_output_gradient, batch_size, output_size);
+}
+
+yann::TrainingContext::~TrainingContext()
+{
+}
