@@ -182,10 +182,11 @@ void yann::ConvolutionalLayer::plus_conv(const RefConstMatrix & input,
   BOOST_VERIFY(filter.rows() <= input.rows());
   BOOST_VERIFY(filter.cols() <= input.cols());
 
-  auto filter_rows = filter.rows();
-  auto filter_cols  = filter.cols();
-  auto output_rows = get_conv_output_rows(input.rows(), filter_rows);
-  auto output_cols  = get_conv_output_cols(input.cols(), filter_cols);
+  const auto input_rows = input.rows();
+  const auto filter_rows = filter.rows();
+  const auto filter_cols = filter.cols();
+  const auto output_rows = get_conv_output_rows(input.rows(), filter_rows);
+  const auto output_cols = get_conv_output_cols(input.cols(), filter_cols);
 
   if(clear_output) {
     output.setZero();
@@ -193,9 +194,30 @@ void yann::ConvolutionalLayer::plus_conv(const RefConstMatrix & input,
 
   BOOST_VERIFY(output.rows() == output_rows);
   BOOST_VERIFY(output.cols() == output_cols);
-  for(MatrixSize ii = 0; ii < output_rows; ++ii) {
+
+  // iterate through the input by rows
+  MatrixSize filter_start_row = 0, filter_max_rows = 0;
+  for(MatrixSize ii = 0; ii < input_rows; ++ii) {
+    const auto in_row = input.row(ii);
+    if(ii < filter_rows) {
+      // filter at the top of the input; bottom filter rows
+      // don't contribute to the output
+      ++filter_max_rows;
+    }
+    if(ii >= output_rows) {
+      // filter at the bottom of the input; top filter rows
+      // don't contribute to the output
+      ++filter_start_row;
+    }
+
+    // and now through each row
     for(MatrixSize jj = 0; jj < output_cols; ++jj) {
-      output(ii, jj) += (input.block(ii, jj, filter_rows, filter_cols).array() * filter.array()).sum();
+      const auto in_block = in_row.segment(jj, filter_cols);
+
+      // then through the filter by rows, account for "cutoff" at bottom rows
+      for(MatrixSize kk = filter_start_row; kk < filter_max_rows; ++kk) {
+        output(ii - kk, jj) += (in_block.array() * filter.row(kk).array()).sum();
+      }
     }
   }
 }
@@ -215,10 +237,10 @@ void yann::ConvolutionalLayer::plus_conv(const RefConstVectorBatch & input,
   BOOST_VERIFY(get_batch_item_size(input) == input_rows * input_cols);
   BOOST_VERIFY(get_batch_size(output) == get_batch_size(input));
 
-  auto filter_rows = filter.rows();
-  auto filter_cols = filter.cols();
-  auto output_rows = get_conv_output_rows(input_rows, filter_rows);
-  auto output_cols = get_conv_output_cols(input_cols, filter_cols);
+  const auto filter_rows = filter.rows();
+  const auto filter_cols = filter.cols();
+  const auto output_rows = get_conv_output_rows(input_rows, filter_rows);
+  const auto output_cols = get_conv_output_cols(input_cols, filter_cols);
   const auto batch_size = get_batch_size(input);
   BOOST_VERIFY(get_batch_item_size(output) == output_rows * output_cols);
 
@@ -229,7 +251,7 @@ void yann::ConvolutionalLayer::plus_conv(const RefConstVectorBatch & input,
   // ATTENTION: this code operates on raw Matrix.data() and might be broken
   // if Matrix.data() layout changes
   for(MatrixSize ii = 0; ii < batch_size; ++ii) {
-    auto in_batch = get_batch(input, ii);
+    const auto in_batch = get_batch(input, ii);
     auto out_batch = get_batch(output, ii);
     MapConstMatrix in(in_batch.data(), input_rows, input_cols);
     MapMatrix out(out_batch.data(), output_rows, output_cols);
@@ -244,55 +266,66 @@ void yann::ConvolutionalLayer::full_conv(const RefConstMatrix & input, const Ref
   BOOST_VERIFY(filter.rows() <= input.rows());
   BOOST_VERIFY(filter.cols() <= input.cols());
 
-  auto input_rows = input.rows();
-  auto input_cols = input.cols();
-  auto filter_rows = filter.rows();
-  auto filter_cols = filter.cols();
-  auto output_rows = get_full_conv_output_rows(input_rows, filter_rows);
-  auto output_cols = get_full_conv_output_cols(input_cols, filter_cols);
+  const auto input_rows = input.rows();
+  const auto input_cols = input.cols();
+  const auto filter_rows = filter.rows();
+  const auto filter_cols = filter.cols();
+  const auto output_rows = get_full_conv_output_rows(input_rows, filter_rows);
+  const auto output_cols = get_full_conv_output_cols(input_cols, filter_cols);
 
   BOOST_VERIFY(output.rows() == output_rows);
   BOOST_VERIFY(output.cols() == output_cols);
-  MatrixSize num_rows = 0, num_cols = 0;
-  MatrixSize input_ii = 0, input_jj = 0;
-  MatrixSize filter_ii = 0, filter_jj = 0;
 
-  auto rows_limit_1 = filter_rows - 1;
-  auto rows_limit_2 = output_rows - rows_limit_1;
-  auto cols_limit_1  = filter_cols - 1;
-  auto cols_limit_2  = output_cols - cols_limit_1;
-  for(MatrixSize ii = 0; ii < output_rows; ++ii) {
-    if(ii < rows_limit_1) {
-      num_rows = ii + 1;
-      input_ii = 0;
-      filter_ii = rows_limit_1 - ii;
-    } else if(ii >= rows_limit_2) {
-      num_rows = output_rows - ii;
-      input_ii = ii - rows_limit_1;
-      filter_ii = 0;
-    } else {
-      // full overlap
-      num_rows = filter_rows;
-      input_ii = ii - rows_limit_1;
-      filter_ii = 0;
+  // clear output
+  output.setZero();
+
+  MatrixSize input_row, output_col, output_last_row;
+  auto apply_filter = [&](const auto & in_block, const auto & filter_block) mutable {
+    // iterate through the filter by rows, account for "cutoff" at bottom rows
+    for(MatrixSize kk = 0; kk < filter_rows; ++kk) {
+      output(output_last_row - kk, output_col) += (in_block.array() * filter_block.row(kk).array()).sum();
     }
-    for(MatrixSize jj = 0; jj < output_cols; ++jj) {
-      if(jj < cols_limit_1) {
-        num_cols = jj + 1;
-        input_jj = 0;
-        filter_jj = cols_limit_1 - jj;
-      } else if(jj >= cols_limit_2) {
-        num_cols = output_cols - jj;
-        input_jj = jj - cols_limit_1;
-        filter_jj= 0;
-      } else {
-        // full overlap
-        num_cols = filter_cols;
-        input_jj = jj - cols_limit_1;
-        filter_jj = 0;
-      }
-      output(ii, jj) = (input.block(input_ii, input_jj, num_rows, num_cols).array() *
-                        filter.block(filter_ii, filter_jj, num_rows, num_cols).array()).sum();
+  };
+
+  // iterate through the input by rows
+  for(input_row = 0, output_last_row = filter_rows - 1;
+      input_row < input_rows;
+      ++input_row, ++output_last_row)
+  {
+    auto in_row = input.row(input_row);
+
+    // iterate through output columns: we have 3 stages:
+    // - filter on the left side of input with partial overlap
+    // - filter over input with full overlap
+    // - filter on the right side of input with partial overlap
+
+    // on the left side from input
+    MatrixSize in_start = 0, filter_start = filter_cols - 1, col_size = 1;
+    for(output_col = 0; col_size < filter_cols; ++output_col, ++col_size, --filter_start) {
+      // in_start == 0
+      // col_size == output_col + 1
+      // filter_start == filter_cols - col_size;
+      auto in_block = in_row.segment(0, col_size);
+      apply_filter(in_block, filter.rightCols(col_size));
+    }
+
+    // full overlap by columns
+    for(; output_col < input_cols; ++output_col, ++in_start) {
+      // in_start == output_col - filter_cols + 1;
+      // col_size == filter_cols
+      // filter_start == 0
+      auto in_block = in_row.segment(in_start, col_size);
+      // using here just filter instead of filter.rightCols() affects perf in a bad way
+      apply_filter(in_block, filter.leftCols(col_size));
+    }
+
+    // on the right side from input
+    for(--col_size; output_col < output_cols; ++output_col, ++in_start, --col_size) {
+      // in_start == output_col - filter_cols + 1;
+      // col_size == input_cols - in_start;
+      // filter_start == 0
+      auto in_block = in_row.segment(in_start, col_size);
+      apply_filter(in_block, filter.leftCols(col_size));
     }
   }
 }
@@ -311,10 +344,10 @@ void yann::ConvolutionalLayer::full_conv(const RefConstVectorBatch & input,
   BOOST_VERIFY(get_batch_item_size(input) == input_rows * input_cols);
   BOOST_VERIFY(get_batch_size(output) == get_batch_size(input));
 
-  auto filter_rows = filter.rows();
-  auto filter_cols = filter.cols();
-  auto output_rows = get_full_conv_output_rows(input_rows, filter_rows);
-  auto output_cols = get_full_conv_output_cols(input_cols, filter_cols);
+  const auto filter_rows = filter.rows();
+  const auto filter_cols = filter.cols();
+  const auto output_rows = get_full_conv_output_rows(input_rows, filter_rows);
+  const auto output_cols = get_full_conv_output_cols(input_cols, filter_cols);
   const auto batch_size = get_batch_size(input);
   BOOST_VERIFY(get_batch_item_size(output) == output_rows * output_cols);
 

@@ -94,15 +94,35 @@ public:
   virtual std::unique_ptr<CostFunction> copy() const;
 }; // class QuadraticCost
 
+// Exponential cost:
+//  f(actual, expected) = thaw * exp(sum((actual<i> - expected<i>)^2) / thaw)
+//  d f(actual, expected) / d (actual) = 2 * (actual<i> - expected<i>) * f(actual, expected) / thaw
+class ExponentialCost: public CostFunction {
+public:
+  ExponentialCost(const Value & thaw = 1.0) : _thaw(thaw) { }
+
+  virtual std::string get_name() const;
+  virtual Value f(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected);
+  virtual void derivative(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected, RefVectorBatch output);
+  virtual std::unique_ptr<CostFunction> copy() const;
+
+private:
+  const Value _thaw;
+}; // class ExponentialCost
+
 // cross entropy cost:
 //  f(actual, expected) = sum(-(expected * ln(actual) + (1 - expected) * ln(1 - actual)))
 //  d f(actual, expected) / d (actual) = (actual - expected) / ((1 - actual) * actual)
 class CrossEntropyCost: public CostFunction {
 public:
+  CrossEntropyCost(const Value & epsilon = 1.0e-100) : _epsilon(epsilon) { }
   virtual std::string get_name() const;
   virtual Value f(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected);
   virtual void derivative(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected, RefVectorBatch output);
   virtual std::unique_ptr<CostFunction> copy() const;
+
+private:
+  const Value _epsilon;
 }; // class CrossEntropyCost
 
 // Hellinger distance cost (we drop coefficients since they don't matter):

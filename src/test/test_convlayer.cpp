@@ -64,8 +64,76 @@ struct ConvolutionalLayerTestFixture
       BOOST_VERIFY(get_layers_num() == 2); // we also have softmax layer
       return dynamic_cast<ConvolutionalLayer*>(get_layer(0));
     }
-
   }; // SimpleConvNetwork
+
+  void conv_perf_test(const MatrixSize & size, const MatrixSize & filter_size, const size_t & epochs)
+  {
+      BOOST_TEST_MESSAGE("*** ConvOp Performance test with"
+          << " size=" << size
+          << ", filter_size=" << filter_size
+          << ", epochs=" << epochs
+      );
+
+      Matrix input(size, size);
+      Matrix filter(filter_size, filter_size);
+      Matrix output(size + filter_size, size + filter_size);
+      {
+        Timer timer("Random generation");
+        unique_ptr<RandomGenerator> gen = RandomGenerator::normal_distribution(0, 1);
+        gen->generate(input);
+        gen->generate(filter);
+      }
+      output.resize(ConvolutionalLayer::get_conv_output_rows(size, filter_size),
+                    ConvolutionalLayer::get_conv_output_cols(size, filter_size));
+      {
+        Timer timer("Test plus_conv");
+        for(auto ii = epochs; ii > 0; --ii) {
+          ConvolutionalLayer::plus_conv(input, filter, output);
+        }
+      }
+      output.resize(ConvolutionalLayer::get_full_conv_output_rows(size, filter_size),
+                    ConvolutionalLayer::get_full_conv_output_cols(size, filter_size));
+      {
+        Timer timer("Test full_conv");
+        for(auto ii = epochs; ii > 0; --ii) {
+          ConvolutionalLayer::full_conv(input, filter, output);
+        }
+      }
+  }
+
+  void conv_perf_batch_test(const MatrixSize & batch_size, const MatrixSize & size, const MatrixSize & filter_size, const size_t & epochs)
+  {
+      BOOST_TEST_MESSAGE("*** ConvOp Performance batch test with"
+          << " batch_size=" << batch_size
+          << ", size=" << size
+          << ", filter_size=" << filter_size
+          << ", epochs=" << epochs
+      );
+      VectorBatch input, output;
+      Matrix filter(filter_size, filter_size);
+
+      resize_batch(input, batch_size, size * size);
+      {
+        Timer timer("Random generation");
+        unique_ptr<RandomGenerator> gen = RandomGenerator::normal_distribution(0, 1);
+        gen->generate(input);
+        gen->generate(filter);
+      }
+      resize_batch(output, batch_size, ConvolutionalLayer::get_conv_output_size(size, size, filter_size));
+      {
+        Timer timer("Test plus_conv");
+        for(auto ii = epochs; ii > 0; --ii) {
+          ConvolutionalLayer::plus_conv(input, size, size, filter, output);
+        }
+      }
+      resize_batch(output, batch_size, ConvolutionalLayer::get_full_conv_output_size(size, size, filter_size));
+      {
+        Timer timer("Test full_conv");
+        for(auto ii = epochs; ii > 0; --ii) {
+          ConvolutionalLayer::full_conv(input, size, size, filter, output);
+        }
+      }
+  }
 }; // struct ConvolutionalLayerTestFixture
 
 BOOST_FIXTURE_TEST_SUITE(ConvolutionalLayerTest, ConvolutionalLayerTestFixture);
@@ -109,19 +177,22 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_ConvOp_Test)
   //
   // Test different filter sizes
   //
-  input << 1, 0, 1, 0,
-           0, 1, 0, 0,
-           1, 0, 1, 0,
-           0, 0, 0, 0;
+  input <<
+      1,  2,  3,  4,
+      5,  6,  7,  8,
+      9, 10, 11, 12,
+     13, 14, 15, 16;
 
   // 1x1
   filter.resize(1, 1);
-  filter << 1;
+  filter <<
+      3;
   expected.resize(4, 4);
-  expected << 1, 0, 1, 0,
-              0, 1, 0, 0,
-              1, 0, 1, 0,
-              0, 0, 0, 0;
+  expected <<
+      3,  6,  9, 12,
+     15, 18, 21, 24,
+     27, 30, 33, 36,
+     39, 42, 45, 48;
   output.resizeLike(expected);
   {
       // ensure we don't do allocations in eigen
@@ -132,12 +203,14 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_ConvOp_Test)
 
   // 2x1
   filter.resize(2, 1);
-  filter << 1,
-            1;
+  filter <<
+      2,
+      3;
   expected.resize(3, 4);
-  expected << 1, 1, 1, 0,
-              1, 1, 1, 0,
-              1, 0, 1, 0;
+  expected <<
+      17, 22, 27, 32,
+      37, 42, 47, 52,
+      57, 62, 67, 72;
   output.resizeLike(expected);
   {
     // ensure we don't do allocations in eigen
@@ -148,12 +221,14 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_ConvOp_Test)
 
   // 2x2
   filter.resize(2, 2);
-  filter << 1, 1,
-            1, 0;
+  filter <<
+      1, 2,
+      3, 4;
   expected.resize(3, 3);
-  expected << 1, 2, 1,
-              2, 1, 1,
-              1, 1, 1;
+  expected <<
+      44,  54,  64,
+      84,  94, 104,
+     124, 134, 144;
   output.resizeLike(expected);
   {
     // ensure we don't do allocations in eigen
@@ -164,12 +239,14 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_ConvOp_Test)
 
   // 2x3
   filter.resize(2, 3);
-  filter << 1, 1, 1,
-            1, 0, 0;
+  filter <<
+      1, 2, 3,
+      4, 5, 6;
   expected.resize(3, 2);
-  expected << 2, 2,
-              2, 1,
-              2, 1;
+  expected <<
+      106, 127,
+      190, 211,
+      274, 295;
   output.resizeLike(expected);
   {
     // ensure we don't do allocations in eigen
@@ -180,12 +257,14 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_ConvOp_Test)
 
   // 3x3
   filter.resize(3, 3);
-  filter << 1, 1, 1,
-            1, 0, 0,
-            1, 0, 1;
+  filter <<
+      1, 2, 3,
+      4, 5, 6,
+      7, 8, 9;
   expected.resize(2, 2);
-  expected << 4, 2,
-              2, 1;
+  expected <<
+      348, 393,
+      528, 573;
   output.resizeLike(expected);
   {
     // ensure we don't do allocations in eigen
@@ -196,12 +275,14 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_ConvOp_Test)
 
   // 4x4
   filter.resize(4, 4);
-  filter << 1, 1, 1, 1,
-            1, 1, 0, 0,
-            1, 0, 1, 0,
-            1, 0, 0, 1;
+  filter <<
+      1,  2,  3,  4,
+      5,  6,  7,  8,
+      9, 10, 11, 12,
+     13, 14, 15, 16;
   expected.resize(1, 1);
-  expected << 5;
+  expected <<
+      1496;
   output.resizeLike(expected);
   {
     // ensure we don't do allocations in eigen
@@ -372,17 +453,20 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_FullConvOp_Test)
   // Test different filter sizes
   //
   input.resize(image_size, image_size);
-  input << 1, 0, 1,
-           0, 1, 0,
-           1, 0, 0;
+  input <<
+      1, 2, 3,
+      4, 5, 6,
+      7, 8, 9;
 
   // 1x1
   filter.resize(1, 1);
-  filter << 1;
+  filter <<
+      3;
   expected.resize(3, 3);
-  expected << 1, 0, 1,
-              0, 1, 0,
-              1, 0, 0;
+  expected <<
+      3,  6,  9,
+     12, 15, 18,
+     21, 24, 27;
   output.resizeLike(expected);
   {
      // ensure we don't do allocations in eigen
@@ -393,13 +477,15 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_FullConvOp_Test)
 
   // 2x2
   filter.resize(2, 2);
-  filter << 1, 1,
-            1, 0;
+  filter <<
+      1, 2,
+      3, 4;
   expected.resize(4, 4);
-  expected << 0, 1, 0, 1,
-              1, 1, 2, 1,
-              0, 2, 1, 0,
-              1, 1, 0, 0;
+  expected <<
+      4, 11, 18, 9,
+     18, 37, 47, 21,
+     36, 67, 77, 33,
+     14, 23, 26, 9;
   output.resizeLike(expected);
   {
      // ensure we don't do allocations in eigen
@@ -410,13 +496,15 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_FullConvOp_Test)
 
   // 2x3
   filter.resize(2, 3);
-  filter << 1, 1, 1,
-            1, 0, 0;
+  filter <<
+      1, 2, 3,
+      4, 5, 6;
   expected.resize(4, 5);
-  expected << 0, 0, 1, 0, 1,
-              1, 1, 2, 2, 1,
-              0, 1, 2, 1, 0,
-              1, 1, 1, 0, 0;
+  expected <<
+      6,  17,  32, 23, 12,
+     27,  58,  91, 58, 27,
+     54, 106, 154, 94, 42,
+     21,  38,  50, 26, 9;
   output.resizeLike(expected);
   {
      // ensure we don't do allocations in eigen
@@ -427,15 +515,17 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_FullConvOp_Test)
 
   // 3x3
   filter.resize(3, 3);
-  filter << 1, 1, 1,
-            1, 0, 0,
-            1, 0, 1;
+  filter <<
+      1, 2, 3,
+      4, 5, 6,
+      7, 8, 9;
   expected.resize(5, 5);
-  expected << 1, 0, 2, 0, 1,
-              0, 1, 1, 1, 1,
-              2, 1, 3, 2, 1,
-              0, 1, 2, 1, 0,
-              1, 1, 1, 0, 0;
+  expected <<
+      9,  26,  50,  38,  21,
+     42,  94, 154, 106,  54,
+     90, 186, 285, 186,  90,
+     54, 106, 154,  94,  42,
+     21,  38,  50,  26,   9;
   output.resizeLike(expected);
   {
      // ensure we don't do allocations in eigen
@@ -922,72 +1012,12 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_Training_Test)
 //
 BOOST_AUTO_TEST_CASE(PerfConvTest, * disabled())
 {
-  const MatrixSize size = 1000;
-  const MatrixSize filter_size = 10;
-  const size_t epochs = 100;
-  {
-      Timer timer("Total");
-      Matrix input(size, size);
-      Matrix filter(filter_size, filter_size);
-      Matrix output(size + filter_size, size + filter_size);
-      {
-        Timer timer("Random generation");
-        unique_ptr<RandomGenerator> gen = RandomGenerator::normal_distribution(0, 1);
-        gen->generate(input);
-        gen->generate(filter);
-      }
-      output.resize(ConvolutionalLayer::get_conv_output_rows(size, filter_size),
-                    ConvolutionalLayer::get_conv_output_cols(size, filter_size));
-      {
-        Timer timer("Test plus_conv");
-        for(auto ii = epochs; ii > 0; --ii) {
-          ConvolutionalLayer::plus_conv(input, filter, output);
-        }
-      }
-      output.resize(ConvolutionalLayer::get_full_conv_output_rows(size, filter_size),
-                    ConvolutionalLayer::get_full_conv_output_cols(size, filter_size));
-      {
-        Timer timer("Test full_conv");
-        for(auto ii = epochs; ii > 0; --ii) {
-          ConvolutionalLayer::full_conv(input, filter, output);
-        }
-      }
-  }
+  conv_perf_test(1000, 10, 100);
 }
 
 BOOST_AUTO_TEST_CASE(PerfBatchConvTest, * disabled())
 {
-  const MatrixSize batch_size = 10;
-  const MatrixSize size = 1000;
-  const MatrixSize filter_size = 10;
-  const size_t epochs = 100;
-  {
-      Timer timer("Total");
-      VectorBatch input, output;
-      Matrix filter(filter_size, filter_size);
-
-      resize_batch(input, batch_size, size * size);
-      {
-        Timer timer("Random generation");
-        unique_ptr<RandomGenerator> gen = RandomGenerator::normal_distribution(0, 1);
-        gen->generate(input);
-        gen->generate(filter);
-      }
-      resize_batch(output, batch_size, ConvolutionalLayer::get_conv_output_size(size, size, filter_size));
-      {
-        Timer timer("Test plus_conv");
-        for(auto ii = epochs; ii > 0; --ii) {
-          ConvolutionalLayer::plus_conv(input, size, size, filter, output);
-        }
-      }
-      resize_batch(output, batch_size, ConvolutionalLayer::get_full_conv_output_size(size, size, filter_size));
-      {
-        Timer timer("Test full_conv");
-        for(auto ii = epochs; ii > 0; --ii) {
-          ConvolutionalLayer::full_conv(input, size, size, filter, output);
-        }
-      }
-  }
+  conv_perf_batch_test(10, 1000, 10, 10);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

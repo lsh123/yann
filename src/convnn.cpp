@@ -163,8 +163,7 @@ std::unique_ptr<Network> yann::ConvolutionalNetwork::create_lenet4(
     const MatrixSize & input_cols,
     const MatrixSize & fc_size,
     const MatrixSize & output_size,
-    const std::unique_ptr<ActivationFunction> & activation_funtion,
-    const std::unique_ptr<CostFunction> & cost_funtion)
+    const std::unique_ptr<ActivationFunction> & activation_funtion)
 {
   // see http://yann.lecun.com/exdb/publis/pdf/lecun-90c.pdf
   ConvPollParams params1;
@@ -199,16 +198,8 @@ std::unique_ptr<Network> yann::ConvolutionalNetwork::create_lenet4(
   // add one more FC layer
   auto fc_layer = make_unique<FullyConnectedLayer>(fc_size, output_size);
   BOOST_VERIFY(fc_layer);
-  fc_layer->set_activation_function(make_unique<IdentityFunction>());
+  fc_layer->set_activation_function(activation_funtion);
   nn->append_layer(std::move(fc_layer));
-
-  // and then add softmax layer
-  auto smax_layer = make_unique<SoftmaxLayer>(output_size);
-  BOOST_VERIFY(smax_layer);
-  nn->append_layer(std::move(smax_layer));
-
-  // finally set cost function
-  nn->set_cost_function(cost_funtion);
 
   // done
   return nn;
@@ -220,8 +211,7 @@ std::unique_ptr<Network> yann::ConvolutionalNetwork::create_lenet5(
     const MatrixSize & fc1_size,
     const MatrixSize & fc2_size,
     const MatrixSize & output_size,
-    const std::unique_ptr<ActivationFunction> & activation_funtion,
-    const std::unique_ptr<CostFunction> & cost_funtion)
+    const std::unique_ptr<ActivationFunction> & activation_funtion)
 {
   // see http://vision.stanford.edu/cs598_spring07/papers/Lecun98.pdf
   ConvPollParams params1;
@@ -268,16 +258,6 @@ std::unique_ptr<Network> yann::ConvolutionalNetwork::create_lenet5(
   BOOST_VERIFY(fc_layer2);
   fc_layer2->set_activation_function(activation_funtion);
   nn->append_layer(std::move(fc_layer2));
-
-  /*
-  // and then add softmax layer
-  auto smax_layer = make_unique<SoftmaxLayer>(output_size);
-  BOOST_VERIFY(smax_layer);
-  nn->append_layer(std::move(smax_layer));
-  */
-
-  // finally set cost function
-  nn->set_cost_function(cost_funtion);
 
   // done
   return nn;

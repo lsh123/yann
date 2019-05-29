@@ -202,6 +202,30 @@ unique_ptr<CostFunction> yann::QuadraticCost::copy() const
   return make_unique<QuadraticCost>();
 }
 
+// Exponential cost:
+//  f(actual, expected) = thaw * exp(sum((actual<i> - expected<i>)^2) / thaw)
+//  d f(actual, expected) / d (actual) = 2 * (actual<i> - expected<i>) * f(actual, expected) / thaw
+string yann::ExponentialCost::get_name() const
+{
+  return "Exponential";
+}
+Value yann::ExponentialCost::f(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected)
+{
+  BOOST_VERIFY(is_same_size(actual, expected));
+  const auto val = (actual.array() - expected.array()).square().sum();
+  return _thaw * exp(val / _thaw);
+}
+void yann::ExponentialCost::derivative(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected, RefVectorBatch output)
+{
+  BOOST_VERIFY(is_same_size(actual, expected));
+  BOOST_VERIFY(is_same_size(actual, output));
+  output.noalias() = (2 * f(actual, expected) / _thaw) * (actual - expected);
+}
+unique_ptr<CostFunction> yann::ExponentialCost::copy() const
+{
+  return make_unique<ExponentialCost>(_thaw);
+}
+
 // cross entropy function:
 //  f(actual, expected) = sum(-(expected * ln(actual) + (1 - expected) * ln(1 - actual)))
 //  d f(actual, expected) / d (actual) = (actual - expected) / ((1 - actual) * actual)
@@ -209,21 +233,55 @@ string yann::CrossEntropyCost::get_name() const
 {
   return "CrossEntropy";
 }
+
 Value yann::CrossEntropyCost::f(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected)
 {
   BOOST_VERIFY(is_same_size(actual, expected));
-  return -(expected.array() * log(actual.array()) + (1 - expected.array()) * log(1 - actual.array())).sum();
+
+  // iterate over elements manually and use small _epsilon to avoid hitting nan
+  Value res = 0;
+  for(MatrixSize ii = 0; ii < actual.rows(); ++ii) {
+    for(MatrixSize jj = 0; jj < actual.cols(); ++jj) {
+      auto aa = actual(ii, jj);
+      auto ee = expected(ii, jj);
+      if(aa <= 0) {
+        aa = _epsilon;
+      } else if(aa >= 1) {
+        aa = 1 - _epsilon;
+      }
+      res += (ee * log(aa) + (1 - ee) * log(1 - aa));
+    }
+  }
+  return -(res);
 }
 
 void yann::CrossEntropyCost::derivative(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected, RefVectorBatch output)
 {
   BOOST_VERIFY(is_same_size(actual, expected));
   BOOST_VERIFY(is_same_size(actual, output));
-  output.array() = (actual.array() - expected.array()) / ((1 - actual.array()) * actual.array());
+
+  // iterate over elements manually and use small _epsilon to avoid hitting nan
+  for(MatrixSize ii = 0; ii < actual.rows(); ++ii) {
+    for(MatrixSize jj = 0; jj < actual.cols(); ++jj) {
+      auto aa = actual(ii, jj);
+      auto ee = expected(ii, jj);
+      if(fabs(aa - ee) > _epsilon) {
+        if(aa <= 0) {
+          aa = _epsilon;
+        } else if(aa >= 1) {
+          aa = 1 - _epsilon;
+        }
+        output(ii, jj) = (aa - ee) / ((1 - aa) * aa);
+      } else {
+        output(ii, jj) = 0;
+      }
+    }
+  }
 }
+
 unique_ptr<CostFunction> yann::CrossEntropyCost::copy() const
 {
-  return make_unique<CrossEntropyCost>();
+  return make_unique<CrossEntropyCost>(_epsilon);
 }
 
 // Hellinger distance cost:

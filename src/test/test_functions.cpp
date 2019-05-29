@@ -260,6 +260,30 @@ BOOST_AUTO_TEST_CASE(QuadraticCost_Test)
   BOOST_CHECK_SMALL(res.second, TEST_TOLERANCE);
 }
 
+BOOST_AUTO_TEST_CASE(ExponentialCost_Test)
+{
+  const size_t size = 2;
+  Vector actual0(size);
+  Vector expected(size);
+  Vector actual_expected(size);
+  Value cost0;
+  const double learning_rate = 0.25;
+  size_t epochs = 10;
+
+  actual0 << 11.0, 1;
+  expected << 1.0, 6.0;
+  cost0 = 349.03430;
+
+  pair<Vector, Value> res = test_cost_function(
+      make_unique<ExponentialCost>(100.0),
+      actual0, expected, cost0,
+      learning_rate, epochs);
+
+  BOOST_TEST_MESSAGE("expected=" << expected << " actual=" << res.first << " cost=" << res.second);
+  BOOST_CHECK(expected.isApprox(res.first, TEST_TOLERANCE));
+  BOOST_CHECK_CLOSE(100.00, res.second, TEST_TOLERANCE);
+}
+
 BOOST_AUTO_TEST_CASE(CrossEntrypyCost_Test)
 {
   const size_t size = 2;
