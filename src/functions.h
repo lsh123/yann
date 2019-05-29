@@ -13,6 +13,7 @@
 
 namespace yann {
 
+// TODO: add get_info() to print params
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -30,15 +31,20 @@ public:
   virtual std::unique_ptr<ActivationFunction> copy() const;
 }; // class IdentityFunction
 
-// rectified linear unit function:
-//  f(x) = x for x > 0 ; 0 for x < 0
-//  d f(x<i>) / d(x<j>) = 1 if i == j and (x<i>) > 0 and 0 if i != j
+// rectified linear unit function or leaky ReLU if a != 0:
+//  f(x) = x for x > 0 ; a*x for x < 0
+//  d f(x<i>) / d(x<j>) = 1 if x > 0; a if x < 0
 class ReluFunction: public ActivationFunction {
 public:
+  ReluFunction(const Value & a = 0.0) : _a(a) { }
+
   virtual std::string get_name() const;
   virtual void f(const RefConstVectorBatch & input, RefVectorBatch output, enum OperationMode mode = Operation_Assign);
   virtual void derivative(const RefConstVectorBatch & input, RefVectorBatch output);
   virtual std::unique_ptr<ActivationFunction> copy() const;
+
+private:
+  const Value _a;
 }; // class ReluFunction
 
 // sigmoid function:
@@ -56,14 +62,19 @@ private:
 }; // class SigmoidFunction
 
 // tanh function:
-//  f(x) = tanh(x)
-//  df/dx = 1−(tanh(x))^2
+//  f(x) = A*tanh(S*x)
+//  df/dx = A* S* (1−(tanh(S*x))^2)
 class TanhFunction: public ActivationFunction {
 public:
+  TanhFunction(const Value & A = 1.0, const Value & S = 1.0) : _A(A), _S(S) { }
   virtual std::string get_name() const;
   virtual void f(const RefConstVectorBatch & input, RefVectorBatch output, enum OperationMode mode = Operation_Assign);
   virtual void derivative(const RefConstVectorBatch & input, RefVectorBatch output);
   virtual std::unique_ptr<ActivationFunction> copy() const;
+
+private:
+  const Value _A;
+  const Value _S;
 }; // class TanhFunction
 
 
@@ -94,15 +105,21 @@ public:
   virtual std::unique_ptr<CostFunction> copy() const;
 }; // class CrossEntropyCost
 
-// Hellinger distance cost:
-//  f(actual, expected) = sum(sqrt(actual) - sqrt(expected))^2 / sqrt(2)
-//  d f(actual, expected) / d (actual) =  sqrt(2) * (1 -  sqrt(expected) /  sqrt(actual))
+// Hellinger distance cost (we drop coefficients since they don't matter):
+//  f(actual, expected) = sum(sqrt(actual) - sqrt(expected))^2
+//  d f(actual, expected) / d (actual) =  (1 -  sqrt(expected) /  sqrt(actual))
 class HellingerDistanceCost: public CostFunction {
 public:
+  // epsilon shifts the values to avoid division by 0 in the derivative
+  HellingerDistanceCost(const Value & epsilon = 0) : _epsilon(epsilon) { }
+
   virtual std::string get_name() const;
   virtual Value f(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected);
   virtual void derivative(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected, RefVectorBatch output);
   virtual std::unique_ptr<CostFunction> copy() const;
+
+private:
+  const Value _epsilon;
 }; // class HellingerDistanceCost
 
 

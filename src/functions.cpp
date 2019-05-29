@@ -51,9 +51,9 @@ unique_ptr<ActivationFunction> yann::IdentityFunction::copy() const
   return make_unique<IdentityFunction>();
 }
 
-// rectified linear unit function:
-//  f(x) = x for x > 0 ; 0 for x < 0
-//  d f(x<i>) / d(x<j>) = 1 if i == j and (x<i>) > 0 and 0 if i != j
+// rectified linear unit function or leaky ReLU if a != 0:
+//  f(x) = x for x > 0 ; a*x for x < 0
+//  d f(x<i>) / d(x<j>) = 1 if x > 0; a if x < 0
 string yann::ReluFunction::get_name() const
 {
   return "Relu";
@@ -75,8 +75,10 @@ void yann::ReluFunction::f(const RefConstVectorBatch & input, RefVectorBatch out
   const auto batch_item_size = get_batch_item_size(output);
   for(MatrixSize ii = 0 ; ii < batch_size; ++ii) {
     for(MatrixSize jj = 0 ; jj < batch_item_size; ++jj) {
-      if(get_batch(output, ii)(jj) >= 0) {
+      if(get_batch(input, ii)(jj) >= 0) {
         get_batch(output, ii)(jj) += get_batch(input, ii)(jj);
+      } else {
+        get_batch(output, ii)(jj) += _a * get_batch(input, ii)(jj);
       }
     }
   }
@@ -89,17 +91,17 @@ void yann::ReluFunction::derivative(const RefConstVectorBatch & input, RefVector
   const auto batch_item_size = get_batch_item_size(output);
   for(MatrixSize ii = 0 ; ii < batch_size; ++ii) {
     for(MatrixSize jj = 0 ; jj < batch_item_size; ++jj) {
-      if(get_batch(output, ii)(jj) >= 0) {
-        get_batch(output, ii)(jj) =  1;
+      if(get_batch(input, ii)(jj) >= 0) {
+        get_batch(output, ii)(jj) = 1;
       } else {
-        get_batch(output, ii)(jj) = 0;
+        get_batch(output, ii)(jj) = _a;
       }
     }
   }
 }
 unique_ptr<ActivationFunction> yann::ReluFunction::copy() const
 {
-  return make_unique<ReluFunction>();
+  return make_unique<ReluFunction>(_a);
 }
 
 // sigmoid function:
@@ -145,8 +147,8 @@ unique_ptr<ActivationFunction> yann::SigmoidFunction::copy() const
 }
 
 // tanh function:
-//  f(x) = tanh(x)
-//  df/dx = 1−(tanh(x))^2
+//  f(x) = A*tanh(S*x)
+//  df/dx = A* S* (1−(tanh(S*x))^2)
 string yann::TanhFunction::get_name() const
 {
   return "Tanh";
@@ -158,10 +160,10 @@ void yann::TanhFunction::f(const RefConstVectorBatch & input, RefVectorBatch out
 
   switch(mode) {
   case Operation_Assign:
-    output.array() = tanh(input.array());
+    output.array() = _A * tanh(input.array() * _S);
     break;
   case Operation_PlusEqual:
-    output.array() += tanh(input.array());
+    output.array() += _A * tanh(input.array()* _S);
     break;
   }
 }
@@ -170,11 +172,11 @@ void yann::TanhFunction::derivative(const RefConstVectorBatch & input, RefVector
 {
   BOOST_VERIFY(is_same_size(input, output));
   this->f(input, output);
-  output.array() = 1 - (output.array() * output.array());
+  output.array() = (1 - tanh(input.array()* _S).square()) * (_A * _S);
 }
 unique_ptr<ActivationFunction> yann::TanhFunction::copy() const
 {
-  return make_unique<TanhFunction>();
+  return make_unique<TanhFunction>(_A, _S);
 }
 
 // quadratic cost function:
@@ -225,8 +227,8 @@ unique_ptr<CostFunction> yann::CrossEntropyCost::copy() const
 }
 
 // Hellinger distance cost:
-//  f(actual, expected) = sum(sqrt(actual) - sqrt(expected))^2 / sqrt(2)
-//  d f(actual, expected) / d (actual) =  sqrt(2) * (1 -  sqrt(expected) /  sqrt(actual))
+//  f(actual, expected) = sum(sqrt(actual) - sqrt(expected))^2
+//  d f(actual, expected) / d (actual) =  (1 -  sqrt(expected) /  sqrt(actual))
 string yann::HellingerDistanceCost::get_name() const
 {
   return "HellingerDistance";
@@ -234,17 +236,17 @@ string yann::HellingerDistanceCost::get_name() const
 Value yann::HellingerDistanceCost::f(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected)
 {
   BOOST_VERIFY(is_same_size(actual, expected));
-  return ((actual.array().sqrt() - expected.array().sqrt()).square()).sum();
+  return (((actual.array() + _epsilon).sqrt() - expected.array().sqrt()).square()).sum();
 }
 
 void yann::HellingerDistanceCost::derivative(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected, RefVectorBatch output)
 {
   BOOST_VERIFY(is_same_size(actual, expected));
   BOOST_VERIFY(is_same_size(actual, output));
-  output.array() = (1 - expected.array().sqrt() / actual.array().sqrt());
+  output.array() = (1 - expected.array().sqrt() / (actual.array() + _epsilon).sqrt());
 }
 unique_ptr<CostFunction> yann::HellingerDistanceCost::copy() const
 {
-  return make_unique<HellingerDistanceCost>();
+  return make_unique<HellingerDistanceCost>(_epsilon);
 }
 

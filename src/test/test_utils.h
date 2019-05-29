@@ -53,20 +53,6 @@ private:
   size_t _min, _max, _step;
 }; // class Range
 
-// Enums to simplify tests
-enum CostMode
-{
- Quadratic,
- CrossEntropy
-};
-
-enum ActivationMode
-{
- Sigmoid,
- Softmax,
-};
-
-
 }; // namespace yann::test
 
 #endif /* TEST_UTILS_H_ */

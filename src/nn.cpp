@@ -158,10 +158,10 @@ void yann::Network::append_layer(unique_ptr<Layer> layer)
   _container->append_layer(std::move(layer));
 }
 
-void yann::Network::set_cost_function(unique_ptr<CostFunction> cost_function)
+void yann::Network::set_cost_function(const unique_ptr<CostFunction> & cost_function)
 {
   BOOST_VERIFY(cost_function);
-  _cost_function = std::move(cost_function);
+  _cost_function = cost_function->copy();
 }
 
 

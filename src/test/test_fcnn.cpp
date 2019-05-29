@@ -25,6 +25,14 @@ using namespace yann::test;
 
 #define MNIST_TEST_FOLDER   "../mnist/"
 
+// TODO: remove this
+// Enums to simplify tests
+enum ActivationMode
+{
+ Sigmoid,
+ Softmax,
+};
+
 struct FcnnTestFixture
 {
 
@@ -52,7 +60,7 @@ struct FcnnTestFixture
 
   unique_ptr<Network> create_fcnn_for_mnist(
       const vector<MatrixSize> & hidden_layer_sizes,
-      enum CostMode cost_mode,
+      const unique_ptr<CostFunction> & cost,
       enum ActivationMode activ_mode)
   {
     BOOST_VERIFY(hidden_layer_sizes.size() > 0); // at least one hidden layer required
@@ -83,14 +91,8 @@ struct FcnnTestFixture
 
     // create network
     auto fcnn = FullyConnectedNetwork::create(params);
-    switch(cost_mode) {
-      case Quadratic:
-        fcnn->set_cost_function(make_unique<QuadraticCost>());
-        break;
-      case CrossEntropy:
-        fcnn->set_cost_function(make_unique<CrossEntropyCost>());
-        break;
-    }
+    fcnn->set_cost_function(cost);
+
     if(activ_mode == Softmax) {
       auto smax_layer = make_unique<SoftmaxLayer>(fcnn->get_output_size());
       fcnn->append_layer(std::move(smax_layer));
@@ -102,13 +104,13 @@ struct FcnnTestFixture
 
   pair<double, Value> test_fcnn_mnist(const Trainer & trainer,
                                       const vector<MatrixSize> & hidden_layer_sizes,
-                                      enum CostMode cost_mode,
+                                      const unique_ptr<CostFunction> & cost,
                                       enum ActivationMode activ_mode,
                                       InitMode init_mode,
                                       size_t epochs)
   {
     // setup
-    auto fcnn = create_fcnn_for_mnist(hidden_layer_sizes, cost_mode, activ_mode);
+    auto fcnn = create_fcnn_for_mnist(hidden_layer_sizes, cost, activ_mode);
     BOOST_VERIFY(fcnn);
     fcnn->init(init_mode);
 
@@ -125,7 +127,7 @@ struct FcnnTestFixture
   double test_fcnn_mnist_find_best(const Trainer & trainer,
                                    const Range& hidden_layers_num_range,
                                    const Range& hidden_layer_size_range,
-                                   enum CostMode cost_mode,
+                                   const unique_ptr<CostFunction> & cost,
                                    enum ActivationMode activ_mode,
                                    InitMode init_mode,
                                    size_t epochs)
@@ -151,7 +153,7 @@ struct FcnnTestFixture
         pair<double, Value> res = test_fcnn_mnist(
             trainer,
             hidden_layer_sizes,
-            cost_mode, activ_mode,
+            cost, activ_mode,
             init_mode, epochs);
 
         // update best
@@ -198,7 +200,7 @@ BOOST_AUTO_TEST_CASE(Fcnn_IO_Test)
   BOOST_CHECK(one->is_equal(*two, TEST_TOLERANCE));
 }
 
-BOOST_AUTO_TEST_CASE(Training_MiniBatch_GD_Test)
+BOOST_AUTO_TEST_CASE(Training_StochasticGD_Test)
 {
 
   BOOST_TEST_MESSAGE("*** FullyConnectedNetwork training test ...");
@@ -234,7 +236,7 @@ BOOST_AUTO_TEST_CASE(Training_MiniBatch_GD_Test)
   auto fcnn = FullyConnectedNetwork::create( { 4, 2 });
   BOOST_VERIFY(fcnn);
 
-  Trainer_MiniBatch_GD trainer(3, 0.0, Trainer::Random, 4);
+  Trainer_StochasticGradientDescent trainer(3, 0.0, Trainer::Random, 4);
   BOOST_TEST_MESSAGE("trainer: " << trainer.get_info());
   {
     Timer timer("Initializing FullyConnectedNetwork");
@@ -271,15 +273,41 @@ BOOST_AUTO_TEST_CASE(Training_MiniBatch_GD_Test)
   }
 }
 
-BOOST_AUTO_TEST_CASE(Mnist_Incremental_GD_Quadratic_Sigmoid_Test)
+BOOST_AUTO_TEST_CASE(Mnist_BatchGradientDescent_Sigmoid_CrossEntropy_Test)
 {
-  Trainer_Incremental_GD trainer(3.0, 0, Trainer::Random, 10);
+  // reduce the test size to two labels to make it faster
+  BOOST_TEST_MESSAGE("*** Filtering test set...");
+  _mnist_test.filter(1, 2000, 1000); // only allow 0,1 images; 1000 count
+  BOOST_TEST_MESSAGE("*** Filtered test set: " << "\n" << _mnist_test);
+
+  Trainer_BatchGradientDescent trainer(
+      0.01,  // learning rate
+      0,
+      Trainer::Sequential, // reduce test variability
+      10   // batch size
+  );
   trainer.set_progress_callback(progress_callback);
 
   pair<double, Value> res = test_fcnn_mnist(
       trainer,
       {20},
-      Quadratic,
+      make_unique<CrossEntropyCost>(),
+      Sigmoid,
+      InitMode_Zeros, // reduce test variability
+      10);
+  BOOST_CHECK_GE(res.first, 0.99);  // > 99%
+  BOOST_CHECK_LE(res.second, 0.40); // < 0.4 per test
+}
+
+BOOST_AUTO_TEST_CASE(Mnist_StochasticGD_Quadratic_Sigmoid_Test)
+{
+  Trainer_StochasticGradientDescent trainer(3.0, 0, Trainer::Random, 10);
+  trainer.set_progress_callback(progress_callback);
+
+  pair<double, Value> res = test_fcnn_mnist(
+      trainer,
+      {20},
+      make_unique<QuadraticCost>(),
       Sigmoid,
       InitMode_Random_01,
       3);
@@ -287,47 +315,40 @@ BOOST_AUTO_TEST_CASE(Mnist_Incremental_GD_Quadratic_Sigmoid_Test)
   BOOST_CHECK_LE(res.second, 0.20);// < 0.2 per test
 }
 
-BOOST_AUTO_TEST_CASE(Mnist_MiniBatch_GD_Quadratic_Sigmoid_Test)
+BOOST_AUTO_TEST_CASE(Mnist_BatchGradientDescent_HellingerDistance_Softmax_Test)
 {
-  Trainer_MiniBatch_GD trainer(3.0, 0, Trainer::Random, 10);
+  // reduce the test size to two labels to make it faster
+  BOOST_TEST_MESSAGE("*** Filtering test set...");
+  _mnist_test.filter(1, 2000, 1000); // only allow 0,1 images; 1000 count
+  BOOST_TEST_MESSAGE("*** Filtered test set: " << "\n" << _mnist_test);
+
+  Trainer_BatchGradientDescent trainer(
+      0.1,
+      0,
+      Trainer::Sequential, // reduce tests variability
+      10);
   trainer.set_progress_callback(progress_callback);
 
   pair<double, Value> res = test_fcnn_mnist(
       trainer,
       {20},
-      Quadratic,
-      Sigmoid,
-      InitMode_Random_01,
-      3);
-  BOOST_CHECK_GE(res.first, 0.90); // > 90%
-  BOOST_CHECK_LE(res.second, 0.20);// < 0.2 per test
-}
-
-BOOST_AUTO_TEST_CASE(Mnist_Incremental_GD_Quadratic_Softmax_Test)
-{
-  Trainer_Incremental_GD trainer(5.0, 0, Trainer::Random, 10);
-  trainer.set_progress_callback(progress_callback);
-
-  pair<double, Value> res = test_fcnn_mnist(
-      trainer,
-      {20},
-      Quadratic,
+      make_unique<HellingerDistanceCost>(0.0001),
       Softmax,
-      InitMode_Random_01,
-      3);
-  BOOST_CHECK_GE(res.first, 0.85); // > 85% -- Softmax + Quadratic is a bad choice
-  BOOST_CHECK_LE(res.second, 0.20);// < 0.2 per test
+      InitMode_Zeros, // reduce tests variability
+      6);
+  BOOST_CHECK_GE(res.first, 0.99); // > 99%
+  BOOST_CHECK_LE(res.second, 0.40);// < 0.4 per test
 }
 
-BOOST_AUTO_TEST_CASE(Mnist_MiniBatch_GD_Quadratic_Sigmoid_Regularization_Test)
+BOOST_AUTO_TEST_CASE(Mnist_StochasticGD_Quadratic_Sigmoid_Regularization_Test)
 {
-  Trainer_MiniBatch_GD trainer(3.0, 0.0005, Trainer::Random, 10);
+  Trainer_StochasticGradientDescent trainer(3.0, 0.0005, Trainer::Random, 10);
   trainer.set_progress_callback(progress_callback);
 
   pair<double, Value> res = test_fcnn_mnist(
       trainer,
       {20},
-      Quadratic,
+      make_unique<QuadraticCost>(),
       Sigmoid,
       InitMode_Random_01,
       3);
@@ -335,15 +356,15 @@ BOOST_AUTO_TEST_CASE(Mnist_MiniBatch_GD_Quadratic_Sigmoid_Regularization_Test)
   BOOST_CHECK_LE(res.second, 0.25);// < 0.25 per test
 }
 
-BOOST_AUTO_TEST_CASE(Mnist_MiniBatch_GD_CrossEntropy_Sigmoid_Test)
+BOOST_AUTO_TEST_CASE(Mnist_StochasticGD_CrossEntropy_Sigmoid_Test)
 {
-  Trainer_MiniBatch_GD trainer(1.0, 0.0, Trainer::Random, 10);
+  Trainer_StochasticGradientDescent trainer(1.0, 0.0, Trainer::Random, 10);
   trainer.set_progress_callback(progress_callback);
 
   pair<double, Value> res = test_fcnn_mnist(
       trainer,
       {20},
-      CrossEntropy,
+      make_unique<CrossEntropyCost>(),
       Sigmoid,
       InitMode_Random_01,
       3);
@@ -351,39 +372,39 @@ BOOST_AUTO_TEST_CASE(Mnist_MiniBatch_GD_CrossEntropy_Sigmoid_Test)
   BOOST_CHECK_LE(res.second, 0.80);// < 0.8 per test
 }
 
-BOOST_AUTO_TEST_CASE(Mnist_FindBest_MiniBatch_GD_Quadratic_Sigmoid_Test, * disabled())
+BOOST_AUTO_TEST_CASE(Mnist_FindBest_StochasticGD_Quadratic_Sigmoid_Test, * disabled())
 {
-  Trainer_Incremental_GD trainer(3.0, 0.0, Trainer::Random, 10);
+  Trainer_BatchGradientDescent trainer(3.0, 0.0, Trainer::Random, 10);
   trainer.set_progress_callback(progress_callback);
 
   double res = test_fcnn_mnist_find_best(
       trainer,
       {0, 2, 1}, {10, 20, 5},
-      Quadratic,
+      make_unique<QuadraticCost>(),
       Sigmoid,
       InitMode_Random_01,
       2);
   BOOST_CHECK_GE(res, 0.90); // > 90%
 }
 
-BOOST_AUTO_TEST_CASE(Mnist_FindBest_MiniBatch_GD_CrossEntropy_Sigmoid_Test, * disabled())
+BOOST_AUTO_TEST_CASE(Mnist_FindBest_StochasticGD_CrossEntropy_Sigmoid_Test, * disabled())
 {
-  Trainer_Incremental_GD trainer(3.0, 0.0, Trainer::Random, 10);
+  Trainer_BatchGradientDescent trainer(3.0, 0.0, Trainer::Random, 10);
   trainer.set_progress_callback(progress_callback);
 
   double res = test_fcnn_mnist_find_best(
       trainer,
       {0, 2, 1}, {10, 20, 5},
-      CrossEntropy,
+      make_unique<CrossEntropyCost>(),
       Sigmoid,
       InitMode_Random_01,
       2);
   BOOST_CHECK_GE(res, 0.90); // > 90%
 }
 
-BOOST_AUTO_TEST_CASE(Mnist_MiniBatch_Sigmoid_400_epochs_Test, * disabled())
+BOOST_AUTO_TEST_CASE(Mnist_StochasticGD_Sigmoid_400_epochs_Test, * disabled())
 {
-  Trainer_MiniBatch_GD trainer(
+  Trainer_StochasticGradientDescent trainer(
       0.5,     // learning rate
       0.001,     // regularization
       Trainer::Random,
@@ -394,7 +415,7 @@ BOOST_AUTO_TEST_CASE(Mnist_MiniBatch_Sigmoid_400_epochs_Test, * disabled())
   pair<double, Value> res = test_fcnn_mnist(
       trainer,
       {100},
-      CrossEntropy,
+      make_unique<CrossEntropyCost>(),
       Sigmoid,
       InitMode_Random_01,
       400 // epochs

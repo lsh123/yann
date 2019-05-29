@@ -55,7 +55,7 @@ public:
   void save(const std::string & filename) const;
   void load(const std::string & filename);
 
-  void set_cost_function(std::unique_ptr<CostFunction> cost_function);
+  void set_cost_function(const std::unique_ptr<CostFunction> & cost_function);
 
   std::string get_info() const;
   virtual void print_info(std::ostream & os) const;

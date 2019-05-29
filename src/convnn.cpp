@@ -162,20 +162,22 @@ std::unique_ptr<Network> yann::ConvolutionalNetwork::create_lenet4(
     const MatrixSize & input_rows,
     const MatrixSize & input_cols,
     const MatrixSize & fc_size,
-    const MatrixSize & output_size)
+    const MatrixSize & output_size,
+    const std::unique_ptr<ActivationFunction> & activation_funtion,
+    const std::unique_ptr<CostFunction> & cost_funtion)
 {
   // see http://yann.lecun.com/exdb/publis/pdf/lecun-90c.pdf
   ConvPollParams params1;
   params1._output_frames_num = 4;
   params1._conv_filter_size  = 5;
-  params1._conv_activation_funtion = make_unique<SigmoidFunction>();
+  params1._conv_activation_funtion = activation_funtion->copy();
   params1._polling_mode = PollingLayer::PollMode_Avg;
   params1._polling_filter_size = 2;
 
   ConvPollParams params2;
   params2._output_frames_num = 12;
   params2._conv_filter_size  = 5;
-  params2._conv_activation_funtion = make_unique<SigmoidFunction>();
+  params2._conv_activation_funtion = activation_funtion->copy();
   params2._polling_mode = PollingLayer::PollMode_Avg;
   params2._polling_filter_size = 2;
   params2._mappings.push_back({ 0 });
@@ -191,7 +193,7 @@ std::unique_ptr<Network> yann::ConvolutionalNetwork::create_lenet4(
   params2._mappings.push_back({ 2, 3 });
   params2._mappings.push_back({ 2, 3 });
 
-  auto nn = create(input_rows, input_cols, params1, params2, make_unique<SigmoidFunction>(), fc_size);
+  auto nn = create(input_rows, input_cols, params1, params2, activation_funtion, fc_size);
   BOOST_VERIFY(nn);
 
   // add one more FC layer
@@ -206,7 +208,7 @@ std::unique_ptr<Network> yann::ConvolutionalNetwork::create_lenet4(
   nn->append_layer(std::move(smax_layer));
 
   // finally set cost function
-  nn->set_cost_function(make_unique<QuadraticCost>());
+  nn->set_cost_function(cost_funtion);
 
   // done
   return nn;
@@ -217,20 +219,22 @@ std::unique_ptr<Network> yann::ConvolutionalNetwork::create_lenet5(
     const MatrixSize & input_cols,
     const MatrixSize & fc1_size,
     const MatrixSize & fc2_size,
-    const MatrixSize & output_size)
+    const MatrixSize & output_size,
+    const std::unique_ptr<ActivationFunction> & activation_funtion,
+    const std::unique_ptr<CostFunction> & cost_funtion)
 {
-  // see https://engmrk.com/lenet-5-a-classic-cnn-architecture/
+  // see http://vision.stanford.edu/cs598_spring07/papers/Lecun98.pdf
   ConvPollParams params1;
   params1._output_frames_num = 6;
   params1._conv_filter_size  = 5;
-  params1._conv_activation_funtion = make_unique<TanhFunction>();
+  params1._conv_activation_funtion = activation_funtion->copy();
   params1._polling_mode = PollingLayer::PollMode_Avg;
   params1._polling_filter_size = 2;
 
   ConvPollParams params2;
   params2._output_frames_num = 16;
   params2._conv_filter_size  = 5;
-  params2._conv_activation_funtion = make_unique<TanhFunction>();
+  params2._conv_activation_funtion = activation_funtion->copy();
   params2._polling_mode = PollingLayer::PollMode_Avg;
   params2._polling_filter_size = 2;
   params2._mappings.push_back({ 0, 1, 2 }); // 0
@@ -250,28 +254,30 @@ std::unique_ptr<Network> yann::ConvolutionalNetwork::create_lenet5(
   params2._mappings.push_back({ 0, 2, 3, 5 });
   params2._mappings.push_back({ 0, 1, 2, 3, 4, 5 });
 
-  auto nn = create(input_rows, input_cols, params1, params2, make_unique<TanhFunction>(), fc1_size);
+  auto nn = create(input_rows, input_cols, params1, params2, activation_funtion, fc1_size);
   BOOST_VERIFY(nn);
 
   // add one more FC layer
   auto fc_layer1 = make_unique<FullyConnectedLayer>(fc1_size, fc2_size);
   BOOST_VERIFY(fc_layer1);
-  fc_layer1->set_activation_function(make_unique<TanhFunction>());
+  fc_layer1->set_activation_function(activation_funtion);
   nn->append_layer(std::move(fc_layer1));
 
   // and one more FC layer
   auto fc_layer2 = make_unique<FullyConnectedLayer>(fc2_size, output_size);
   BOOST_VERIFY(fc_layer2);
-  fc_layer2->set_activation_function(make_unique<IdentityFunction>());
+  fc_layer2->set_activation_function(activation_funtion);
   nn->append_layer(std::move(fc_layer2));
 
+  /*
   // and then add softmax layer
   auto smax_layer = make_unique<SoftmaxLayer>(output_size);
   BOOST_VERIFY(smax_layer);
   nn->append_layer(std::move(smax_layer));
+  */
 
   // finally set cost function
-  nn->set_cost_function(make_unique<HellingerDistanceCost>());
+  nn->set_cost_function(cost_funtion);
 
   // done
   return nn;

@@ -50,14 +50,18 @@ public:
       const MatrixSize & input_rows,
       const MatrixSize & input_cols,
       const MatrixSize & fc_size,
-      const MatrixSize & output_size);
+      const MatrixSize & output_size,
+      const std::unique_ptr<ActivationFunction> & activation_funtion,
+      const std::unique_ptr<CostFunction> & cost_funtion);
 
   static std::unique_ptr<Network> create_lenet5(
       const MatrixSize & input_rows,
       const MatrixSize & input_cols,
       const MatrixSize & fc1_size,
       const MatrixSize & fc2_size,
-      const MatrixSize & output_size);
+      const MatrixSize & output_size,
+      const std::unique_ptr<ActivationFunction> & activation_funtion,
+      const std::unique_ptr<CostFunction> & cost_funtion);
 
 private:
   // Appends one conv+poll layer to the sequential network

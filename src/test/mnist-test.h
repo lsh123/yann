@@ -35,8 +35,8 @@ public:
   MatrixSize get_image_size() const;
   MatrixSize get_label_size() const;
 
-  void filter(const MnistDataset & other, const MatrixSize & max_label, const MatrixSize & max_num = 0);
-  void top_left(const MnistDataset & other, const MatrixSize & rows, const MatrixSize & cols);
+  void filter(const MatrixSize & max_label, const MatrixSize & max_num = 0);
+  void shift_values(const Value & min_val, const Value & max_val);
 
 private:
   VectorBatch _images;
@@ -65,10 +65,13 @@ public:
   MatrixSize get_image_size() const;
   MatrixSize get_label_size() const;
 
-  void filter(const MnistTest & other, const MatrixSize & max_label,
-              const MatrixSize & training_max_num = 0,
-              const MatrixSize & testing_max_num = 0);
-  void top_left(const MnistTest & other, const MatrixSize & rows, const MatrixSize & cols);
+  // Reduces the training set to labels {0, ..., max_label} no more
+  // than training_max_num / testing_max_num for training / testing
+  // respectively
+  void filter(const MatrixSize & max_label, const MatrixSize & training_max_num = 0, const MatrixSize & testing_max_num = 0);
+
+  // Shifts the range of image values from (0 ... 1) to (min_val ... max_val)
+  void shift_values(const Value & min_val, const Value & max_val);
 
   static std::pair<double, Value> test(const yann::Network & nn,
                                        const MnistDataset & dataset,

@@ -5,7 +5,7 @@ AC_INIT(YANN, 1.0)
 AC_CONFIG_MACRO_DIRS([m4])
 
 AC_CANONICAL_SYSTEM
-AM_INIT_AUTOMAKE([subdir-objects])
+AM_INIT_AUTOMAKE([foreign subdir-objects])
 LT_INIT()
 
 AC_PROG_CXX

@@ -46,15 +46,12 @@ struct FunctionsTestFixture
 
   }
 
-  template<typename CostFunctionType>
   pair<Matrix, Value> test_cost_function(
+      const unique_ptr<CostFunction> & cost_function,
       const RefConstMatrix & actual0, const RefConstMatrix & expected, const Value & cost0,
       double learning_rate = 1.0, const size_t & epochs = 10)
   {
     BOOST_VERIFY(is_same_size(actual0, expected));
-
-    unique_ptr<CostFunction> cost_function = make_unique<CostFunctionType>();
-    BOOST_VERIFY(cost_function);
 
     // setup
     Matrix delta, actual;
@@ -86,20 +83,15 @@ struct FunctionsTestFixture
     return make_pair(actual, cost);
   }
 
-  template<typename ActivationFunctionType, typename CostFunctionType = QuadraticCost>
   pair<Vector, Vector> test_activation_function(
+      const unique_ptr<ActivationFunction> & activation_function,
+      const unique_ptr<CostFunction> & cost_function,
       const Vector & input0, const Vector & output0, const Vector & expected,
       double learning_rate = 1.0, const size_t & epochs = 10,
       int alloc_check_flags = BlockAllocations::None)
   {
     BOOST_VERIFY(input0.size() == output0.size());
     BOOST_VERIFY(input0.size() == expected.size());
-
-    unique_ptr<ActivationFunction> activation_function = make_unique<ActivationFunctionType>();
-    BOOST_VERIFY(activation_function);
-
-    unique_ptr<CostFunction> cost_function = make_unique<CostFunctionType>();
-    BOOST_VERIFY(cost_function);
 
     // setup
     const size_t size = input0.size();
@@ -258,7 +250,8 @@ BOOST_AUTO_TEST_CASE(QuadraticCost_Test)
   expected << 1.0, 6.0;
   cost0 = 125;
 
-  pair<Vector, Value> res = test_cost_function<QuadraticCost>(
+  pair<Vector, Value> res = test_cost_function(
+      make_unique<QuadraticCost>(),
       actual0, expected, cost0,
       learning_rate, epochs);
 
@@ -282,7 +275,8 @@ BOOST_AUTO_TEST_CASE(CrossEntrypyCost_Test)
   expected << 0.3, 0.8;
   cost0 = 2.677931;
 
-  pair<Vector, Value> res = test_cost_function<CrossEntropyCost>(
+  pair<Vector, Value> res = test_cost_function(
+      make_unique<CrossEntropyCost>(),
       actual0, expected, cost0,
       learning_rate, epochs);
 
@@ -291,11 +285,61 @@ BOOST_AUTO_TEST_CASE(CrossEntrypyCost_Test)
   BOOST_CHECK_CLOSE(1.111266, res.second, TEST_TOLERANCE);
 }
 
+BOOST_AUTO_TEST_CASE(HellingerDistanceCost_Test)
+{
+  const size_t size = 2;
+  Vector actual0(size);
+  Vector expected(size);
+  Vector actual_expected(size);
+  Value cost0;
+  const double learning_rate = 0.75;
+  size_t epochs = 15;
+
+  //  f(actual, expected) = sum(sqrt(actual) - sqrt(expected))^2
+  actual0 << 0.9, 0.1;
+  expected << 0.3, 0.7;
+  cost0 = 0.43150;
+  pair<Vector, Value> res = test_cost_function(
+      make_unique<HellingerDistanceCost>(0.0001),
+      actual0, expected, cost0,
+      learning_rate, epochs);
+
+  BOOST_TEST_MESSAGE("expected=" << expected << " actual=" << res.first << " cost=" << res.second);
+  BOOST_CHECK(expected.isApprox(res.first, TEST_TOLERANCE));
+  BOOST_CHECK_SMALL(res.second, TEST_TOLERANCE);
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //
 // activations functions tests
 //
-BOOST_AUTO_TEST_CASE(Sigmoid_Test)
+BOOST_AUTO_TEST_CASE(IdentityFunction_Test)
+{
+  const size_t size = 2;
+  Vector input0(size);
+  Vector output0(size);
+  Vector input_expected(size);
+  Vector expected(size);
+  const double learning_rate = 0.75;
+  size_t epochs = 1000;
+
+  input0   << -5,  10;
+  output0  << -5, 10;
+  expected << 20, -5;
+  input_expected << 20, -5;
+  pair<Vector, Vector> res = test_activation_function(
+      make_unique<IdentityFunction>(),
+      make_unique<QuadraticCost>(),
+      input0, output0, expected,
+      learning_rate, epochs);
+
+  BOOST_TEST_MESSAGE("intput expected=" << input_expected << " actual=" << res.first);
+  BOOST_TEST_MESSAGE("output expected=" << expected << " actual=" << res.second);
+  BOOST_CHECK(input_expected.isApprox(res.first, TEST_TOLERANCE));
+  BOOST_CHECK(expected.isApprox(res.second, TEST_TOLERANCE));
+}
+
+BOOST_AUTO_TEST_CASE(SigmoidFunction_Test)
 {
   const size_t size = 2;
   Vector input0(size);
@@ -309,7 +353,9 @@ BOOST_AUTO_TEST_CASE(Sigmoid_Test)
   output0 << 1.0, 1.0;
   expected << 0.8, 0.1;
   input_expected << 1.3862943611, -2.1972245773; // x = -ln(1/y - 1)
-  pair<Vector, Vector> res = test_activation_function<SigmoidFunction>(
+  pair<Vector, Vector> res = test_activation_function(
+      make_unique<SigmoidFunction>(),
+      make_unique<QuadraticCost>(),
       input0, output0, expected,
       learning_rate, epochs);
 
@@ -319,8 +365,58 @@ BOOST_AUTO_TEST_CASE(Sigmoid_Test)
   BOOST_CHECK(expected.isApprox(res.second, TEST_TOLERANCE));
 }
 
-// TODO: add relu tests
-// TODO: add identity tests
+BOOST_AUTO_TEST_CASE(ReluFunction_Test)
+{
+  const size_t size = 2;
+  Vector input0(size);
+  Vector output0(size);
+  Vector input_expected(size);
+  Vector expected(size);
+  const double learning_rate = 0.75;
+  size_t epochs = 1000;
+
+  input0   << -5,  10;
+  output0  << -0.5, 10;
+  expected << 20, -5;
+  input_expected << 20, -50;
+  pair<Vector, Vector> res = test_activation_function(
+      make_unique<ReluFunction>(0.1),
+      make_unique<QuadraticCost>(),
+      input0, output0, expected,
+      learning_rate, epochs);
+
+  BOOST_TEST_MESSAGE("intput expected=" << input_expected << " actual=" << res.first);
+  BOOST_TEST_MESSAGE("output expected=" << expected << " actual=" << res.second);
+  BOOST_CHECK(input_expected.isApprox(res.first, TEST_TOLERANCE));
+  BOOST_CHECK(expected.isApprox(res.second, TEST_TOLERANCE));
+}
+
+BOOST_AUTO_TEST_CASE(TahhFunction_Test)
+{
+  const size_t size = 2;
+  Vector input0(size);
+  Vector output0(size);
+  Vector input_expected(size);
+  Vector expected(size);
+  const double learning_rate = 0.75;
+  size_t epochs = 1000;
+
+  input0   << 1,  10;
+  output0  << 0.99992, 1.71589;
+  expected << 0.1, -0.5;
+  input_expected << 0.08753, -0.45018;
+  pair<Vector, Vector> res = test_activation_function(
+      make_unique<TanhFunction>(1.7159, 0.6666),
+      make_unique<QuadraticCost>(),
+      input0, output0, expected,
+      learning_rate, epochs);
+
+  BOOST_TEST_MESSAGE("intput expected=" << input_expected << " actual=" << res.first);
+  BOOST_TEST_MESSAGE("output expected=" << expected << " actual=" << res.second);
+  BOOST_CHECK(input_expected.isApprox(res.first, TEST_TOLERANCE));
+  BOOST_CHECK(expected.isApprox(res.second, TEST_TOLERANCE));
+}
+
 
 BOOST_AUTO_TEST_SUITE_END()
 

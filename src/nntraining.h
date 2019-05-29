@@ -44,12 +44,16 @@ protected:
   ProgressCallback _progress_callback;
 }; // class Trainer
 
-class Trainer_Incremental_GD : public Trainer
+// Apply training data in batches but don't apply deltas until all
+// the training data is processed.
+class Trainer_BatchGradientDescent : public Trainer
 {
 public:
-  Trainer_Incremental_GD(double learning_rate, double regularization_parameter,
-                         enum InputSelectionMode select_mode,
-                         const MatrixSize & batch_size);
+  Trainer_BatchGradientDescent(
+      double learning_rate,
+      double regularization_parameter,
+      enum InputSelectionMode select_mode,
+      const MatrixSize & batch_size);
 
   virtual void print_info(std::ostream & os) const;
   void train(Network & nn, const VectorBatch & inputs, const VectorBatch & outputs) const;
@@ -58,15 +62,17 @@ private:
   double _learning_rate;
   double _regularization_parameter;
   enum InputSelectionMode _select_mode;
-}; // class Trainer_Incremental_GD
+}; // class Trainer_BatchGradientDescent
 
-class Trainer_MiniBatch_GD : public Trainer
+// After each batch of training data, apply deltas to the network.
+class Trainer_StochasticGradientDescent : public Trainer
 {
 public:
-  Trainer_MiniBatch_GD(double learning_rate,
-                       double regularization_parameter,
-                       enum InputSelectionMode select_mode,
-                       const MatrixSize & batch_size);
+  Trainer_StochasticGradientDescent(
+      double learning_rate,
+      double regularization_parameter,
+      enum InputSelectionMode select_mode,
+      const MatrixSize & batch_size);
 
   virtual void print_info(std::ostream & os) const;
   void train(Network & nn, const VectorBatch & inputs, const VectorBatch & outputs) const;
@@ -75,7 +81,7 @@ private:
   double _learning_rate;
   double _regularization_parameter;
   enum InputSelectionMode _select_mode;
-}; // class Trainer_MiniBatch_GD
+}; // class Trainer_StochasticGradientDescent
 
 }; // namespace yann
 

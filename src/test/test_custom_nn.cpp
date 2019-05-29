@@ -244,9 +244,7 @@ BOOST_AUTO_TEST_CASE(Mapping_Test, * disabled())
   // reduce the test size to two labels to make it faster
   {
    BOOST_TEST_MESSAGE("*** Filtering test set...");
-   MnistTest filtered;
-   filtered.filter(_mnist_test, 1);
-   _mnist_test = filtered;
+   _mnist_test.filter(1);
    BOOST_TEST_MESSAGE("*** Filtered test set: " << "\n" << _mnist_test);
   }
 
@@ -277,7 +275,7 @@ BOOST_AUTO_TEST_CASE(Mapping_Test, * disabled())
   BOOST_VERIFY(nn);
 
   // Trainer
-  auto trainer = make_unique<Trainer_MiniBatch_GD>(
+  auto trainer = make_unique<Trainer_StochasticGradientDescent>(
       learning_rate,      // learning rate
       regularization,     // regularization
       Trainer::Random,
@@ -312,9 +310,7 @@ BOOST_AUTO_TEST_CASE(LeNet4_Test)
   /*
   {
    BOOST_TEST_MESSAGE("*** Filtering test set...");
-   MnistTest filtered;
-   filtered.filter(_mnist_test, 1, 1000, 1000); // 1000 training and 1000 testing
-   _mnist_test = filtered;
+   _mnist_test.filter(1, 1000, 1000); // 1000 training and 1000 testing
    BOOST_TEST_MESSAGE("*** Filtered test set: " << "\n" << _mnist_test);
   }
   */
@@ -355,7 +351,7 @@ BOOST_AUTO_TEST_CASE(LeNet4_Test)
   BOOST_VERIFY(nn);
 
   // Trainer
-  auto trainer = make_unique<Trainer_MiniBatch_GD>(
+  auto trainer = make_unique<Trainer_StochasticGradientDescent>(
       learning_rate,      // learning rate
       regularization,     // regularization
       Trainer::Random,
@@ -426,7 +422,7 @@ BOOST_AUTO_TEST_CASE(Large_FC_Test, * disabled())
   nn->append_layer(std::move(smax_layer));
 
   // Trainer
-  auto trainer = make_unique<Trainer_MiniBatch_GD>(
+  auto trainer = make_unique<Trainer_StochasticGradientDescent>(
       learning_rate,      // learning rate
       regularization,     // regularization
       Trainer::Random,

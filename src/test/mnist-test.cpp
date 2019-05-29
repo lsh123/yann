@@ -23,7 +23,7 @@ using namespace std;
 using namespace yann;
 using namespace yann::test;
 
-#define LABELS_COUNT    10    // digits 0...9
+#define LABELS_COUNT      10    // digits 0...9
 #define IMAGES_MAX_VALUE  256   // colors 0...256
 
 #define LABELS_MAGIC_NUMBER 2049
@@ -208,15 +208,14 @@ void yann::test::MnistDataset::read_labels(istream &in)
   }
 }
 
-void yann::test::MnistDataset::filter(const MnistDataset & other, const MatrixSize & max_label, const MatrixSize & max_num)
+void yann::test::MnistDataset::filter(const MatrixSize & max_label, const MatrixSize & max_num)
 {
   BOOST_VERIFY(max_label <= LABELS_COUNT);
-  BOOST_VERIFY(get_batch_size(other._images) == get_batch_size(other._labels));
 
   // find how many labels <= max_label are there
   MatrixSize count = 0;
-  for(MatrixSize ii = 0; ii < get_batch_size(other._labels); ++ii) {
-    if(get_label(get_batch(other._labels, ii)) <= max_label) {
+  for(MatrixSize ii = 0; ii < get_batch_size(_labels); ++ii) {
+    if(get_label(get_batch(_labels, ii)) <= max_label) {
       ++count;
     }
   }
@@ -225,44 +224,29 @@ void yann::test::MnistDataset::filter(const MnistDataset & other, const MatrixSi
   }
 
   // prep storage and copy
-  resize_batch(_images, count, other.get_image_size());
-  resize_batch(_labels, count, max_label + 1);
-  _images.setZero();
-  _labels.setZero();
-  for(MatrixSize ii = 0 , jj = 0; ii < get_batch_size(other._labels) && jj < count; ++ii) {
-    MatrixSize label = get_label(get_batch(other._labels, ii));
+  VectorBatch images, labels;
+  resize_batch(images, count, get_image_size());
+  resize_batch(labels, count, max_label + 1);
+  images.setZero();
+  labels.setZero();
+  for(MatrixSize ii = 0, jj = 0; ii < get_batch_size(_labels) && jj < count; ++ii) {
+    MatrixSize label = get_label(get_batch(_labels, ii));
     if(label <= max_label) {
-      get_batch(_images, jj) = get_batch(other._images, ii);
-      get_batch(_labels, jj)(label) = 1.0;
+      get_batch(images, jj) = get_batch(_images, ii);
+      get_batch(labels, jj)(label) = 1.0;
       ++jj;
     }
   }
 
-  // final touches
-  _image_rows = other._image_rows;
-  _image_cols = other._image_cols;
+  // ready to go
+  swap(images, _images);
+  swap(labels, _labels);
 }
 
-void yann::test::MnistDataset::top_left(const MnistDataset & other, const MatrixSize & rows, const MatrixSize & cols)
+void yann::test::MnistDataset::shift_values(const Value & min_val, const Value & max_val)
 {
-  BOOST_VERIFY(rows <= other.get_image_rows());
-  BOOST_VERIFY(cols <= other.get_image_cols());
-  BOOST_VERIFY(get_batch_size(other._images) == get_batch_size(other._labels));
-
-
-  // prep storage and copy
-  resize_batch(_images, other.get_size(), rows * cols);
-  for(MatrixSize ii = 0; ii < other.get_size(); ++ii) {
-    MapConstMatrix other_image(get_batch(other._images, ii).data(), other.get_image_rows(), other.get_image_cols());
-    MapMatrix image(get_batch(_images, ii).data(), rows, cols);
-    image = other_image.block(0, 0, rows, cols);
-  }
-  _labels = other._labels;
-
-  // final touches
-  _image_rows = rows;
-  _image_cols = cols;
-
+  BOOST_VERIFY(min_val < max_val);
+  _images.array() = _images.array() * (max_val - min_val) + min_val;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -495,17 +479,18 @@ vector<MatrixSize> yann::test::MnistTest::get_layer_sizes(
 }
 
 void yann::test::MnistTest::filter(
-    const MnistTest & other,
     const MatrixSize & max_label,
     const MatrixSize & training_max_num,
     const MatrixSize & testing_max_num)
 {
-  _training.filter(other._training, max_label, training_max_num);
-  _testing.filter(other._testing, max_label, testing_max_num);
+  _training.filter(max_label, training_max_num);
+  _testing.filter(max_label, testing_max_num);
 }
 
-void yann::test::MnistTest::top_left(const MnistTest & other, const MatrixSize & rows, const MatrixSize & cols)
+void yann::test::MnistTest::shift_values(
+    const Value & min_val,
+    const Value & max_val)
 {
-  _training.top_left(other._training, rows, cols);
-  _testing.top_left(other._testing, rows, cols);
+  _training.shift_values(min_val, max_val);
+  _testing.shift_values(min_val, max_val);
 }

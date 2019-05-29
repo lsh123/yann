@@ -56,9 +56,10 @@ void yann::Trainer::prepare_shuffled_pos(enum InputSelectionMode select_mode, st
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// Incremental gradient descent: train one row at a time, apply deltas in batches after 1 or more trainings
+// Apply training data in batches but don't apply deltas until all
+// the training data is processed.
 //
-yann::Trainer_Incremental_GD::Trainer_Incremental_GD(
+yann::Trainer_BatchGradientDescent::Trainer_BatchGradientDescent(
     double learning_rate, double regularization_parameter,
     enum InputSelectionMode select_mode,
     const MatrixSize & batch_size) :
@@ -71,15 +72,15 @@ yann::Trainer_Incremental_GD::Trainer_Incremental_GD(
 }
 
 // Trainer
-void yann::Trainer_Incremental_GD::print_info(ostream & os) const
+void yann::Trainer_BatchGradientDescent::print_info(ostream & os) const
 {
-  os << "yann::Trainer_Incremental_GD(" << "learning_rate=" << _learning_rate
+  os << "yann::Trainer_BatchGradientDescent(" << "learning_rate=" << _learning_rate
      << " regularization_parameter=" << _regularization_parameter
      << " select_mode=" << _select_mode << " batch_size=" << _batch_size
      << ")";
 }
 
-void yann::Trainer_Incremental_GD::train(Network & nn,
+void yann::Trainer_BatchGradientDescent::train(Network & nn,
                                          const VectorBatch & inputs,
                                          const VectorBatch & outputs) const
 {
@@ -89,13 +90,16 @@ void yann::Trainer_Incremental_GD::train(Network & nn,
   BOOST_VERIFY(get_batch_item_size(inputs) == nn.get_input_size());
   BOOST_VERIFY(get_batch_item_size(outputs) == nn.get_output_size());
 
+  // prepare training
+  std::unique_ptr<TrainingContext> ctx(nn.create_training_context());
+  ctx->reset_state();
+
   // prepare positions vector
   vector<MatrixSize> shuffled_pos(get_batch_size(inputs));
   prepare_shuffled_pos(_select_mode, shuffled_pos);
 
   double learning_factor = _learning_rate / (double) _batch_size;
   double decay_factor = 1 - _regularization_parameter * _learning_rate;
-  std::unique_ptr<TrainingContext> ctx(nn.create_training_context());
   Vector in(get_batch_item_size(inputs));
   Vector out(get_batch_item_size(outputs));
   auto last_batch_pos = shuffled_pos.size() - _batch_size;
@@ -104,9 +108,6 @@ void yann::Trainer_Incremental_GD::train(Network & nn,
       _progress_callback(ii, _batch_size, last_batch_pos);
     }
 
-    // train
-    ctx->reset_state();
-
     for (MatrixSize jj = 0; jj < _batch_size; ++jj) {
       MatrixSize pos = shuffled_pos[ii + jj];
       BOOST_VERIFY(pos < get_batch_size(inputs));
@@ -114,15 +115,17 @@ void yann::Trainer_Incremental_GD::train(Network & nn,
       out = get_batch_const(outputs, pos);
       nn.train(in, out, ctx.get());
     }
-    nn.update(ctx.get(), learning_factor, decay_factor);
   }
+
+  // update deltas at the end of the training set
+  nn.update(ctx.get(), learning_factor, decay_factor);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// Mini-batch gradient descent: train and update in mini batches
+// After each batch of training data, apply deltas to the network.
 //
-yann::Trainer_MiniBatch_GD::Trainer_MiniBatch_GD(
+yann::Trainer_StochasticGradientDescent::Trainer_StochasticGradientDescent(
     double learning_rate, double regularization_parameter,
     enum InputSelectionMode select_mode,
     const MatrixSize & batch_size) :
@@ -135,15 +138,15 @@ yann::Trainer_MiniBatch_GD::Trainer_MiniBatch_GD(
 }
 
 // Trainer
-void yann::Trainer_MiniBatch_GD::print_info(ostream & os) const
+void yann::Trainer_StochasticGradientDescent::print_info(ostream & os) const
 {
-  os << "yann::Trainer_MiniBatch_GD(" << "learning_rate=" << _learning_rate
+  os << "yann::Trainer_StochasticGradientDescent(" << "learning_rate=" << _learning_rate
      << " regularization_parameter=" << _regularization_parameter
      << " select_mode=" << _select_mode << " batch_size=" << _batch_size
      << ")";
 }
 
-void yann::Trainer_MiniBatch_GD::train(Network & nn, const VectorBatch & inputs, const VectorBatch & outputs) const
+void yann::Trainer_StochasticGradientDescent::train(Network & nn, const VectorBatch & inputs, const VectorBatch & outputs) const
 {
   BOOST_VERIFY(_batch_size > 0);
   BOOST_VERIFY(_batch_size <= get_batch_size(inputs));
@@ -167,6 +170,7 @@ void yann::Trainer_MiniBatch_GD::train(Network & nn, const VectorBatch & inputs,
     if(_progress_callback != nullptr) {
       _progress_callback(ii, _batch_size, last_batch_pos);
     }
+
     // prepare inputs/outputs
     for (MatrixSize jj = 0; jj < _batch_size; ++jj) {
       MatrixSize pos = shuffled_pos[ii + jj];
@@ -176,7 +180,7 @@ void yann::Trainer_MiniBatch_GD::train(Network & nn, const VectorBatch & inputs,
       get_batch(outs, jj) = get_batch(outputs, pos);
     }
 
-    // train
+    // train and apply deltas after each "mini-batch"
     ctx->reset_state();
     nn.train(ins, outs, ctx.get());
     nn.update(ctx.get(), learning_factor, decay_factor);
