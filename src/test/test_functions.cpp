@@ -46,10 +46,30 @@ struct FunctionsTestFixture
 
   }
 
+  void softmax_vector(const RefConstVector & input, RefVector output, const Value & beta)
+  {
+    BOOST_VERIFY(is_same_size(input, output));
+    BOOST_VERIFY(input.rows() == 1); // RowMajor layout, breaks for ColMajor
+
+    Value max = input.maxCoeff(); // adjust the computations to avoid overflowing
+    Value sum = exp((input.array() - max) * beta).sum();
+    output.array() = (exp((input.array() - max) * beta)) / sum;
+  }
+
+  void softmax(const RefConstMatrix & input, RefMatrix output, const Value & beta = 3.0)
+  {
+    BOOST_VERIFY(is_same_size(input, output));
+    for(MatrixSize ii = 0; ii < input.rows(); ++ii) {
+      softmax_vector(input.row(ii), output.row(ii), beta);
+    }
+  }
+
   pair<Matrix, Value> test_cost_function(
       const unique_ptr<CostFunction> & cost_function,
       const RefConstMatrix & actual0, const RefConstMatrix & expected, const Value & cost0,
-      double learning_rate = 1.0, const size_t & epochs = 10)
+      double learning_rate,
+      const size_t & epochs,
+      bool use_softmax = false)
   {
     BOOST_VERIFY(is_same_size(actual0, expected));
 
@@ -72,6 +92,9 @@ struct FunctionsTestFixture
       for (size_t ii = 0; ii < epochs; ++ii) {
         cost_function->derivative(actual, expected, delta);
         actual -= learning_rate * delta;
+        if(use_softmax) {
+          softmax(actual, actual);
+        }
         cost = cost_function->f(actual, expected);
 
         if (ii % progress_step == 0) {
@@ -241,7 +264,6 @@ BOOST_AUTO_TEST_CASE(QuadraticCost_Test)
   const size_t size = 2;
   Vector actual0(size);
   Vector expected(size);
-  Vector actual_expected(size);
   Value cost0;
   const double learning_rate = 0.25;
   size_t epochs = 50;
@@ -265,7 +287,6 @@ BOOST_AUTO_TEST_CASE(ExponentialCost_Test)
   const size_t size = 2;
   Vector actual0(size);
   Vector expected(size);
-  Vector actual_expected(size);
   Value cost0;
   const double learning_rate = 0.25;
   size_t epochs = 10;
@@ -289,7 +310,6 @@ BOOST_AUTO_TEST_CASE(CrossEntrypyCost_Test)
   const size_t size = 2;
   Vector actual0(size);
   Vector expected(size);
-  Vector actual_expected(size);
   Value cost0;
   const double learning_rate = 0.1;
   size_t epochs = 15;
@@ -314,12 +334,10 @@ BOOST_AUTO_TEST_CASE(HellingerDistanceCost_Test)
   const size_t size = 2;
   Vector actual0(size);
   Vector expected(size);
-  Vector actual_expected(size);
   Value cost0;
   const double learning_rate = 0.75;
   size_t epochs = 15;
 
-  //  f(actual, expected) = sum(sqrt(actual) - sqrt(expected))^2
   actual0 << 0.9, 0.1;
   expected << 0.3, 0.7;
   cost0 = 0.43150;
@@ -331,6 +349,30 @@ BOOST_AUTO_TEST_CASE(HellingerDistanceCost_Test)
   BOOST_TEST_MESSAGE("expected=" << expected << " actual=" << res.first << " cost=" << res.second);
   BOOST_CHECK(expected.isApprox(res.first, TEST_TOLERANCE));
   BOOST_CHECK_SMALL(res.second, TEST_TOLERANCE);
+}
+
+BOOST_AUTO_TEST_CASE(SquaredHingeLoss_Test)
+{
+  const size_t size = 4;
+  Vector actual0(size);
+  Vector actual_expected(size);
+  Vector expected(size);
+  Value cost0;
+  const double learning_rate = 0.5;
+  size_t epochs = 10;
+
+  actual0   << 0.6, 0.1, 0.3, 0.0;
+  expected  << 0.0, 1.0, 0.0, 0.0;
+  actual_expected << 0.049, 0.852, 0.049, 0.049;
+  cost0  = 0.81;
+  pair<Vector, Value> res = test_cost_function(
+      make_unique<SquaredHingeLoss>(),
+      actual0, expected, cost0,
+      learning_rate, epochs, true); // use softmax
+
+  BOOST_TEST_MESSAGE("expected=" << expected << " actual=" << res.first << " cost=" << res.second);
+  BOOST_CHECK(actual_expected.isApprox(res.first, TEST_TOLERANCE));
+  BOOST_CHECK_CLOSE(0.02177566296, res.second, TEST_TOLERANCE);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////

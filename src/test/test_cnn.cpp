@@ -467,10 +467,10 @@ BOOST_AUTO_TEST_CASE(LeNet5_Full_Test, * disabled())
 {
   // reduce the test size
   BOOST_TEST_MESSAGE("*** Filtering test set...");
-  _mnist_test.filter(9, 60000, 1000);
+  _mnist_test.filter(9, 10000, 1000);
   BOOST_TEST_MESSAGE("*** Filtered test set: " << "\n" << _mnist_test);
 
-  const double learning_rate = 0.005;
+  const double learning_rate = 0.00005;
   const double regularization = 0.0;
   const MatrixSize training_batch_size = 10;
   const size_t epochs = 300;
@@ -478,8 +478,8 @@ BOOST_AUTO_TEST_CASE(LeNet5_Full_Test, * disabled())
   auto nn = ConvolutionalNetwork::create_lenet5(
       _mnist_test.get_image_rows(), // input_rows
       _mnist_test.get_image_cols(), // input_cols
-      120, // fc1 size
-      84,  // fc2 size
+      30, // 120, // fc1 size
+      20, // 84,  // fc2 size
       _mnist_test.get_label_size(), // output_size
       // make_unique<ReluFunction>(0)
       // make_unique<TanhFunction>(1.7159, 0.6666)
@@ -487,19 +487,19 @@ BOOST_AUTO_TEST_CASE(LeNet5_Full_Test, * disabled())
   );
   BOOST_VERIFY(nn);
 
-  /*
   // add softmaxLayer
   auto smax_layer = make_unique<SoftmaxLayer>(
-      nn->get_output_size()
+      nn->get_output_size(),
+      1000.0 // beta to make max more prominent
   );
   BOOST_VERIFY(smax_layer);
   nn->append_layer(std::move(smax_layer));
-  */
 
   nn->init(InitMode_Random_SqrtInputs);
   // nn->set_cost_function(make_unique<QuadraticCost>());
   // nn->set_cost_function(make_unique<ExponentialCost>(100.0));
-  nn->set_cost_function(make_unique<CrossEntropyCost>(1.0e-5));
+  nn->set_cost_function(make_unique<CrossEntropyCost>(1.0e-200));
+  // nn->set_cost_function(make_unique<SquaredHingeLoss>());
 
   // Trainer
   auto trainer = make_unique<Trainer_StochasticGradientDescent>(

@@ -143,6 +143,17 @@ private:
 }; // class HellingerDistanceCost
 
 
+// Squared Hinge Loss:
+//  f(actual, expected) = (max(0, 1 - actual * expected))^2
+//  d f(actual, expected) / d (actual(i)) =  if (actual * expected) > 1 then 0; otherwise -2 * (1 - actual * expected) * expected(i)
+class SquaredHingeLoss: public CostFunction {
+public:
+  virtual std::string get_name() const;
+  virtual Value f(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected);
+  virtual void derivative(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected, RefVectorBatch output);
+  virtual std::unique_ptr<CostFunction> copy() const;
+}; // class SquaredHingeLoss
+
 }; // namespace yann
 
 #endif /* FUNCTIONS_H_ */

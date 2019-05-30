@@ -14,7 +14,6 @@
 using namespace std;
 using namespace yann;
 
-
 void yann::print_debug(const std::string & filename, int line,
                        const std::string & message)
 {

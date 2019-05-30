@@ -60,6 +60,9 @@ libyann_test_la_SOURCES = \
 	$(NULL)
 libyann_test_la_CXXFLAGS=$(AM_CXXFLAGS)
 libyann_test_la_LDFLAGS=$(AM_LDFLAGS)
+libyann_test_la_LIBADD= \
+	libyann.la \
+	$(NULL)
 
 #
 # Functions unit test program

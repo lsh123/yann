@@ -16,11 +16,11 @@ class SoftmaxLayer : public Layer
   typedef Layer Base;
 
 public:
-  static void softmax_plus_equal(const RefConstVector & input, RefVector output);
-  static void softmax_derivative(const RefConstVector & input, RefMatrix output);
+  static void softmax_plus_equal(const RefConstVector & input, RefVector output, const Value & beta);
+  static void softmax_derivative(const RefConstVector & input, RefMatrix output, const Value & beta);
 
 public:
-  SoftmaxLayer(const MatrixSize & size);
+  SoftmaxLayer(const MatrixSize & size, const Value & beta = 1.0);
   virtual ~SoftmaxLayer();
 
 public:
@@ -47,6 +47,7 @@ public:
 
 private:
   MatrixSize _size;
+  const Value _beta;
 }; // class SoftmaxLayer
 
 }; // namespace yann

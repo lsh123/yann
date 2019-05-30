@@ -59,17 +59,17 @@ protected:
 //
 // yann::SoftmaxLayer implementation
 //
-void yann::SoftmaxLayer::softmax_plus_equal(const RefConstVector & input, RefVector output)
+void yann::SoftmaxLayer::softmax_plus_equal(const RefConstVector & input, RefVector output, const Value & beta)
 {
   BOOST_VERIFY(is_same_size(input, output));
   BOOST_VERIFY(input.rows() == 1); // RowMajor layout, breaks for ColMajor
 
   Value max = input.maxCoeff(); // adjust the computations to avoid overflowing
-  Value sum = exp(input.array() - max).sum();
-  output.array() += (exp(input.array() - max)) / sum;
+  Value sum = exp((input.array() - max) * beta).sum();
+  output.array() += (exp((input.array() - max) * beta)) / sum;
 }
 
-void yann::SoftmaxLayer::softmax_derivative(const RefConstVector & input, RefMatrix output)
+void yann::SoftmaxLayer::softmax_derivative(const RefConstVector & input, RefMatrix output, const Value & beta)
 {
   BOOST_VERIFY(input.size() > 0);
   BOOST_VERIFY(input.size() == output.rows());
@@ -79,7 +79,7 @@ void yann::SoftmaxLayer::softmax_derivative(const RefConstVector & input, RefMat
   // as a temporary buffer. This depends on matrix layout (RowMajor) and will
   // break if it is switched to ColMajor
   output.row(0).setZero();
-  softmax_plus_equal(input, output.row(0));
+  softmax_plus_equal(input, output.row(0), beta);
 
   // The softmax derivative:
   // out(ii, jj) = - softmax(ii) * softmax(jj) if ii != jj
@@ -87,9 +87,13 @@ void yann::SoftmaxLayer::softmax_derivative(const RefConstVector & input, RefMat
   MatrixSize size = input.size();
 
   // Notice that output for row ii uses common out0(ii) factor
-  auto calculate_one_row = [size, output](MatrixSize ii, Value out_0_ii) mutable {
+  auto calculate_one_row = [beta, size, output](MatrixSize ii, Value out_0_ii) mutable {
     for(MatrixSize jj = 0; jj < size; ++jj) {
-      output(ii, jj) = (ii != jj) ? (- out_0_ii * output(0, jj)) : out_0_ii * (1 - out_0_ii);
+      if(ii != jj) {
+        output(ii, jj) = - beta * out_0_ii * output(0, jj);
+      } else {
+        output(ii, jj) = beta *  out_0_ii * (1 - out_0_ii);
+      }
     }
   };
 
@@ -102,8 +106,9 @@ void yann::SoftmaxLayer::softmax_derivative(const RefConstVector & input, RefMat
   calculate_one_row(0, output(0, 0));
 }
 
-yann::SoftmaxLayer::SoftmaxLayer(const MatrixSize & size) :
-    _size(size)
+yann::SoftmaxLayer::SoftmaxLayer(const MatrixSize & size, const Value & beta) :
+    _size(size),
+    _beta(beta)
 {
   BOOST_VERIFY(size > 0);
 }
@@ -185,7 +190,7 @@ void yann::SoftmaxLayer::feedforward(const RefConstVectorBatch & input, Context 
   }
   const auto batch_size = get_batch_size(input);
   for(MatrixSize ii = 0; ii < batch_size; ++ii) {
-    softmax_plus_equal(get_batch(input, ii), get_batch(output, ii));
+    softmax_plus_equal(get_batch(input, ii), get_batch(output, ii), _beta);
   }
 }
 
@@ -211,7 +216,7 @@ void yann::SoftmaxLayer::backprop(const RefConstVectorBatch & gradient_output,
   if(gradient_input) {
     const auto batch_size = get_batch_size(input);
     for(MatrixSize ii = 0; ii < batch_size; ++ii) {
-      softmax_derivative(get_batch(input, ii), ctx->_softmax_derivative);
+      softmax_derivative(get_batch(input, ii), ctx->_softmax_derivative, _beta);
       get_batch(*gradient_input, ii).noalias() = YANN_FAST_MATRIX_PRODUCT(get_batch(gradient_output, ii), ctx->_softmax_derivative);
     }
   }

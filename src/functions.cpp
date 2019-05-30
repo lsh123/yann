@@ -1,4 +1,4 @@
-  /*
+ /*
  * functions.cpp
  *
  */
@@ -306,5 +306,53 @@ void yann::HellingerDistanceCost::derivative(const RefConstVectorBatch & actual,
 unique_ptr<CostFunction> yann::HellingerDistanceCost::copy() const
 {
   return make_unique<HellingerDistanceCost>(_epsilon);
+}
+
+// Squared Hinge Loss:
+//  f(actual, expected) = (max(0, 1 - actual * expected))^2
+//  d f(actual, expected) / d (actual(i)) =  if (actual * expected) > 1 then 0; otherwise -2 * (1 - actual * expected) * expected(i)
+string yann::SquaredHingeLoss::get_name() const
+{
+  return "SquaredHingeLoss";
+}
+Value yann::SquaredHingeLoss::f(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected)
+{
+  BOOST_VERIFY(is_same_size(actual, expected));
+
+  Value res = 0;
+  for(MatrixSize ii = 0; ii < get_batch_size(actual); ++ii) {
+    const auto aa = get_batch(actual, ii);
+    const auto ee = get_batch(expected, ii);
+
+    const Value vv = (aa.array() * ee.array()).sum();
+    if(vv < 1.0) {
+      res += (1.0 - vv) * (1.0 - vv);
+    }
+  }
+  return res;
+}
+
+void yann::SquaredHingeLoss::derivative(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected, RefVectorBatch output)
+{
+  BOOST_VERIFY(is_same_size(actual, expected));
+  BOOST_VERIFY(is_same_size(actual, output));
+
+  for(MatrixSize ii = 0; ii < get_batch_size(actual); ++ii) {
+    const auto aa = get_batch(actual, ii);
+    const auto ee = get_batch(expected, ii);
+    auto oo = get_batch(output, ii);
+
+    const Value vv = (aa.array() * ee.array()).sum();
+    if(vv < 1) {
+      oo = - 2 * (1.0 - vv) * ee;
+    } else {
+      oo.setZero();
+    }
+  }
+}
+
+unique_ptr<CostFunction> yann::SquaredHingeLoss::copy() const
+{
+  return make_unique<SquaredHingeLoss>();
 }
 
