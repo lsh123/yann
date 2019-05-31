@@ -61,8 +61,8 @@ protected:
 //
 void yann::SoftmaxLayer::softmax_plus_equal(const RefConstVector & input, RefVector output, const Value & beta)
 {
-  BOOST_VERIFY(is_same_size(input, output));
-  BOOST_VERIFY(input.rows() == 1); // RowMajor layout, breaks for ColMajor
+  YANN_CHECK(is_same_size(input, output));
+  YANN_CHECK_EQ(input.rows(), 1); // RowMajor layout, breaks for ColMajor
 
   Value max = input.maxCoeff(); // adjust the computations to avoid overflowing
   Value sum = exp((input.array() - max) * beta).sum();
@@ -71,9 +71,9 @@ void yann::SoftmaxLayer::softmax_plus_equal(const RefConstVector & input, RefVec
 
 void yann::SoftmaxLayer::softmax_derivative(const RefConstVector & input, RefMatrix output, const Value & beta)
 {
-  BOOST_VERIFY(input.size() > 0);
-  BOOST_VERIFY(input.size() == output.rows());
-  BOOST_VERIFY(input.size() == output.cols());
+  YANN_CHECK_GT(input.size(), 0);
+  YANN_CHECK_EQ(input.size(), output.rows());
+  YANN_CHECK_EQ(input.size(), output.cols());
 
   // We are going to do a trick here by using the first row of the output matrix
   // as a temporary buffer. This depends on matrix layout (RowMajor) and will
@@ -110,7 +110,7 @@ yann::SoftmaxLayer::SoftmaxLayer(const MatrixSize & size, const Value & beta) :
     _size(size),
     _beta(beta)
 {
-  BOOST_VERIFY(size > 0);
+  YANN_CHECK_GT(size, 0);
 }
 
 yann::SoftmaxLayer::~SoftmaxLayer()
@@ -150,34 +150,34 @@ MatrixSize yann::SoftmaxLayer::get_output_size() const
 
 unique_ptr<Layer::Context> yann::SoftmaxLayer::create_context(const MatrixSize & batch_size) const
 {
-  BOOST_VERIFY(is_valid());
+  YANN_CHECK(is_valid());
   return make_unique<SoftmaxLayer_Context>(get_output_size(), batch_size);
 }
 unique_ptr<Layer::Context> yann::SoftmaxLayer::create_context(const RefVectorBatch & output) const
 {
-  BOOST_VERIFY(is_valid());
+  YANN_CHECK(is_valid());
   return make_unique<SoftmaxLayer_Context>(output);
 }
 unique_ptr<Layer::Context> yann::SoftmaxLayer::create_training_context(const MatrixSize & batch_size, const std::unique_ptr<Layer::Updater> & updater) const
 {
-  BOOST_VERIFY(is_valid());
+  YANN_CHECK(is_valid());
   return make_unique<SoftmaxLayer_TrainingContext>(get_output_size(), batch_size);
 }
 unique_ptr<Layer::Context> yann::SoftmaxLayer::create_training_context(const RefVectorBatch & output, const std::unique_ptr<Layer::Updater> & updater) const
 {
-  BOOST_VERIFY(is_valid());
+  YANN_CHECK(is_valid());
   return make_unique<SoftmaxLayer_TrainingContext>(output);
 }
 
 void yann::SoftmaxLayer::feedforward(const RefConstVectorBatch & input, Context * context, enum OperationMode mode) const
 {
   auto ctx = dynamic_cast<SoftmaxLayer_Context *>(context);
-  BOOST_VERIFY(ctx);
-  BOOST_VERIFY(is_valid());
-  BOOST_VERIFY(get_batch_size(input) > 0);
-  BOOST_VERIFY(get_batch_item_size(input) == get_input_size());
-  BOOST_VERIFY(get_batch_size(ctx->get_output()) == get_batch_size(input));
-  BOOST_VERIFY(get_batch_item_size(ctx->get_output()) == get_output_size());
+  YANN_CHECK(ctx);
+  YANN_CHECK(is_valid());
+  YANN_CHECK_GT(get_batch_size(input), 0);
+  YANN_CHECK_EQ(get_batch_item_size(input), get_input_size());
+  YANN_CHECK_EQ(get_batch_size(ctx->get_output()), get_batch_size(input));
+  YANN_CHECK_EQ(get_batch_item_size(ctx->get_output()), get_output_size());
 
   RefVectorBatch output = ctx->get_output();
   switch(mode) {
@@ -199,16 +199,16 @@ void yann::SoftmaxLayer::backprop(const RefConstVectorBatch & gradient_output,
                                          optional<RefVectorBatch> gradient_input,
                                          Context * context) const
 {
-  BOOST_VERIFY(is_valid());
-  BOOST_VERIFY(get_batch_size(gradient_output) > 0);
-  BOOST_VERIFY(get_batch_item_size(gradient_output) == get_output_size());
-  BOOST_VERIFY(get_batch_size(input) == get_batch_size(gradient_output));
-  BOOST_VERIFY(get_batch_item_size(input) == get_input_size());
-  BOOST_VERIFY(get_batch_item_size(input) == get_input_size());
-  BOOST_VERIFY(!gradient_input || is_same_size(input, *gradient_input));
+  YANN_CHECK(is_valid());
+  YANN_CHECK_GT(get_batch_size(gradient_output), 0);
+  YANN_CHECK_EQ(get_batch_item_size(gradient_output), get_output_size());
+  YANN_CHECK_EQ(get_batch_size(input), get_batch_size(gradient_output));
+  YANN_CHECK_EQ(get_batch_item_size(input), get_input_size());
+  YANN_CHECK_EQ(get_batch_item_size(input), get_input_size());
+  YANN_CHECK(!gradient_input || is_same_size(input, *gradient_input));
 
   auto ctx = static_cast<SoftmaxLayer_TrainingContext*>(context);
-  BOOST_VERIFY(ctx);
+  YANN_CHECK(ctx);
 
   // nothing to do for the softmax layer itself
 
@@ -230,7 +230,7 @@ void yann::SoftmaxLayer::init(enum InitMode /* mode */)
 void yann::SoftmaxLayer::update(Context * context, const size_t & batch_size)
 {
   // auto ctx = dynamic_cast<SoftmaxLayer_Context *>(context);
-  // BOOST_VERIFY(ctx);
+  // YANN_CHECK(ctx);
   // nothing to do
 }
 

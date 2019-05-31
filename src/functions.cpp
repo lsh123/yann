@@ -31,7 +31,7 @@ string yann::IdentityFunction::get_name() const
 }
 void yann::IdentityFunction::f(const RefConstVectorBatch & input, RefVectorBatch output, enum OperationMode mode)
 {
-  BOOST_VERIFY(is_same_size(input, output));
+  YANN_CHECK(is_same_size(input, output));
   switch(mode) {
   case Operation_Assign:
     output.noalias() = input;
@@ -43,7 +43,7 @@ void yann::IdentityFunction::f(const RefConstVectorBatch & input, RefVectorBatch
 }
 void yann::IdentityFunction::derivative(const RefConstVectorBatch & input, RefVectorBatch output)
 {
-  BOOST_VERIFY(is_same_size(input, output));
+  YANN_CHECK(is_same_size(input, output));
   output.setOnes();
 }
 unique_ptr<ActivationFunction> yann::IdentityFunction::copy() const
@@ -60,7 +60,7 @@ string yann::ReluFunction::get_name() const
 }
 void yann::ReluFunction::f(const RefConstVectorBatch & input, RefVectorBatch output, enum OperationMode mode)
 {
-  BOOST_VERIFY(is_same_size(input, output));
+  YANN_CHECK(is_same_size(input, output));
 
   switch(mode) {
   case Operation_Assign:
@@ -85,7 +85,7 @@ void yann::ReluFunction::f(const RefConstVectorBatch & input, RefVectorBatch out
 }
 void yann::ReluFunction::derivative(const RefConstVectorBatch & input, RefVectorBatch output)
 {
-  BOOST_VERIFY(is_same_size(input, output));
+  YANN_CHECK(is_same_size(input, output));
 
   const auto batch_size = get_batch_size(output);
   const auto batch_item_size = get_batch_item_size(output);
@@ -123,7 +123,7 @@ Value yann::SigmoidFunction::sigmoid_derivative_scalar(const Value & x)
 
 void yann::SigmoidFunction::f(const RefConstVectorBatch & input, RefVectorBatch output, enum OperationMode mode)
 {
-  BOOST_VERIFY(is_same_size(input, output));
+  YANN_CHECK(is_same_size(input, output));
 
   switch(mode) {
   case Operation_Assign:
@@ -137,7 +137,7 @@ void yann::SigmoidFunction::f(const RefConstVectorBatch & input, RefVectorBatch 
 
 void yann::SigmoidFunction::derivative(const RefConstVectorBatch & input, RefVectorBatch output)
 {
-  BOOST_VERIFY(is_same_size(input, output));
+  YANN_CHECK(is_same_size(input, output));
   this->f(input, output);
   output.array() =  output.array() * (1 -  output.array());
 }
@@ -156,7 +156,7 @@ string yann::TanhFunction::get_name() const
 
 void yann::TanhFunction::f(const RefConstVectorBatch & input, RefVectorBatch output, enum OperationMode mode)
 {
-  BOOST_VERIFY(is_same_size(input, output));
+  YANN_CHECK(is_same_size(input, output));
 
   switch(mode) {
   case Operation_Assign:
@@ -170,7 +170,7 @@ void yann::TanhFunction::f(const RefConstVectorBatch & input, RefVectorBatch out
 
 void yann::TanhFunction::derivative(const RefConstVectorBatch & input, RefVectorBatch output)
 {
-  BOOST_VERIFY(is_same_size(input, output));
+  YANN_CHECK(is_same_size(input, output));
   this->f(input, output);
   output.array() = (1 - tanh(input.array()* _S).square()) * (_A * _S);
 }
@@ -188,13 +188,13 @@ string yann::QuadraticCost::get_name() const
 }
 Value yann::QuadraticCost::f(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected)
 {
-  BOOST_VERIFY(is_same_size(actual, expected));
+  YANN_CHECK(is_same_size(actual, expected));
   return ((actual.array() - expected.array()).square()).sum();
 }
 void yann::QuadraticCost::derivative(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected, RefVectorBatch output)
 {
-  BOOST_VERIFY(is_same_size(actual, expected));
-  BOOST_VERIFY(is_same_size(actual, output));
+  YANN_CHECK(is_same_size(actual, expected));
+  YANN_CHECK(is_same_size(actual, output));
   output.noalias() = actual - expected;
 }
 unique_ptr<CostFunction> yann::QuadraticCost::copy() const
@@ -211,14 +211,14 @@ string yann::ExponentialCost::get_name() const
 }
 Value yann::ExponentialCost::f(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected)
 {
-  BOOST_VERIFY(is_same_size(actual, expected));
+  YANN_CHECK(is_same_size(actual, expected));
   const auto val = (actual.array() - expected.array()).square().sum();
   return _thaw * exp(val / _thaw);
 }
 void yann::ExponentialCost::derivative(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected, RefVectorBatch output)
 {
-  BOOST_VERIFY(is_same_size(actual, expected));
-  BOOST_VERIFY(is_same_size(actual, output));
+  YANN_CHECK(is_same_size(actual, expected));
+  YANN_CHECK(is_same_size(actual, output));
   output.noalias() = (2 * f(actual, expected) / _thaw) * (actual - expected);
 }
 unique_ptr<CostFunction> yann::ExponentialCost::copy() const
@@ -236,7 +236,7 @@ string yann::CrossEntropyCost::get_name() const
 
 Value yann::CrossEntropyCost::f(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected)
 {
-  BOOST_VERIFY(is_same_size(actual, expected));
+  YANN_CHECK(is_same_size(actual, expected));
 
   // iterate over elements manually and use small _epsilon to avoid hitting nan
   Value res = 0;
@@ -257,8 +257,8 @@ Value yann::CrossEntropyCost::f(const RefConstVectorBatch & actual, const RefCon
 
 void yann::CrossEntropyCost::derivative(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected, RefVectorBatch output)
 {
-  BOOST_VERIFY(is_same_size(actual, expected));
-  BOOST_VERIFY(is_same_size(actual, output));
+  YANN_CHECK(is_same_size(actual, expected));
+  YANN_CHECK(is_same_size(actual, output));
 
   // iterate over elements manually and use small _epsilon to avoid hitting nan
   for(MatrixSize ii = 0; ii < actual.rows(); ++ii) {
@@ -293,14 +293,14 @@ string yann::HellingerDistanceCost::get_name() const
 }
 Value yann::HellingerDistanceCost::f(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected)
 {
-  BOOST_VERIFY(is_same_size(actual, expected));
+  YANN_CHECK(is_same_size(actual, expected));
   return (((actual.array() + _epsilon).sqrt() - expected.array().sqrt()).square()).sum();
 }
 
 void yann::HellingerDistanceCost::derivative(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected, RefVectorBatch output)
 {
-  BOOST_VERIFY(is_same_size(actual, expected));
-  BOOST_VERIFY(is_same_size(actual, output));
+  YANN_CHECK(is_same_size(actual, expected));
+  YANN_CHECK(is_same_size(actual, output));
   output.array() = (1 - expected.array().sqrt() / (actual.array() + _epsilon).sqrt());
 }
 unique_ptr<CostFunction> yann::HellingerDistanceCost::copy() const
@@ -317,7 +317,7 @@ string yann::SquaredHingeLoss::get_name() const
 }
 Value yann::SquaredHingeLoss::f(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected)
 {
-  BOOST_VERIFY(is_same_size(actual, expected));
+  YANN_CHECK(is_same_size(actual, expected));
 
   Value res = 0;
   for(MatrixSize ii = 0; ii < get_batch_size(actual); ++ii) {
@@ -334,8 +334,8 @@ Value yann::SquaredHingeLoss::f(const RefConstVectorBatch & actual, const RefCon
 
 void yann::SquaredHingeLoss::derivative(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected, RefVectorBatch output)
 {
-  BOOST_VERIFY(is_same_size(actual, expected));
-  BOOST_VERIFY(is_same_size(actual, output));
+  YANN_CHECK(is_same_size(actual, expected));
+  YANN_CHECK(is_same_size(actual, output));
 
   for(MatrixSize ii = 0; ii < get_batch_size(actual); ++ii) {
     const auto aa = get_batch(actual, ii);

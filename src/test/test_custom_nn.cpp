@@ -62,17 +62,17 @@ struct CustomNNTestFixture
       const MatrixSize & filter_size,
       const unique_ptr<ActivationFunction> & activation_function)
   {
-    BOOST_VERIFY(input_frames_num > 0);
-    BOOST_VERIFY(mappings.size() > 0);
+    YANN_CHECK_GT(input_frames_num, 0);
+    YANN_CHECK_GT(mappings.size(), 0);
 
     auto mapping_layer = make_unique<MappingLayer>(input_frames_num);
-    BOOST_VERIFY(mapping_layer);
+    YANN_CHECK(mapping_layer);
     for(size_t ii = 0; ii < mappings.size(); ++ii) {
       auto conv_layer = make_unique<ConvolutionalLayer>(
           input_rows,
           input_cols,
           filter_size);
-      BOOST_VERIFY(conv_layer);
+      YANN_CHECK(conv_layer);
 
       if(activation_function) {
         conv_layer->set_activation_function(activation_function);
@@ -105,7 +105,7 @@ struct CustomNNTestFixture
        conv1_filter_size, // filter_size,
        make_unique<SigmoidFunction>()
     );
-    BOOST_VERIFY(conv1_layer);
+    YANN_CHECK(conv1_layer);
 
     // PollingLayer #1
     MatrixSize poll1_input_rows = ConvolutionalLayer::get_conv_output_rows(conv1_input_rows, conv1_filter_size);
@@ -116,7 +116,7 @@ struct CustomNNTestFixture
        poll1_input_cols,
        poll1_filter_size,
        PollingLayer::PollMode_Avg);
-    BOOST_VERIFY(poll1_layer);
+    YANN_CHECK(poll1_layer);
 
     // ConvolutionalLayer #2
     MatrixSize conv2_input_rows = PollingLayer::get_output_rows(poll1_input_rows, poll1_filter_size);
@@ -129,7 +129,7 @@ struct CustomNNTestFixture
        conv2_filter_size, // filter_size,
        make_unique<SigmoidFunction>()
     );
-    BOOST_VERIFY(conv2_layer);
+    YANN_CHECK(conv2_layer);
 
     // PollingLayer #2
     MatrixSize poll2_input_rows = ConvolutionalLayer::get_conv_output_rows(conv2_input_rows, conv2_filter_size);
@@ -140,30 +140,30 @@ struct CustomNNTestFixture
        poll2_input_cols,
        poll2_filter_size,
        PollingLayer::PollMode_Avg);
-    BOOST_VERIFY(poll2_layer);
+    YANN_CHECK(poll2_layer);
 
     // FullyConnectedLayer #1
     auto fc1_layer = make_unique<FullyConnectedLayer>(
         poll2_layer->get_output_size(),
         fc1_size);
-    BOOST_VERIFY(fc1_layer);
+    YANN_CHECK(fc1_layer);
 
     // FullyConnectedLayer #2
     auto fc2_layer = make_unique<FullyConnectedLayer>(
         fc1_layer->get_output_size(),
         output_size);
     fc2_layer->set_activation_function(make_unique<IdentityFunction>());
-    BOOST_VERIFY(fc2_layer);
+    YANN_CHECK(fc2_layer);
 
     // SoftmaxLayer
     auto smax_layer = make_unique<SoftmaxLayer>(
         fc2_layer->get_output_size()
     );
-    BOOST_VERIFY(smax_layer);
+    YANN_CHECK(smax_layer);
 
     // add to the network
     auto nn = make_unique<Network>();
-    BOOST_VERIFY(nn);
+    YANN_CHECK(nn);
     nn->set_cost_function(make_unique<QuadraticCost>());
     nn->append_layer(std::move(conv1_layer));
     nn->append_layer(std::move(poll1_layer));
@@ -197,7 +197,7 @@ struct CustomNNTestFixture
          conv1_filter_size, // filter_size,
          make_unique<SigmoidFunction>()
       );
-      BOOST_VERIFY(conv1_layer);
+      YANN_CHECK(conv1_layer);
 
       // PollingLayer #1
       MatrixSize poll1_input_rows = ConvolutionalLayer::get_conv_output_rows(conv1_input_rows, conv1_filter_size);
@@ -208,24 +208,24 @@ struct CustomNNTestFixture
          poll1_input_cols,
          poll1_filter_size,
          PollingLayer::PollMode_Avg);
-      BOOST_VERIFY(poll1_layer);
+      YANN_CHECK(poll1_layer);
 
       // FullyConnectedLayer #1
       auto fc1_layer = make_unique<FullyConnectedLayer>(
           poll1_layer->get_output_size(),
           output_size);
-      BOOST_VERIFY(fc1_layer);
+      YANN_CHECK(fc1_layer);
       fc1_layer->set_activation_function(make_unique<IdentityFunction>());
 
       // SoftmaxLayer
       auto smax_layer = make_unique<SoftmaxLayer>(
           fc1_layer->get_output_size()
       );
-      BOOST_VERIFY(smax_layer);
+      YANN_CHECK(smax_layer);
 
       // add to the network
       auto nn = make_unique<Network>();
-      BOOST_VERIFY(nn);
+      YANN_CHECK(nn);
       nn->set_cost_function(make_unique<QuadraticCost>());
       nn->append_layer(std::move(conv1_layer));
       nn->append_layer(std::move(poll1_layer));
@@ -272,7 +272,7 @@ BOOST_AUTO_TEST_CASE(Mapping_Test, * disabled())
       2,  // poll1_filter_size
       _mnist_test.get_label_size()  // output_size
   );
-  BOOST_VERIFY(nn);
+  YANN_CHECK(nn);
 
   // Trainer
   auto trainer = make_unique<Trainer_Stochastic>(
@@ -347,7 +347,7 @@ BOOST_AUTO_TEST_CASE(LeNet1_Test)
       30, // 100, // fc1_size
       _mnist_test.get_label_size()  // output_size
   );
-  BOOST_VERIFY(nn);
+  YANN_CHECK(nn);
 
   // Trainer
   auto trainer = make_unique<Trainer_Stochastic>(
@@ -394,25 +394,25 @@ BOOST_AUTO_TEST_CASE(Large_FC_Test, * disabled())
   auto fc1_layer = make_unique<FullyConnectedLayer>(
       input_size,
       fc1_size);
-  BOOST_VERIFY(fc1_layer);
+  YANN_CHECK(fc1_layer);
   fc1_layer->set_activation_function(make_unique<ReluFunction>());
 
   // FullyConnectedLayer #2
   auto fc2_layer = make_unique<FullyConnectedLayer>(
       fc1_layer->get_output_size(),
       output_size);
-  BOOST_VERIFY(fc2_layer);
+  YANN_CHECK(fc2_layer);
   fc2_layer->set_activation_function(make_unique<SigmoidFunction>());
 
   // SoftmaxLayer
   auto smax_layer = make_unique<SoftmaxLayer>(
       fc2_layer->get_output_size()
   );
-  BOOST_VERIFY(smax_layer);
+  YANN_CHECK(smax_layer);
 
   // add to the network
   auto nn = make_unique<Network>();
-  BOOST_VERIFY(nn);
+  YANN_CHECK(nn);
   nn->set_cost_function(make_unique<QuadraticCost>());
   // nn->set_cost_function(make_unique<CrossEntropyCost>());
   nn->append_layer(std::move(fc1_layer));

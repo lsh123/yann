@@ -14,7 +14,7 @@
 #include "layers/polllayer.h"
 #include "layers/smaxlayer.h"
 
-#include "convnn.h"
+#include "cnn.h"
 
 using namespace std;
 using namespace yann;

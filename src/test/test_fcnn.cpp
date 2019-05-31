@@ -63,11 +63,11 @@ struct FcnnTestFixture
       const unique_ptr<CostFunction> & cost,
       enum ActivationMode activ_mode)
   {
-    BOOST_VERIFY(hidden_layer_sizes.size() > 0); // at least one hidden layer required
+    YANN_CHECK_GT(hidden_layer_sizes.size(), 0); // at least one hidden layer required
 
     // add input / output layers based on mnist data
     std::vector<MatrixSize> layer_sizes = _mnist_test.get_layer_sizes(hidden_layer_sizes);
-    BOOST_VERIFY(layer_sizes.size() >= 2); // at least input + output
+    YANN_CHECK_GE(layer_sizes.size(), 2); // at least input + output
 
     // create params
     vector<FullyConnectedNetwork::Params> params(layer_sizes.size() - 1);
@@ -111,7 +111,7 @@ struct FcnnTestFixture
   {
     // setup
     auto fcnn = create_fcnn_for_mnist(hidden_layer_sizes, cost, activ_mode);
-    BOOST_VERIFY(fcnn);
+    YANN_CHECK(fcnn);
     fcnn->init(init_mode);
 
     BOOST_TEST_MESSAGE("*** Testing against MNIST dataset with ");
@@ -182,7 +182,7 @@ BOOST_AUTO_TEST_CASE(Fcnn_IO_Test)
   vector<MatrixSize> layers( { 3, 2, 1 });
 
   auto one = FullyConnectedNetwork::create(layers);
-  BOOST_VERIFY(one);
+  YANN_CHECK(one);
   one->init(InitMode_Random_01);
 
   BOOST_TEST_MESSAGE("fcnn before writing to file: " << "\n" << *one);
@@ -191,7 +191,7 @@ BOOST_AUTO_TEST_CASE(Fcnn_IO_Test)
   BOOST_CHECK(!oss.fail());
 
   auto two = FullyConnectedNetwork::create(layers);
-  BOOST_VERIFY(two);
+  YANN_CHECK(two);
   std::istringstream iss(oss.str());
   iss >> *two;
   BOOST_CHECK(!iss.fail());
@@ -234,7 +234,7 @@ BOOST_AUTO_TEST_CASE(Training_StochasticGD_Test)
 
   // training
   auto fcnn = FullyConnectedNetwork::create( { 4, 2 });
-  BOOST_VERIFY(fcnn);
+  YANN_CHECK(fcnn);
 
   Trainer_Stochastic trainer(
       make_unique<Updater_GradientDescent>(3.0, 0.0),

@@ -87,7 +87,7 @@ struct CnnTestFixture
     auto smax_layer = make_unique<SoftmaxLayer>(
         cnn->get_output_size()
     );
-    BOOST_VERIFY(smax_layer);
+    YANN_CHECK(smax_layer);
     cnn->append_layer(std::move(smax_layer));
 
     // done
@@ -120,7 +120,7 @@ BOOST_AUTO_TEST_CASE(IO_Test)
       make_unique<SigmoidFunction>(), // FC layer activation func
       output_size      // output size
   );
-  BOOST_VERIFY(one);
+  YANN_CHECK(one);
   one->init(InitMode_Random_01);
 
   // BOOST_TEST_MESSAGE("ConvolutionalNetwork before writing to file: " << (*one));
@@ -136,7 +136,7 @@ BOOST_AUTO_TEST_CASE(IO_Test)
       make_unique<SigmoidFunction>(), // FC layer activation func
       output_size      // output size
   );
-  BOOST_VERIFY(two);
+  YANN_CHECK(two);
   std::istringstream iss(oss.str());
   iss >> (*two);
   BOOST_CHECK(!iss.fail());
@@ -193,7 +193,7 @@ BOOST_AUTO_TEST_CASE(Training_BatchGradientDescent_Test)
       make_unique<SigmoidFunction>(), // FC layer activation
       output_size
   );
-  BOOST_VERIFY(cnn);
+  YANN_CHECK(cnn);
   {
     Timer timer("Initializing ConvolutionalNetwork");
     cnn->init(InitMode_Zeros); // want consistency for this test
@@ -336,7 +336,7 @@ BOOST_AUTO_TEST_CASE(LeNet1_Two_Labels_Test)
       _mnist_test.get_label_size(), // output_size
       make_unique<SigmoidFunction>()
   );
-  BOOST_VERIFY(nn);
+  YANN_CHECK(nn);
   nn->init(InitMode_Zeros); // want consistency for this test
   nn->set_cost_function(make_unique<QuadraticCost>());
 
@@ -412,7 +412,7 @@ BOOST_AUTO_TEST_CASE(LeNet1_Full_Test, * disabled())
       _mnist_test.get_label_size(), // output_size
       activation_func
   );
-  BOOST_VERIFY(nn);
+  YANN_CHECK(nn);
   nn->init(init_mode);
   nn->set_cost_function(cost_func);
 
@@ -460,7 +460,7 @@ BOOST_AUTO_TEST_CASE(LeNet5_Two_Labels_Test)
       _mnist_test.get_label_size(), // output_size
       make_unique<SigmoidFunction>()
   );
-  BOOST_VERIFY(nn);
+  YANN_CHECK(nn);
   nn->init(InitMode_Random_SqrtInputs);
   nn->set_cost_function(make_unique<CrossEntropyCost>(1.0e-300));
   // nn->set_cost_function(make_unique<ExponentialCost>(2.0));
@@ -521,7 +521,7 @@ BOOST_AUTO_TEST_CASE(LeNet5_Full_Test, * disabled())
       _mnist_test.get_label_size(), // output_size
       activation_func
   );
-  BOOST_VERIFY(nn);
+  YANN_CHECK(nn);
 
   // add softmaxLayer
   /*
@@ -529,7 +529,7 @@ BOOST_AUTO_TEST_CASE(LeNet5_Full_Test, * disabled())
       nn->get_output_size(),
       1000.0 // beta to make max more prominent
   );
-  BOOST_VERIFY(smax_layer);
+  YANN_CHECK(smax_layer);
   nn->append_layer(std::move(smax_layer));
   */
 

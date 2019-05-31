@@ -62,17 +62,17 @@ unique_ptr<ParallelLayer> yann::PollingLayer::create_poll_parallel_layer(
     const MatrixSize & filter_size,
     enum Mode mode)
 {
-  BOOST_VERIFY(frames_num > 0);
+  YANN_CHECK_GT(frames_num, 0);
 
   auto poll_container_layer = make_unique<ParallelLayer>(frames_num);
-  BOOST_VERIFY(poll_container_layer);
+  YANN_CHECK(poll_container_layer);
   for(auto ii = frames_num; ii > 0; --ii) {
     auto poll_layer = make_unique<PollingLayer>(
         input_rows,
         input_cols,
         filter_size,
         mode);
-    BOOST_VERIFY(poll_layer);
+    YANN_CHECK(poll_layer);
 
     poll_container_layer->append_layer(std::move(poll_layer));
   }
@@ -89,8 +89,8 @@ yann::PollingLayer::PollingLayer(const MatrixSize & input_rows,
     _filter_size(filter_size),
     _mode(mode)
 {
-  BOOST_VERIFY(input_rows >= filter_size);
-  BOOST_VERIFY(input_cols >= filter_size);
+  YANN_CHECK_GE(input_rows, filter_size);
+  YANN_CHECK_GE(input_cols, filter_size);
 }
 
 yann::PollingLayer::~PollingLayer()
@@ -170,29 +170,29 @@ MatrixSize yann::PollingLayer::get_output_size() const
 
 unique_ptr<Layer::Context> yann::PollingLayer::create_context(const MatrixSize & batch_size) const
 {
-  BOOST_VERIFY(is_valid());
+  YANN_CHECK(is_valid());
   return make_unique<PollingLayer_Context>(get_output_size(), batch_size);
 }
 unique_ptr<Layer::Context> yann::PollingLayer::create_context(const RefVectorBatch & output) const
 {
-  BOOST_VERIFY(is_valid());
+  YANN_CHECK(is_valid());
   return make_unique<PollingLayer_Context>(output);
 }
 unique_ptr<Layer::Context> yann::PollingLayer::create_training_context(const MatrixSize & batch_size, const std::unique_ptr<Layer::Updater> & updater) const
 {
-  BOOST_VERIFY(is_valid());
+  YANN_CHECK(is_valid());
   return make_unique<PollingLayer_TrainingContext>(get_output_size(), batch_size);
 }
 unique_ptr<Layer::Context> yann::PollingLayer::create_training_context(const RefVectorBatch & output, const std::unique_ptr<Layer::Updater> & updater) const
 {
-  BOOST_VERIFY(is_valid());
+  YANN_CHECK(is_valid());
   return make_unique<PollingLayer_TrainingContext>(output);
 }
 
 void yann::PollingLayer::poll_plus_equal(const RefConstMatrix & input, const MatrixSize & filter_size, enum Mode mode, RefMatrix output)
 {
-  BOOST_VERIFY(output.rows() == get_output_rows(input.rows(), filter_size));
-  BOOST_VERIFY(output.cols() == get_output_cols(input.cols(), filter_size));
+  YANN_CHECK_EQ(output.rows(), get_output_rows(input.rows(), filter_size));
+  YANN_CHECK_EQ(output.cols(), get_output_cols(input.cols(), filter_size));
 
   // Rows/cols order should change if matrix layout is change from RowMajor to ColMajor for perf reasons
   for(MatrixSize in_ii = 0, out_ii = 0; out_ii < output.rows(); in_ii += filter_size, ++out_ii) {
@@ -213,9 +213,9 @@ void yann::PollingLayer::poll_plus_equal(const RefConstMatrix & input, const Mat
 void yann::PollingLayer::backprop(const RefConstMatrix & gradient_output, const RefConstVectorBatch & input,
               const MatrixSize & filter_size, enum Mode mode, RefMatrix gradient_input)
 {
-  BOOST_VERIFY(gradient_output.rows() == get_output_rows(input.rows(), filter_size));
-  BOOST_VERIFY(gradient_output.cols() == get_output_cols(input.cols(), filter_size));
-  BOOST_VERIFY(is_same_size(gradient_input, input));
+  YANN_CHECK_EQ(gradient_output.rows(), get_output_rows(input.rows(), filter_size));
+  YANN_CHECK_EQ(gradient_output.cols(), get_output_cols(input.cols(), filter_size));
+  YANN_CHECK(is_same_size(gradient_input, input));
 
   // Rows/cols order should change if matrix layout is change from RowMajor to ColMajor for perf reasons
   MatrixSize ii, jj;
@@ -238,10 +238,10 @@ void yann::PollingLayer::backprop(const RefConstMatrix & gradient_output, const 
 void yann::PollingLayer::feedforward(const RefConstVectorBatch & input, Context * context, enum OperationMode mode) const
 {
   auto ctx = dynamic_cast<PollingLayer_Context *>(context);
-  BOOST_VERIFY(ctx);
-  BOOST_VERIFY(is_valid());
-  BOOST_VERIFY(get_batch_size(input) == ctx->get_batch_size());
-  BOOST_VERIFY(get_batch_item_size(input) == get_input_size());
+  YANN_CHECK(ctx);
+  YANN_CHECK(is_valid());
+  YANN_CHECK_EQ(get_batch_size(input), ctx->get_batch_size());
+  YANN_CHECK_EQ(get_batch_item_size(input), get_input_size());
 
   RefVectorBatch output = ctx->get_output();
   switch(mode) {
@@ -270,14 +270,14 @@ void yann::PollingLayer::backprop(const RefConstVectorBatch & gradient_output,
                                          Context * /* context */) const
 {
   // auto ctx = dynamic_cast<PollingLayer_TrainingContext *>(context);
-  // BOOST_VERIFY(ctx);
-  BOOST_VERIFY(is_valid());
-  BOOST_VERIFY(get_batch_size(gradient_output) > 0);
-  BOOST_VERIFY(get_batch_item_size(gradient_output) == get_output_size());
-  BOOST_VERIFY(get_batch_size(input) == get_batch_size(gradient_output));
-  BOOST_VERIFY(get_batch_item_size(input) == get_input_size());
-  BOOST_VERIFY(get_batch_item_size(input) == get_input_size());
-  BOOST_VERIFY(!gradient_input || is_same_size(input, *gradient_input));
+  // YANN_CHECK(ctx);
+  YANN_CHECK(is_valid());
+  YANN_CHECK_GT(get_batch_size(gradient_output), 0);
+  YANN_CHECK_EQ(get_batch_item_size(gradient_output), get_output_size());
+  YANN_CHECK_EQ(get_batch_size(input), get_batch_size(gradient_output));
+  YANN_CHECK_EQ(get_batch_item_size(input), get_input_size());
+  YANN_CHECK_EQ(get_batch_item_size(input), get_input_size());
+  YANN_CHECK(!gradient_input || is_same_size(input, *gradient_input));
 
   // nothing to do for the polling layer itself
 
@@ -307,7 +307,7 @@ void yann::PollingLayer::init(enum InitMode mode)
 void yann::PollingLayer::update(Context * context, const size_t & batch_size)
 {
   // auto ctx = dynamic_cast<PollingLayer_TrainingContext *>(context);
-  // BOOST_VERIFY(ctx);
+  // YANN_CHECK(ctx);
 
   // nothing to do
 }

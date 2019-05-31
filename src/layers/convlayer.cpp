@@ -78,9 +78,9 @@ public:
     _ww_updater(updater->copy()),
     _bb_updater(updater->copy())
   {
-    BOOST_VERIFY(filter_size > 0);
-    BOOST_VERIFY(output_size > 0);
-    BOOST_VERIFY(batch_size > 0);
+    YANN_CHECK_GT(filter_size, 0);
+    YANN_CHECK_GT(output_size, 0);
+    YANN_CHECK_GT(batch_size, 0);
 
     _delta.resizeLike(_zz);
     _sigma_derivative_zz.resizeLike(_zz);
@@ -95,9 +95,9 @@ public:
     _ww_updater(updater->copy()),
     _bb_updater(updater->copy())
   {
-    BOOST_VERIFY(filter_size > 0);
-    BOOST_VERIFY(yann::get_batch_size(output) > 0);
-    BOOST_VERIFY(yann::get_batch_item_size(output) > 0);
+    YANN_CHECK_GT(filter_size, 0);
+    YANN_CHECK_GT(yann::get_batch_size(output), 0);
+    YANN_CHECK_GT(yann::get_batch_item_size(output), 0);
 
     _delta.resizeLike(_zz);
     _sigma_derivative_zz.resizeLike(_zz);
@@ -132,67 +132,83 @@ private:
 //
 // yann::ConvolutionalLayer implementation
 //
-MatrixSize yann::ConvolutionalLayer::get_input_size(const MatrixSize & input_rows, const MatrixSize & input_cols)
+MatrixSize yann::ConvolutionalLayer::get_input_size(
+    const MatrixSize & input_rows,
+    const MatrixSize & input_cols)
 {
   return input_rows * input_cols;
 }
 
-MatrixSize yann::ConvolutionalLayer::get_conv_output_rows(const MatrixSize & input_rows, const MatrixSize & filter_rows)
+MatrixSize yann::ConvolutionalLayer::get_conv_output_rows(
+    const MatrixSize & input_rows,
+    const MatrixSize & filter_rows)
 {
   return (input_rows - filter_rows + 1);
 }
-MatrixSize yann::ConvolutionalLayer::get_conv_output_cols(const MatrixSize & input_cols, const MatrixSize & filter_cols)
+MatrixSize yann::ConvolutionalLayer::get_conv_output_cols(
+    const MatrixSize & input_cols,
+    const MatrixSize & filter_cols)
 {
   return (input_cols - filter_cols + 1);
 }
 MatrixSize yann::ConvolutionalLayer::get_conv_output_size(
-    const MatrixSize & input_rows, const MatrixSize & input_cols,
-    const MatrixSize & filter_rows, const MatrixSize & filter_cols)
+    const MatrixSize & input_rows,
+    const MatrixSize & input_cols,
+    const MatrixSize & filter_rows,
+    const MatrixSize & filter_cols)
 {
   return get_conv_output_rows(input_rows, filter_rows)
       * get_conv_output_cols(input_cols, filter_cols);
 }
 MatrixSize yann::ConvolutionalLayer::get_conv_output_size(
-    const MatrixSize & input_rows, const MatrixSize & input_cols,
+    const MatrixSize & input_rows,
+    const MatrixSize & input_cols,
     const MatrixSize & filter_size)
 {
   return get_conv_output_size(input_rows, input_cols, filter_size, filter_size);
 }
 
 MatrixSize yann::ConvolutionalLayer::get_full_conv_output_rows(
-    const MatrixSize & input_rows, const MatrixSize & filter_rows)
+    const MatrixSize & input_rows,
+    const MatrixSize & filter_rows)
 {
   return (input_rows + filter_rows - 1);
 }
 MatrixSize yann::ConvolutionalLayer::get_full_conv_output_cols(
-    const MatrixSize & input_cols, const MatrixSize & filter_cols)
+    const MatrixSize & input_cols,
+    const MatrixSize & filter_cols)
 {
   return (input_cols + filter_cols - 1);
 }
 MatrixSize yann::ConvolutionalLayer::get_full_conv_output_size(
-    const MatrixSize & input_rows, const MatrixSize & input_cols,
-    const MatrixSize & filter_rows, const MatrixSize & filter_cols)
+    const MatrixSize & input_rows,
+    const MatrixSize & input_cols,
+    const MatrixSize & filter_rows,
+    const MatrixSize & filter_cols)
 {
   return get_full_conv_output_rows(input_rows, filter_rows)
       * get_full_conv_output_cols(input_cols, filter_cols);
 }
 MatrixSize yann::ConvolutionalLayer::get_full_conv_output_size(
-    const MatrixSize & input_rows, const MatrixSize & input_cols,
+    const MatrixSize & input_rows,
+    const MatrixSize & input_cols,
     const MatrixSize & filter_size)
 {
-  return get_full_conv_output_size(input_rows, input_cols, filter_size,
-                                   filter_size);
+  return get_full_conv_output_size(
+      input_rows, input_cols,
+      filter_size, filter_size);
 }
 
-void yann::ConvolutionalLayer::plus_conv(const RefConstMatrix & input,
-                                         const RefConstMatrix & filter,
-                                         RefMatrix output,
-                                         bool clear_output)
+void yann::ConvolutionalLayer::plus_conv(
+    const RefConstMatrix & input,
+    const RefConstMatrix & filter,
+    RefMatrix output,
+    bool clear_output)
 {
-  BOOST_VERIFY(filter.rows() > 0);
-  BOOST_VERIFY(filter.cols() > 0);
-  BOOST_VERIFY(filter.rows() <= input.rows());
-  BOOST_VERIFY(filter.cols() <= input.cols());
+  YANN_CHECK_GT(filter.rows(), 0);
+  YANN_CHECK_GT(filter.cols(), 0);
+  YANN_CHECK_LE(filter.rows(), input.rows());
+  YANN_CHECK_LE(filter.cols(), input.cols());
 
   const auto input_rows = input.rows();
   const auto filter_rows = filter.rows();
@@ -204,8 +220,8 @@ void yann::ConvolutionalLayer::plus_conv(const RefConstMatrix & input,
     output.setZero();
   }
 
-  BOOST_VERIFY(output.rows() == output_rows);
-  BOOST_VERIFY(output.cols() == output_cols);
+  YANN_CHECK_EQ(output.rows(), output_rows);
+  YANN_CHECK_EQ(output.cols(), output_cols);
 
   // iterate through the input by rows
   MatrixSize filter_start_row = 0, filter_max_rows = 0;
@@ -234,27 +250,28 @@ void yann::ConvolutionalLayer::plus_conv(const RefConstMatrix & input,
   }
 }
 
-void yann::ConvolutionalLayer::plus_conv(const RefConstVectorBatch & input,
-                                    const MatrixSize & input_rows,
-                                    const MatrixSize & input_cols,
-                                    const RefConstMatrix & filter,
-                                    RefVectorBatch output,
-                                    bool clear_output)
+void yann::ConvolutionalLayer::plus_conv(
+    const RefConstVectorBatch & input,
+    const MatrixSize & input_rows,
+    const MatrixSize & input_cols,
+    const RefConstMatrix & filter,
+    RefVectorBatch output,
+    bool clear_output)
 {
-  BOOST_VERIFY(filter.rows() > 0);
-  BOOST_VERIFY(filter.cols() > 0);
-  BOOST_VERIFY(filter.rows() <= input_rows);
-  BOOST_VERIFY(filter.cols() <= input_cols);
-  BOOST_VERIFY(get_batch_size(input) > 0);
-  BOOST_VERIFY(get_batch_item_size(input) == input_rows * input_cols);
-  BOOST_VERIFY(get_batch_size(output) == get_batch_size(input));
+  YANN_CHECK_GT(filter.rows(), 0);
+  YANN_CHECK_GT(filter.cols(), 0);
+  YANN_CHECK_LE(filter.rows(), input_rows);
+  YANN_CHECK_LE(filter.cols(), input_cols);
+  YANN_CHECK_GT(get_batch_size(input), 0);
+  YANN_CHECK_EQ(get_batch_item_size(input), input_rows * input_cols);
+  YANN_CHECK_EQ(get_batch_size(output), get_batch_size(input));
 
   const auto filter_rows = filter.rows();
   const auto filter_cols = filter.cols();
   const auto output_rows = get_conv_output_rows(input_rows, filter_rows);
   const auto output_cols = get_conv_output_cols(input_cols, filter_cols);
   const auto batch_size = get_batch_size(input);
-  BOOST_VERIFY(get_batch_item_size(output) == output_rows * output_cols);
+  YANN_CHECK_EQ(get_batch_item_size(output), output_rows * output_cols);
 
   if(clear_output) {
     output.setZero();
@@ -271,12 +288,15 @@ void yann::ConvolutionalLayer::plus_conv(const RefConstVectorBatch & input,
   }
 }
 
-void yann::ConvolutionalLayer::full_conv(const RefConstMatrix & input, const RefConstMatrix & filter, RefMatrix output)
+void yann::ConvolutionalLayer::full_conv(
+    const RefConstMatrix & input,
+    const RefConstMatrix & filter,
+    RefMatrix output)
 {
-  BOOST_VERIFY(filter.rows() > 0);
-  BOOST_VERIFY(filter.cols() > 0);
-  BOOST_VERIFY(filter.rows() <= input.rows());
-  BOOST_VERIFY(filter.cols() <= input.cols());
+  YANN_CHECK_GT(filter.rows(), 0);
+  YANN_CHECK_GT(filter.cols(), 0);
+  YANN_CHECK_LE(filter.rows(), input.rows());
+  YANN_CHECK_LE(filter.cols(), input.cols());
 
   const auto input_rows = input.rows();
   const auto input_cols = input.cols();
@@ -285,8 +305,8 @@ void yann::ConvolutionalLayer::full_conv(const RefConstMatrix & input, const Ref
   const auto output_rows = get_full_conv_output_rows(input_rows, filter_rows);
   const auto output_cols = get_full_conv_output_cols(input_cols, filter_cols);
 
-  BOOST_VERIFY(output.rows() == output_rows);
-  BOOST_VERIFY(output.cols() == output_cols);
+  YANN_CHECK_EQ(output.rows(), output_rows);
+  YANN_CHECK_EQ(output.cols(), output_cols);
 
   // clear output
   output.setZero();
@@ -342,26 +362,27 @@ void yann::ConvolutionalLayer::full_conv(const RefConstMatrix & input, const Ref
   }
 }
 
-void yann::ConvolutionalLayer::full_conv(const RefConstVectorBatch & input,
-                                         const MatrixSize & input_rows,
-                                         const MatrixSize & input_cols,
-                                         const RefConstMatrix & filter,
-                                         RefVectorBatch output)
+void yann::ConvolutionalLayer::full_conv(
+    const RefConstVectorBatch & input,
+    const MatrixSize & input_rows,
+    const MatrixSize & input_cols,
+    const RefConstMatrix & filter,
+    RefVectorBatch output)
 {
-  BOOST_VERIFY(filter.rows() > 0);
-  BOOST_VERIFY(filter.cols() > 0);
-  BOOST_VERIFY(filter.rows() <= input_rows);
-  BOOST_VERIFY(filter.cols() <= input_cols);
-  BOOST_VERIFY(get_batch_size(input) > 0);
-  BOOST_VERIFY(get_batch_item_size(input) == input_rows * input_cols);
-  BOOST_VERIFY(get_batch_size(output) == get_batch_size(input));
+  YANN_CHECK_GT(filter.rows(), 0);
+  YANN_CHECK_GT(filter.cols(), 0);
+  YANN_CHECK_LE(filter.rows(), input_rows);
+  YANN_CHECK_LE(filter.cols(), input_cols);
+  YANN_CHECK_GT(get_batch_size(input), 0);
+  YANN_CHECK_EQ(get_batch_item_size(input), input_rows * input_cols);
+  YANN_CHECK_EQ(get_batch_size(output), get_batch_size(input));
 
   const auto filter_rows = filter.rows();
   const auto filter_cols = filter.cols();
   const auto output_rows = get_full_conv_output_rows(input_rows, filter_rows);
   const auto output_cols = get_full_conv_output_cols(input_cols, filter_cols);
   const auto batch_size = get_batch_size(input);
-  BOOST_VERIFY(get_batch_item_size(output) == output_rows * output_cols);
+  YANN_CHECK_EQ(get_batch_item_size(output), output_rows * output_cols);
 
   // ATTENTION: this code operates on raw Matrix.data() and might be broken
   // if Matrix.data() layout changes
@@ -393,16 +414,16 @@ unique_ptr<BroadcastLayer> yann::ConvolutionalLayer::create_conv_bcast_layer(
     const MatrixSize & filter_size,
     const unique_ptr<ActivationFunction> & activation_function)
 {
-  BOOST_VERIFY(output_frames_num > 0);
+  YANN_CHECK_GT(output_frames_num, 0);
 
   auto bcast_layer = make_unique<BroadcastLayer>();
-  BOOST_VERIFY(bcast_layer);
+  YANN_CHECK(bcast_layer);
   for(auto ii = output_frames_num; ii > 0; --ii) {
     auto conv_layer = make_unique<ConvolutionalLayer>(
         input_rows,
         input_cols,
         filter_size);
-    BOOST_VERIFY(conv_layer);
+    YANN_CHECK(conv_layer);
 
     if(activation_function) {
       conv_layer->set_activation_function(activation_function);
@@ -413,9 +434,10 @@ unique_ptr<BroadcastLayer> yann::ConvolutionalLayer::create_conv_bcast_layer(
   return bcast_layer;
 }
 
-yann::ConvolutionalLayer::ConvolutionalLayer(const MatrixSize & input_rows,
-                                             const MatrixSize & input_cols,
-                                             const MatrixSize & filter_size) :
+yann::ConvolutionalLayer::ConvolutionalLayer(
+    const MatrixSize & input_rows,
+    const MatrixSize & input_cols,
+    const MatrixSize & filter_size) :
   _input_rows(input_rows),
   _input_cols(input_cols),
   _filter_size(filter_size),
@@ -423,25 +445,26 @@ yann::ConvolutionalLayer::ConvolutionalLayer(const MatrixSize & input_rows,
   _bb(1, 1),
   _activation_function(new SigmoidFunction())
 {
-  BOOST_VERIFY(input_rows >= filter_size);
-  BOOST_VERIFY(input_cols >= filter_size);
-  BOOST_VERIFY(filter_size > 0);
+  YANN_CHECK_GE(input_rows, filter_size);
+  YANN_CHECK_GE(input_cols, filter_size);
+  YANN_CHECK_GT(filter_size, 0);
 }
 
 yann::ConvolutionalLayer::~ConvolutionalLayer()
 {
 }
 
-void yann::ConvolutionalLayer::set_activation_function(const unique_ptr<ActivationFunction> & activation_function)
+void yann::ConvolutionalLayer::set_activation_function(
+    const unique_ptr<ActivationFunction> & activation_function)
 {
   _activation_function = activation_function->copy();
 }
 
 void yann::ConvolutionalLayer::set_values(const Matrix & ww, const Value & bb)
 {
-  BOOST_VERIFY(is_same_size(ww, _ww));
-  BOOST_VERIFY(_bb.rows() == 1);
-  BOOST_VERIFY(_bb.cols() == 1);
+  YANN_CHECK(is_same_size(ww, _ww));
+  YANN_CHECK_EQ(_bb.rows(), 1);
+  YANN_CHECK_EQ(_bb.cols(), 1);
   _ww = ww;
   _bb(0, 0) = bb;
 }
@@ -465,7 +488,7 @@ std::string yann::ConvolutionalLayer::get_name() const
 
 void yann::ConvolutionalLayer::print_info(std::ostream & os) const
 {
-  BOOST_VERIFY(is_valid());
+  YANN_CHECK(is_valid());
 
   Base::print_info(os);
 
@@ -520,11 +543,13 @@ MatrixSize yann::ConvolutionalLayer::get_output_cols() const
   return get_conv_output_cols(_input_cols, _filter_size);
 }
 
-unique_ptr<Layer::Context> yann::ConvolutionalLayer::create_context(const MatrixSize & batch_size) const
+unique_ptr<Layer::Context> yann::ConvolutionalLayer::create_context(
+    const MatrixSize & batch_size) const
 {
   return make_unique<ConvolutionalLayer_Context>(get_output_size(), batch_size);
 }
-unique_ptr<Layer::Context> yann::ConvolutionalLayer::create_context(const RefVectorBatch & output) const
+unique_ptr<Layer::Context> yann::ConvolutionalLayer::create_context(
+    const RefVectorBatch & output) const
 {
   return make_unique<ConvolutionalLayer_Context>(output);
 }
@@ -532,51 +557,57 @@ unique_ptr<Layer::Context> yann::ConvolutionalLayer::create_training_context(
     const MatrixSize & batch_size,
     const std::unique_ptr<Layer::Updater> & updater) const
 {
-  BOOST_VERIFY(updater);
-  BOOST_VERIFY(is_valid());
-  return make_unique<ConvolutionalLayer_TrainingContext>(updater, _filter_size, get_output_size(), batch_size);
+  YANN_CHECK(updater);
+  YANN_CHECK(is_valid());
+  return make_unique<ConvolutionalLayer_TrainingContext>(
+      updater, _filter_size, get_output_size(), batch_size);
 }
 unique_ptr<Layer::Context> yann::ConvolutionalLayer::create_training_context(
     const RefVectorBatch & output,
     const std::unique_ptr<Layer::Updater> & updater) const
 {
-  BOOST_VERIFY(updater);
-  BOOST_VERIFY(is_valid());
-  return make_unique<ConvolutionalLayer_TrainingContext>(updater, _filter_size, output);
+  YANN_CHECK(updater);
+  YANN_CHECK(is_valid());
+  return make_unique<ConvolutionalLayer_TrainingContext>(
+      updater, _filter_size, output);
 }
 
-void yann::ConvolutionalLayer::feedforward(const RefConstVectorBatch & input, Context * context, enum OperationMode mode) const
+void yann::ConvolutionalLayer::feedforward(
+    const RefConstVectorBatch & input,
+    Context * context,
+    enum OperationMode mode) const
 {
   auto ctx = dynamic_cast<ConvolutionalLayer_Context *>(context);
-  BOOST_VERIFY(ctx);
-  BOOST_VERIFY(is_valid());
-  BOOST_VERIFY(get_batch_size(input) == ctx->get_batch_size());
-  BOOST_VERIFY(get_batch_item_size(input) == get_input_size());
-  BOOST_VERIFY(_bb.rows() == 1);
-  BOOST_VERIFY(_bb.cols() == 1);
+  YANN_CHECK(ctx);
+  YANN_CHECK(is_valid());
+  YANN_CHECK_EQ(get_batch_size(input), ctx->get_batch_size());
+  YANN_CHECK_EQ(get_batch_item_size(input), get_input_size());
+  YANN_CHECK_EQ(_bb.rows(), 1);
+  YANN_CHECK_EQ(_bb.cols(), 1);
 
   // z(l) = a(l-1)*w(l) + b(l)
   plus_conv(input, _input_rows, _input_cols, _ww, ctx->_zz);
   ctx->_zz.array() += _bb(0, 0);
 
   // a(l) = activation(z(l))
-  BOOST_VERIFY(is_same_size(ctx->_zz, ctx->get_output()));
+  YANN_CHECK(is_same_size(ctx->_zz, ctx->get_output()));
   _activation_function->f(ctx->_zz, ctx->get_output(), mode);
 }
 
-void yann::ConvolutionalLayer::backprop(const RefConstVectorBatch & gradient_output,
-                                        const RefConstVectorBatch & input,
-                                        optional<RefVectorBatch> gradient_input,
-                                        Context * context) const
+void yann::ConvolutionalLayer::backprop(
+    const RefConstVectorBatch & gradient_output,
+    const RefConstVectorBatch & input,
+    optional<RefVectorBatch> gradient_input,
+    Context * context) const
 {
   auto ctx = dynamic_cast<ConvolutionalLayer_TrainingContext*>(context);
-  BOOST_VERIFY(ctx);
-  BOOST_VERIFY(is_valid());
-  BOOST_VERIFY(get_batch_size(gradient_output) > 0);
-  BOOST_VERIFY(get_batch_item_size(gradient_output) == get_output_size());
-  BOOST_VERIFY(get_batch_size(input) == get_batch_size(gradient_output));
-  BOOST_VERIFY(get_batch_item_size(input) == get_input_size());
-  BOOST_VERIFY(!gradient_input || is_same_size(input, *gradient_input));
+  YANN_CHECK(ctx);
+  YANN_CHECK(is_valid());
+  YANN_CHECK_GT(get_batch_size(gradient_output), 0);
+  YANN_CHECK_EQ(get_batch_item_size(gradient_output), get_output_size());
+  YANN_CHECK_EQ(get_batch_size(input), get_batch_size(gradient_output));
+  YANN_CHECK_EQ(get_batch_item_size(input), get_input_size());
+  YANN_CHECK(!gradient_input || is_same_size(input, *gradient_input));
 
   // just to make it easier to read
   const auto & zz = ctx->_zz;
@@ -587,8 +618,8 @@ void yann::ConvolutionalLayer::backprop(const RefConstVectorBatch & gradient_out
   const auto batch_size = get_batch_size(input);
 
   // delta(l) = elem_prod(gradient(C, a(l)), activation_derivative(z(l)))
-  BOOST_VERIFY(is_same_size(zz, sigma_derivative_zz));
-  BOOST_VERIFY(is_same_size(zz, gradient_output));
+  YANN_CHECK(is_same_size(zz, sigma_derivative_zz));
+  YANN_CHECK(is_same_size(zz, gradient_output));
   _activation_function->derivative(zz, sigma_derivative_zz);
   delta.array() = gradient_output.array() * sigma_derivative_zz.array();
 
@@ -597,7 +628,7 @@ void yann::ConvolutionalLayer::backprop(const RefConstVectorBatch & gradient_out
   // dC/db(l) = sum_elem(delta(l + 1))
   // ATTENTION: this code operates on raw Matrix.data() and might be broken
   // if Matrix.data() layout changes
-  BOOST_VERIFY(batch_size == get_batch_size(delta));
+  YANN_CHECK_EQ(batch_size,get_batch_size(delta));
   for (MatrixSize ii = 0; ii < batch_size; ++ii) {
     auto input_batch = get_batch(input, ii);
     auto delta_batch = get_batch(delta, ii);
@@ -605,8 +636,8 @@ void yann::ConvolutionalLayer::backprop(const RefConstVectorBatch & gradient_out
     MapConstMatrix delta_row(delta_batch.data(), get_output_rows(), get_output_cols());
     plus_conv(input_row, delta_row, delta_ww, false); // delta_ww += conv()
   }
-  BOOST_VERIFY(delta_bb.rows() == 1);
-  BOOST_VERIFY(delta_bb.cols() == 1);
+  YANN_CHECK_EQ(delta_bb.rows(), 1);
+  YANN_CHECK_EQ(delta_bb.cols(), 1);
   delta_bb(0, 0) += delta.array().sum();
 
   // we don't need to calculate the first gradient(C, a(l)) for the actual inputs
@@ -645,11 +676,11 @@ void yann::ConvolutionalLayer::init(enum InitMode mode)
 void yann::ConvolutionalLayer::update(Context * context, const size_t & batch_size)
 {
   auto ctx = dynamic_cast<ConvolutionalLayer_TrainingContext *>(context);
-  BOOST_VERIFY(ctx);
-  BOOST_VERIFY(ctx->_ww_updater);
-  BOOST_VERIFY(ctx->_bb_updater);
-  BOOST_VERIFY(is_same_size(_ww, ctx->_delta_ww));
-  BOOST_VERIFY(is_same_size(_bb, ctx->_delta_bb));
+  YANN_CHECK(ctx);
+  YANN_CHECK(ctx->_ww_updater);
+  YANN_CHECK(ctx->_bb_updater);
+  YANN_CHECK(is_same_size(_ww, ctx->_delta_ww));
+  YANN_CHECK(is_same_size(_bb, ctx->_delta_bb));
 
   ctx->_ww_updater->update(ctx->_delta_ww, batch_size, _ww);
   ctx->_bb_updater->update(ctx->_delta_bb, batch_size, _bb);
@@ -658,8 +689,8 @@ void yann::ConvolutionalLayer::update(Context * context, const size_t & batch_si
 // the format is (w:<weights>,b:<biases>)
 void yann::ConvolutionalLayer::read(std::istream & is)
 {
-  BOOST_VERIFY(_bb.rows() == 1);
-  BOOST_VERIFY(_bb.cols() == 1);
+  YANN_CHECK_EQ(_bb.rows(), 1);
+  YANN_CHECK_EQ(_bb.cols(), 1);
 
   Base::read(is);
 
@@ -712,8 +743,8 @@ void yann::ConvolutionalLayer::read(std::istream & is)
 // the format is (w:<weights>,b:<biases>)
 void yann::ConvolutionalLayer::write(std::ostream & os) const
 {
-  BOOST_VERIFY(_bb.rows() == 1);
-  BOOST_VERIFY(_bb.cols() == 1);
+  YANN_CHECK_EQ(_bb.rows(), 1);
+  YANN_CHECK_EQ(_bb.cols(), 1);
 
   Base::write(os);
   os << "(w:" << _ww << ",b:" << _bb(0, 0) << ")";

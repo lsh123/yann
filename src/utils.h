@@ -23,6 +23,54 @@
     print_debug(__FILE__, __LINE__, tmp.str()); \
   }
 
+// YANN_CHECKs are enabled by default
+#if defined (YANN_ENABLE_CHECKS) || ! defined (YANN_DISABLE_CHECKS)
+
+// TODO: replace BOOST_VERIFY
+#define YANN_CHECK( x )         BOOST_VERIFY ( x )
+#define YANN_CHECK_EQ( x, y )   BOOST_VERIFY ( (x) == (y) )
+#define YANN_CHECK_NE( x, y )   BOOST_VERIFY ( (x) != (y) )
+#define YANN_CHECK_LE( x, y )   BOOST_VERIFY ( (x) <= (y) )
+#define YANN_CHECK_LT( x, y )   BOOST_VERIFY ( (x) < (y) )
+#define YANN_CHECK_GE( x, y )   BOOST_VERIFY ( (x) >= (y) )
+#define YANN_CHECK_GT( x, y )   BOOST_VERIFY ( (x) > (y) )
+
+#else /* defined (YANN_ENABLE_CHECKS) || ! defined (YANN_DISABLE_CHECKS) */
+
+#define YANN_CHECK( x )
+#define YANN_CHECK_EQ( x, y )
+#define YANN_CHECK_NE( x, y )
+#define YANN_CHECK_LE( x, y )
+#define YANN_CHECK_LT( x, y )
+#define YANN_CHECK_GE( x, y )
+#define YANN_CHECK_GT( x, y )
+
+#endif /* defined (YANN_ENABLE_CHECKS) || ! defined (YANN_DISABLE_CHECKS) */
+
+// YANN_SLOW_CHECKs are disabled by default
+#if defined (YANN_ENABLE_SLOW_CHECKS) && ! defined (YANN_DISABLE_SLOW_CHECKS)
+
+#define YANN_SLOW_CHECK( x )         YANN_CHECK ( x )
+#define YANN_SLOW_CHECK_EQ( x, y )   YANN_CHECK_EQ ( x, y )
+#define YANN_SLOW_CHECK_NE( x, y )   YANN_CHECK_NE ( x, y )
+#define YANN_SLOW_CHECK_LE( x, y )   YANN_CHECK_LE ( x, y )
+#define YANN_SLOW_CHECK_LT( x, y )   YANN_CHECK_LT ( x, y )
+#define YANN_SLOW_CHECK_GE( x, y )   YANN_CHECK_GE ( x, y )
+#define YANN_SLOW_CHECK_GT( x, y )   YANN_CHECK_GT ( x, y )
+
+#else /* defined (YANN_ENABLE_SLOW_CHECKS) && ! defined (YANN_DISABLE_SLOW_CHECKS) */
+
+#define YANN_SLOW_CHECK( x )
+#define YANN_SLOW_CHECK_EQ( x, y )
+#define YANN_SLOW_CHECK_NE( x, y )
+#define YANN_SLOW_CHECK_LE( x, y )
+#define YANN_SLOW_CHECK_LT( x, y )
+#define YANN_SLOW_CHECK_GE( x, y )
+#define YANN_SLOW_CHECK_GT( x, y )
+
+#endif /* defined (YANN_ENABLE_SLOW_CHECKS) && ! defined (YANN_DISABLE_SLOW_CHECKS) */
+
+
 namespace yann {
 
 

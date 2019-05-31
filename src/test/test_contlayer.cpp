@@ -86,8 +86,8 @@ BOOST_AUTO_TEST_CASE(BroadcastLayer_FeedForward_Test)
   const MatrixSize batch_size = 2;
 
   auto layer = create_bcast_layer(input_size, output_frames_num);
-  BOOST_VERIFY(layer->get_input_size() == input_size); // one input frame
-  BOOST_VERIFY(layer->get_output_size() == 1 * output_frames_num); // 1 output per AvgLayer
+  YANN_CHECK_EQ(layer->get_input_size(), input_size); // one input frame
+  YANN_CHECK_EQ(layer->get_output_size(), 1 * output_frames_num); // 1 output per AvgLayer
 
   VectorBatch input, expected;
   resize_batch(input, batch_size, layer->get_input_size());
@@ -103,7 +103,7 @@ BOOST_AUTO_TEST_CASE(BroadcastLayer_FeedForward_Test)
   // Test writing output to the internal buffer
   {
     auto ctx = layer->create_context(batch_size);
-    BOOST_VERIFY (ctx);
+    YANN_CHECK (ctx);
     {
       // ensure we don't do allocations in eigen
       BlockAllocations block;
@@ -118,7 +118,7 @@ BOOST_AUTO_TEST_CASE(BroadcastLayer_FeedForward_Test)
     VectorBatch output;
     resize_batch(output, batch_size, layer->get_output_size());
     auto ctx = layer->create_context(output);
-    BOOST_VERIFY (ctx);
+    YANN_CHECK (ctx);
     {
       // ensure we don't do allocations in eigen
       BlockAllocations block;
@@ -140,8 +140,8 @@ BOOST_AUTO_TEST_CASE(BroadcastLayer_Backprop_Test)
   const size_t epochs = 10;
 
   auto layer = create_bcast_layer(input_size, output_frames_num);
-  BOOST_VERIFY(layer->get_input_size() == input_size); // one input frame
-  BOOST_VERIFY(layer->get_output_size() == 1 * output_frames_num); // 1 output per AvgLayer
+  YANN_CHECK_EQ(layer->get_input_size(), input_size); // one input frame
+  YANN_CHECK_EQ(layer->get_output_size(), 1 * output_frames_num); // 1 output per AvgLayer
 
   VectorBatch input, input_expected, expected;
   resize_batch(input, batch_size, layer->get_input_size());
@@ -221,8 +221,8 @@ BOOST_AUTO_TEST_CASE(ParallelLayer_FeedForward_Test)
   const MatrixSize batch_size = 2;
 
   auto layer = create_parallel_layer(input_size, frames_num);
-  BOOST_VERIFY(layer->get_input_size() == input_size * frames_num); // 1 output per AvgLayer
-  BOOST_VERIFY(layer->get_output_size() == 1 * frames_num); // 1 output per AvgLayer
+  YANN_CHECK_EQ(layer->get_input_size(), input_size * frames_num); // 1 output per AvgLayer
+  YANN_CHECK_EQ(layer->get_output_size(), 1 * frames_num); // 1 output per AvgLayer
 
   VectorBatch input, expected;
   resize_batch(input, batch_size, layer->get_input_size());
@@ -240,7 +240,7 @@ BOOST_AUTO_TEST_CASE(ParallelLayer_FeedForward_Test)
   // Test writing output to the internal buffer
   {
     auto ctx = layer->create_context(batch_size);
-    BOOST_VERIFY (ctx);
+    YANN_CHECK (ctx);
     {
       // ensure we don't do allocations in eigen
       BlockAllocations block;
@@ -255,7 +255,7 @@ BOOST_AUTO_TEST_CASE(ParallelLayer_FeedForward_Test)
     VectorBatch output;
     resize_batch(output, batch_size, layer->get_output_size());
     auto ctx = layer->create_context(output);
-    BOOST_VERIFY (ctx);
+    YANN_CHECK (ctx);
     {
       // ensure we don't do allocations in eigen
       BlockAllocations block;
@@ -275,8 +275,8 @@ BOOST_AUTO_TEST_CASE(ParallelLayer_Backprop_Test)
   const MatrixSize batch_size = 2;
 
   auto layer = create_parallel_layer(input_size, frames_num);
-  BOOST_VERIFY(layer->get_input_size() ==  input_size * frames_num); // 1 input per AvgLayer
-  BOOST_VERIFY(layer->get_output_size() == 1 * frames_num); // 1 output per AvgLayer
+  YANN_CHECK_EQ(layer->get_input_size(),  input_size * frames_num); // 1 input per AvgLayer
+  YANN_CHECK_EQ(layer->get_output_size(), 1 * frames_num); // 1 output per AvgLayer
 
   VectorBatch input, input_expected, expected;
   resize_batch(input, batch_size, layer->get_input_size());
@@ -338,10 +338,10 @@ BOOST_AUTO_TEST_CASE(MergeLayer_FeedForward_Test)
   const MatrixSize batch_size = 2;
 
   auto layer = make_unique<MergeLayer>(input_frames_num);
-  BOOST_VERIFY(layer);
+  YANN_CHECK(layer);
   layer->append_layer(make_unique<AvgLayer>(input_size));
-  BOOST_VERIFY(layer->get_input_size() == input_size * input_frames_num); //
-  BOOST_VERIFY(layer->get_output_size() == 1 * 1); // 1 output for AvgLayer and for MergeLayer
+  YANN_CHECK_EQ(layer->get_input_size(), input_size * input_frames_num); //
+  YANN_CHECK_EQ(layer->get_output_size(), 1 * 1); // 1 output for AvgLayer and for MergeLayer
 
   VectorBatch input, expected;
   resize_batch(input, batch_size, layer->get_input_size());
@@ -359,7 +359,7 @@ BOOST_AUTO_TEST_CASE(MergeLayer_FeedForward_Test)
   // Test writing output to the internal buffer
   {
     std::unique_ptr<Layer::Context> ctx = layer->create_context(batch_size);
-    BOOST_VERIFY (ctx);
+    YANN_CHECK (ctx);
     {
       // ensure we don't do allocations in eigen
       BlockAllocations block;
@@ -374,7 +374,7 @@ BOOST_AUTO_TEST_CASE(MergeLayer_FeedForward_Test)
     VectorBatch output;
     resize_batch(output, batch_size, layer->get_output_size());
     std::unique_ptr<Layer::Context> ctx = layer->create_context(output);
-    BOOST_VERIFY (ctx);
+    YANN_CHECK (ctx);
     {
       // ensure we don't do allocations in eigen
       BlockAllocations block;
@@ -396,10 +396,10 @@ BOOST_AUTO_TEST_CASE(MergeLayer_Backprop_Test)
   const size_t epochs = 10;
 
   auto layer = make_unique<MergeLayer>(input_frames_num);
-  BOOST_VERIFY(layer);
+  YANN_CHECK(layer);
   layer->append_layer(make_unique<AvgLayer>(input_size));
-  BOOST_VERIFY(layer->get_input_size() == input_size * input_frames_num); //
-  BOOST_VERIFY(layer->get_output_size() == 1 * 1); // 1 output for AvgLayer and for MergeLayer
+  YANN_CHECK_EQ(layer->get_input_size(), input_size * input_frames_num); //
+  YANN_CHECK_EQ(layer->get_output_size(), 1 * 1); // 1 output for AvgLayer and for MergeLayer
 
   VectorBatch input, input_expected, expected;
   resize_batch(input, batch_size, layer->get_input_size());

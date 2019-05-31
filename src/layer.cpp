@@ -7,7 +7,7 @@
 #include <stdexcept>
 
 #include "utils.h"
-#include "nnlayer.h"
+#include "layer.h"
 
 using namespace std;
 using namespace yann;

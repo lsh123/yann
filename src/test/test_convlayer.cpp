@@ -61,7 +61,7 @@ struct ConvolutionalLayerTestFixture
 
     ConvolutionalLayer * get_conv_layer()
     {
-      BOOST_VERIFY(get_layers_num() == 2); // we also have softmax layer
+      YANN_CHECK_EQ(get_layers_num(), 2); // we also have softmax layer
       return dynamic_cast<ConvolutionalLayer*>(get_layer(0));
     }
   }; // SimpleConvNetwork
@@ -757,7 +757,7 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_FeedForward_Test)
   // Test writing output to the internal buffer
   {
     std::unique_ptr<Layer::Context> ctx = layer.create_context(batch_size);
-    BOOST_VERIFY (ctx);
+    YANN_CHECK (ctx);
     {
          // ensure we don't do allocations in eigen
          BlockAllocations block;
@@ -772,7 +772,7 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_FeedForward_Test)
     VectorBatch output;
     resize_batch(output, batch_size, output_size);
     std::unique_ptr<Layer::Context> ctx = layer.create_context(output);
-    BOOST_VERIFY (ctx);
+    YANN_CHECK (ctx);
     {
          // ensure we don't do allocations in eigen
          BlockAllocations block;
@@ -963,7 +963,7 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_Training_Test)
    // first calculate with zero ww's and b's: the output should be the same
   expected0.setConstant(0.25);
   std::unique_ptr<Context> ctx = net.create_context(outputs);
-  BOOST_VERIFY(ctx);
+  YANN_CHECK(ctx);
   {
       // ensure we don't do allocations in eigen
       BlockAllocations block;
@@ -977,7 +977,7 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_Training_Test)
 
   auto training_ctx = net.create_training_context(
       outputs, make_unique<Updater_GradientDescent>(learning_rate, 0.0));
-  BOOST_VERIFY(training_ctx);
+  YANN_CHECK(training_ctx);
   {
     // ensure we don't do allocations in eigen
     BlockAllocations block;

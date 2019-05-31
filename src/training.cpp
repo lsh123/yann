@@ -7,9 +7,9 @@
 #include <string>
 
 #include "utils.h"
-#include "nn.h"
-#include "nnlayer.h"
-#include "nntraining.h"
+#include "layer.h"
+
+#include "training.h"
 
 using namespace std;
 using namespace yann;

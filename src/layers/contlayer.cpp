@@ -31,19 +31,19 @@ yann::ContainerLayer::~ContainerLayer()
 
 const Layer * yann::ContainerLayer::get_layer(const size_t & pos) const
 {
-  BOOST_VERIFY(pos < _layers.size());
+  YANN_CHECK_LT(pos,_layers.size());
   return _layers[pos].get();
 }
 
 Layer * yann::ContainerLayer::get_layer(const size_t & pos)
 {
-  BOOST_VERIFY(pos < _layers.size());
+  YANN_CHECK_LT(pos, _layers.size());
   return _layers[pos].get();
 }
 
 void yann::ContainerLayer::append_layer(std::unique_ptr<Layer> layer)
 {
-  BOOST_VERIFY(layer);
+  YANN_CHECK(layer);
   _layers.push_back(std::move(layer));
 }
 
@@ -86,7 +86,7 @@ bool yann::ContainerLayer::is_equal(const Layer & other, double tolerance) const
 
 void yann::ContainerLayer::init(enum InitMode mode)
 {
-  BOOST_VERIFY(is_valid());
+  YANN_CHECK(is_valid());
   for(auto & layer: _layers) {
     layer->init(mode);
   }
@@ -164,7 +164,7 @@ public:
 
   inline  void append_context(std::unique_ptr<Layer::Context> context)
   {
-    BOOST_VERIFY(_contexts.empty() || _contexts.back()->get_batch_size() == context->get_batch_size());
+    YANN_CHECK(_contexts.empty() || _contexts.back()->get_batch_size() == context->get_batch_size());
     _contexts.push_back(std::move(context));
   }
 
@@ -174,12 +174,12 @@ public:
   }
   inline Layer::Context * get_context(const size_t & pos)
   {
-    BOOST_VERIFY(pos < _contexts.size());
+    YANN_CHECK_LT(pos, _contexts.size());
     return _contexts[pos].get();
   }
   inline const Layer::Context * get_context(const size_t & pos) const
   {
-    BOOST_VERIFY(pos < _contexts.size());
+    YANN_CHECK_LT(pos, _contexts.size());
     return _contexts[pos].get();
   }
 
@@ -232,7 +232,7 @@ public:
 
   inline VectorBatch & output_gradient(size_t pos)
   {
-    BOOST_VERIFY(pos < _output_gradients.size());
+    YANN_CHECK_LT(pos, _output_gradients.size());
     return _output_gradients[pos];
   }
 
@@ -271,7 +271,7 @@ void yann::SequentialLayer::print_info(std::ostream & os) const
     os << ": (";
     for(size_t ii = 0; ii < get_layers_num(); ++ii) {
       auto layer = get_layer(ii);
-      BOOST_VERIFY(layer);
+      YANN_CHECK(layer);
       if(ii > 0) {
         os << "; ";
       }
@@ -295,23 +295,23 @@ MatrixSize yann::SequentialLayer::get_output_size() const
 // prev output is input to the next
 void yann::SequentialLayer::append_layer(std::unique_ptr<Layer> layer)
 {
-  BOOST_VERIFY(layer);
-  BOOST_VERIFY(get_layers_num() == 0 || get_output_size() == layer->get_input_size());
+  YANN_CHECK(layer);
+  YANN_CHECK(get_layers_num() == 0 || get_output_size() == layer->get_input_size());
 
   Base::append_layer(std::move(layer));
 }
 
 unique_ptr<Layer::Context> yann::SequentialLayer::create_context(const MatrixSize & batch_size) const
 {
-  BOOST_VERIFY(is_valid());
-  BOOST_VERIFY(batch_size > 0);
+  YANN_CHECK(is_valid());
+  YANN_CHECK_GT(batch_size, 0);
 
   auto ctx = make_unique<SequentialLayer_Context>(get_output_size(), batch_size);
-  BOOST_VERIFY(ctx);
+  YANN_CHECK(ctx);
 
   for(size_t ii = 0; ii < get_layers_num(); ++ii) {
     auto layer = get_layer(ii);
-    BOOST_VERIFY(layer);
+    YANN_CHECK(layer);
 
     // the last context should point to the shared buffer
     if(ii + 1 < get_layers_num()) {
@@ -327,17 +327,17 @@ unique_ptr<Layer::Context> yann::SequentialLayer::create_context(const MatrixSiz
 
 unique_ptr<Layer::Context> yann::SequentialLayer::create_context(const RefVectorBatch & output) const
 {
-  BOOST_VERIFY(is_valid());
-  BOOST_VERIFY(get_batch_size(output) > 0);
-  BOOST_VERIFY(get_batch_item_size(output) > 0);
+  YANN_CHECK(is_valid());
+  YANN_CHECK_GT(get_batch_size(output), 0);
+  YANN_CHECK_GT(get_batch_item_size(output), 0);
 
   auto ctx = make_unique<SequentialLayer_Context>(output);
-  BOOST_VERIFY(ctx);
+  YANN_CHECK(ctx);
 
   auto batch_size = get_batch_size(output);
   for(size_t ii = 0; ii < get_layers_num(); ++ii) {
     auto layer = get_layer(ii);
-    BOOST_VERIFY(layer);
+    YANN_CHECK(layer);
 
     // the last context should point to the shared buffer
     if(ii + 1 < get_layers_num()) {
@@ -353,16 +353,16 @@ unique_ptr<Layer::Context> yann::SequentialLayer::create_context(const RefVector
 
 unique_ptr<Layer::Context> yann::SequentialLayer::create_training_context(const MatrixSize & batch_size, const std::unique_ptr<Layer::Updater> & updater) const
 {
-  BOOST_VERIFY(is_valid());
-  BOOST_VERIFY(batch_size > 0);
+  YANN_CHECK(is_valid());
+  YANN_CHECK_GT(batch_size, 0);
 
   auto ctx = make_unique<SequentialLayer_TrainingContext>(get_output_size(), batch_size, get_layers_num());
-  BOOST_VERIFY(ctx);
-  BOOST_VERIFY(ctx->output_gradients().size() == get_layers_num());
+  YANN_CHECK(ctx);
+  YANN_CHECK_EQ(ctx->output_gradients().size(), get_layers_num());
 
   for(size_t ii = 0; ii < get_layers_num(); ++ii) {
     auto layer = get_layer(ii);
-    BOOST_VERIFY(layer);
+    YANN_CHECK(layer);
 
     // the last context should point to the shared buffer
     if(ii + 1 < get_layers_num()) {
@@ -381,18 +381,18 @@ unique_ptr<Layer::Context> yann::SequentialLayer::create_training_context(const 
 
 unique_ptr<Layer::Context> yann::SequentialLayer::create_training_context(const RefVectorBatch & output, const std::unique_ptr<Layer::Updater> & updater) const
 {
-  BOOST_VERIFY(is_valid());
-  BOOST_VERIFY(get_batch_size(output) > 0);
-  BOOST_VERIFY(get_batch_item_size(output) > 0);
+  YANN_CHECK(is_valid());
+  YANN_CHECK_GT(get_batch_size(output), 0);
+  YANN_CHECK_GT(get_batch_item_size(output), 0);
 
   auto ctx = make_unique<SequentialLayer_TrainingContext>(output, get_layers_num());
-  BOOST_VERIFY(ctx);
-  BOOST_VERIFY(ctx->output_gradients().size() == get_layers_num());
+  YANN_CHECK(ctx);
+  YANN_CHECK_EQ(ctx->output_gradients().size(), get_layers_num());
 
   auto batch_size = get_batch_size(output);
   for(size_t ii = 0; ii < get_layers_num(); ++ii) {
     auto layer = get_layer(ii);
-    BOOST_VERIFY(layer);
+    YANN_CHECK(layer);
 
     // the last context should point to the shared buffer
     if(ii + 1 < get_layers_num()) {
@@ -412,10 +412,10 @@ unique_ptr<Layer::Context> yann::SequentialLayer::create_training_context(const 
 void yann::SequentialLayer::feedforward(const RefConstVectorBatch & input, Layer::Context * context, enum OperationMode mode) const
 {
   auto ctx = dynamic_cast<SequentialLayer_Context *>(context);
-  BOOST_VERIFY(ctx);
-  BOOST_VERIFY(is_valid());
-  BOOST_VERIFY(get_layers_num() == ctx->get_contexts_num());
-  BOOST_VERIFY(get_batch_size(input) == ctx->get_batch_size());
+  YANN_CHECK(ctx);
+  YANN_CHECK(is_valid());
+  YANN_CHECK_EQ(get_layers_num(), ctx->get_contexts_num());
+  YANN_CHECK_EQ(get_batch_size(input), ctx->get_batch_size());
 
   ////////////////////////////////////////////////////////////////////
   // Forward propagation, save intermediate state
@@ -440,15 +440,15 @@ void yann::SequentialLayer::backprop(const RefConstVectorBatch & gradient_output
                                      Layer::Context * context) const
 {
   auto ctx = dynamic_cast<SequentialLayer_TrainingContext *>(context);
-  BOOST_VERIFY(ctx);
-  BOOST_VERIFY(is_valid());
-  BOOST_VERIFY(get_layers_num() == ctx->get_contexts_num());
-  BOOST_VERIFY(get_batch_size(input) == ctx->get_batch_size());
-  BOOST_VERIFY(get_batch_size(input) == get_batch_size(gradient_output));
-  BOOST_VERIFY(get_batch_item_size(gradient_output) == get_output_size());
-  BOOST_VERIFY(!gradient_input || is_same_size(input, *gradient_input));
-  BOOST_VERIFY(get_layers_num() == ctx->get_contexts_num());
-  BOOST_VERIFY(get_layers_num() > 0);
+  YANN_CHECK(ctx);
+  YANN_CHECK(is_valid());
+  YANN_CHECK_EQ(get_layers_num(), ctx->get_contexts_num());
+  YANN_CHECK_EQ(get_batch_size(input), ctx->get_batch_size());
+  YANN_CHECK_EQ(get_batch_size(input), get_batch_size(gradient_output));
+  YANN_CHECK_EQ(get_batch_item_size(gradient_output), get_output_size());
+  YANN_CHECK(!gradient_input || is_same_size(input, *gradient_input));
+  YANN_CHECK_EQ(get_layers_num(),ctx->get_contexts_num());
+  YANN_CHECK_GT(get_layers_num(), 0);
 
   ////////////////////////////////////////////////////////////////////
   // Back propagation: push "gradient" from outputs to inputs
@@ -475,8 +475,8 @@ void yann::SequentialLayer::backprop(const RefConstVectorBatch & gradient_output
       layer->backprop(layer_gradient_out, input, gradient_input, layer_ctx);
     } else {
       // this is the case of one layer, both input and output come from outside
-      BOOST_VERIFY(ii == 1);
-      BOOST_VERIFY(get_layers_num() == 1);
+      YANN_SLOW_CHECK_EQ(ii, 1);
+      YANN_SLOW_CHECK_EQ(get_layers_num(), 1);
       layer->backprop(gradient_output, input, gradient_input, layer_ctx);
     }
   }
@@ -485,9 +485,9 @@ void yann::SequentialLayer::backprop(const RefConstVectorBatch & gradient_output
 void yann::SequentialLayer::update(yann::Layer::Context * context, const size_t & batch_size)
 {
   auto ctx = dynamic_cast<SequentialLayer_TrainingContext *>(context);
-  BOOST_VERIFY(ctx);
-  BOOST_VERIFY(is_valid());
-  BOOST_VERIFY(get_layers_num() == ctx->get_contexts_num());
+  YANN_CHECK(ctx);
+  YANN_CHECK(is_valid());
+  YANN_CHECK_EQ(get_layers_num(), ctx->get_contexts_num());
 
   size_t ii = 0;
   for(auto & layer: layers()) {
@@ -518,7 +518,7 @@ public:
     Base(output_size, batch_size),
     _contexts(layers_num)
   {
-    BOOST_VERIFY(layers_num > 0);
+    YANN_CHECK_GT(layers_num, 0);
   }
 
   MappingLayer_Context(const MatrixSize & layers_num,
@@ -526,7 +526,7 @@ public:
     Base(output),
     _contexts(layers_num)
   {
-    BOOST_VERIFY(layers_num > 0);
+    YANN_CHECK_GT(layers_num, 0);
   }
 
   inline void add_context(
@@ -534,7 +534,7 @@ public:
       const size_t & input_frame_num,
       std::unique_ptr<Layer::Context> context)
   {
-    BOOST_VERIFY(layer_num < _contexts.size());
+    YANN_CHECK_LT(layer_num, _contexts.size());
     _contexts[layer_num][input_frame_num] = std::move(context);
   }
 
@@ -542,9 +542,9 @@ public:
       const size_t & layer_num,
       const size_t & input_frame_num)
   {
-    BOOST_VERIFY(layer_num < _contexts.size());
+    YANN_CHECK_LT(layer_num, _contexts.size());
     auto it = _contexts[layer_num].find(input_frame_num);
-    BOOST_VERIFY(it != _contexts[layer_num].end());
+    YANN_CHECK_NE(it, _contexts[layer_num].end());
     return (*it).second.get();
   }
 
@@ -577,7 +577,7 @@ public:
                                const MatrixSize & batch_size) :
     Base(layers_num, output_size, batch_size)
   {
-    BOOST_VERIFY(one_input_size > 0);
+    YANN_CHECK_GT(one_input_size, 0);
     resize_batch(_gradient_input, batch_size, one_input_size);
   }
 
@@ -586,8 +586,8 @@ public:
                                const RefVectorBatch & output) :
     Base(layers_num, output)
   {
-    BOOST_VERIFY(one_input_size > 0);
-    BOOST_VERIFY(yann::get_batch_size(output) > 0);
+    YANN_CHECK_GT(one_input_size, 0);
+    YANN_CHECK_GT(yann::get_batch_size(output), 0);
     resize_batch(_gradient_input, yann::get_batch_size(output), one_input_size);
   }
 
@@ -606,7 +606,7 @@ protected:
 yann::MappingLayer::MappingLayer(const size_t & input_frames):
     _input_frames(input_frames)
 {
-  BOOST_VERIFY(input_frames > 0);
+  YANN_CHECK_GT(input_frames, 0);
 }
 
 yann::MappingLayer::~MappingLayer()
@@ -673,13 +673,13 @@ bool yann::MappingLayer::is_valid() const
 // all layers have same input and output sizes
 MatrixSize yann::MappingLayer::get_input_size() const
 {
-  BOOST_VERIFY(is_valid());
+  YANN_CHECK(is_valid());
   return _input_frames * get_layer(0)->get_input_size();
 }
 
 MatrixSize yann::MappingLayer::get_output_size() const
 {
-  BOOST_VERIFY(is_valid());
+  YANN_CHECK(is_valid());
   return get_layers_num() * get_layer(0)->get_output_size();
 }
 
@@ -687,11 +687,11 @@ MatrixSize yann::MappingLayer::get_output_size() const
 void yann::MappingLayer::append_layer(std::unique_ptr<Layer> layer, const InputsMapping & mapping)
 {
   // can't check validity here since it depends on the number of layers
-  BOOST_VERIFY(layer);
-  BOOST_VERIFY(!mapping.empty());
-  BOOST_VERIFY(*std::max_element(mapping.begin(), mapping.end()) < _input_frames);
-  BOOST_VERIFY(get_layers_num() == 0 || get_layer(0)->get_input_size() == layer->get_input_size());
-  BOOST_VERIFY(get_layers_num() == 0 || get_layer(0)->get_output_size() == layer->get_output_size());
+  YANN_CHECK(layer);
+  YANN_CHECK(!mapping.empty());
+  YANN_CHECK_LT(*std::max_element(mapping.begin(), mapping.end()), _input_frames);
+  YANN_CHECK(get_layers_num() == 0 || get_layer(0)->get_input_size() == layer->get_input_size());
+  YANN_CHECK(get_layers_num() == 0 || get_layer(0)->get_output_size() == layer->get_output_size());
 
   Base::append_layer(std::move(layer));
   _mappings.push_back(mapping);
@@ -706,12 +706,12 @@ void yann::MappingLayer::append_layer(std::unique_ptr<Layer> layer)
 template<typename InputType>
 InputType yann::MappingLayer::get_input_block(InputType input, const size_t & input_frame, const MatrixSize & input_size) const
 {
-  BOOST_VERIFY(get_batch_item_size(input) == get_input_size());
-  BOOST_VERIFY(input_frame < _input_frames);
+  YANN_CHECK_EQ(get_batch_item_size(input), get_input_size());
+  YANN_CHECK_LT(input_frame, _input_frames);
 
   auto batch_size = get_batch_size(input);
   MatrixSize input_pos = input_size * input_frame;
-  BOOST_VERIFY(input_pos + input_size <= get_input_size());
+  YANN_CHECK_LE(input_pos + input_size, get_input_size());
   return input.block(0, input_pos, batch_size, input_size); // Assumes RowMajor layout
 }
 
@@ -719,19 +719,19 @@ InputType yann::MappingLayer::get_input_block(InputType input, const size_t & in
 template<typename OutputType>
 OutputType yann::MappingLayer::get_output_block(OutputType output, MatrixSize & output_pos, const MatrixSize & output_size) const
 {
-  BOOST_VERIFY(get_batch_item_size(output) == get_output_size());
+  YANN_CHECK_EQ(get_batch_item_size(output), get_output_size());
 
   auto batch_size = get_batch_size(output);
   auto cur_output_pos = output_pos;
   output_pos += output_size;
-  BOOST_VERIFY(output_pos <= get_output_size());
+  YANN_CHECK_LE(output_pos, get_output_size());
   return output.block(0, cur_output_pos, batch_size, output_size); // Assumes RowMajor layout
 }
 
 unique_ptr<Layer::Context> yann::MappingLayer::create_context(const MatrixSize & batch_size) const
 {
-  BOOST_VERIFY(is_valid());
-  BOOST_VERIFY(batch_size > 0);
+  YANN_CHECK(is_valid());
+  YANN_CHECK_GT(batch_size, 0);
 
   auto ctx = make_unique<MappingLayer_Context>(
       get_layers_num(),
@@ -748,16 +748,16 @@ unique_ptr<Layer::Context> yann::MappingLayer::create_context(const MatrixSize &
     }
     ++layer_num;
   }
-  BOOST_VERIFY(output_pos == get_output_size());
+  YANN_CHECK_EQ(output_pos, get_output_size());
 
   return ctx;
 }
 
 unique_ptr<Layer::Context> yann::MappingLayer::create_context(const RefVectorBatch & output) const
 {
-  BOOST_VERIFY(is_valid());
-  BOOST_VERIFY(get_batch_size(output) > 0);
-  BOOST_VERIFY(get_batch_item_size(output) > 0);
+  YANN_CHECK(is_valid());
+  YANN_CHECK_GT(get_batch_size(output), 0);
+  YANN_CHECK_GT(get_batch_item_size(output), 0);
 
   auto ctx = make_unique<MappingLayer_Context>(
       get_layers_num(),
@@ -773,14 +773,14 @@ unique_ptr<Layer::Context> yann::MappingLayer::create_context(const RefVectorBat
     }
     ++layer_num;
   }
-  BOOST_VERIFY(output_pos == get_output_size());
+  YANN_CHECK_EQ(output_pos, get_output_size());
 
   return ctx;
 }
 unique_ptr<Layer::Context> yann::MappingLayer::create_training_context(const MatrixSize & batch_size, const std::unique_ptr<Layer::Updater> & updater) const
 {
-  BOOST_VERIFY(is_valid());
-  BOOST_VERIFY(batch_size > 0);
+  YANN_CHECK(is_valid());
+  YANN_CHECK_GT(batch_size, 0);
 
   auto one_input_size = get_layer(0)->get_input_size();
   auto ctx = make_unique<MappingLayer_TrainingContext>(
@@ -800,15 +800,15 @@ unique_ptr<Layer::Context> yann::MappingLayer::create_training_context(const Mat
     }
     ++layer_num;
   }
-  BOOST_VERIFY(output_pos == get_output_size());
+  YANN_CHECK_EQ(output_pos, get_output_size());
 
   return ctx;
 }
 unique_ptr<Layer::Context> yann::MappingLayer::create_training_context(const RefVectorBatch & output, const std::unique_ptr<Layer::Updater> & updater) const
 {
-  BOOST_VERIFY(is_valid());
-  BOOST_VERIFY(get_batch_size(output) > 0);
-  BOOST_VERIFY(get_batch_item_size(output) > 0);
+  YANN_CHECK(is_valid());
+  YANN_CHECK_GT(get_batch_size(output), 0);
+  YANN_CHECK_GT(get_batch_item_size(output), 0);
 
   auto one_input_size = get_layer(0)->get_input_size();
   auto ctx = make_unique<MappingLayer_TrainingContext>(
@@ -827,7 +827,7 @@ unique_ptr<Layer::Context> yann::MappingLayer::create_training_context(const Ref
     }
     ++layer_num;
   }
-  BOOST_VERIFY(output_pos == get_output_size());
+  YANN_CHECK_EQ(output_pos, get_output_size());
 
   return ctx;
 }
@@ -838,10 +838,10 @@ void yann::MappingLayer::feedforward(
     enum OperationMode mode) const
 {
   auto ctx = dynamic_cast<MappingLayer_Context *>(context);
-  BOOST_VERIFY(ctx);
-  BOOST_VERIFY(is_valid());
-  BOOST_VERIFY(get_batch_size(input) == ctx->get_batch_size());
-  BOOST_VERIFY(get_batch_item_size(input) == get_input_size());
+  YANN_CHECK(ctx);
+  YANN_CHECK(is_valid());
+  YANN_CHECK_EQ(get_batch_size(input), ctx->get_batch_size());
+  YANN_CHECK_EQ(get_batch_item_size(input), get_input_size());
 
   if(mode == Operation_Assign) {
     ctx->get_output().setZero();
@@ -866,16 +866,16 @@ void yann::MappingLayer::backprop(
     Layer::Context * context) const
 {
   auto ctx = dynamic_cast<MappingLayer_TrainingContext *>(context);
-  BOOST_VERIFY(ctx);
+  YANN_CHECK(ctx);
 
-  BOOST_VERIFY(is_valid());
-  BOOST_VERIFY(get_batch_size(gradient_output) > 0);
-  BOOST_VERIFY(get_batch_item_size(gradient_output) == get_output_size());
-  BOOST_VERIFY(get_batch_size(input) == get_batch_size(gradient_output));
-  BOOST_VERIFY(get_batch_item_size(input) == get_input_size());
-  BOOST_VERIFY(get_batch_item_size(input) == get_input_size());
-  BOOST_VERIFY(!gradient_input || is_same_size(input, *gradient_input));
-  BOOST_VERIFY(get_layers_num() > 0);
+  YANN_CHECK(is_valid());
+  YANN_CHECK_GT(get_batch_size(gradient_output), 0);
+  YANN_CHECK_EQ(get_batch_item_size(gradient_output), get_output_size());
+  YANN_CHECK_EQ(get_batch_size(input), get_batch_size(gradient_output));
+  YANN_CHECK_EQ(get_batch_item_size(input), get_input_size());
+  YANN_CHECK_EQ(get_batch_item_size(input), get_input_size());
+  YANN_CHECK(!gradient_input || is_same_size(input, *gradient_input));
+  YANN_CHECK_GT(get_layers_num(), 0);
 
   // we don't need to calculate the gradient(C, a(l)) for the "first" layer (actual inputs)
   if(gradient_input) {
@@ -895,7 +895,7 @@ void yann::MappingLayer::backprop(
       auto input_block = get_input_block(input, input_frame, layer->get_input_size());
       if(gradient_input) {
         auto gradient_input_block = get_input_block((*gradient_input), input_frame, layer->get_input_size());
-        BOOST_VERIFY(is_same_size(gradient_input_block, ctx->_gradient_input));
+        YANN_CHECK(is_same_size(gradient_input_block, ctx->_gradient_input));
 
         layer->backprop(gradient_out, input_block, optional<RefVectorBatch>(ctx->_gradient_input), layer_ctx);
         gradient_input_block.noalias() += (ctx->_gradient_input) / ((Value)inputs_num);
@@ -905,14 +905,14 @@ void yann::MappingLayer::backprop(
     }
     ++layer_num;
   }
-  BOOST_VERIFY(gradient_output_pos == get_output_size());
+  YANN_CHECK_EQ(gradient_output_pos, get_output_size());
 }
 
 void yann::MappingLayer::update(yann::Layer::Context * context, const size_t & batch_size)
 {
   auto ctx = dynamic_cast<MappingLayer_TrainingContext *>(context);
-  BOOST_VERIFY(ctx);
-  BOOST_VERIFY(is_valid());
+  YANN_CHECK(ctx);
+  YANN_CHECK(is_valid());
 
   size_t layer_num = 0;
   for(auto & layer: layers()) {
@@ -973,7 +973,7 @@ std::string yann::ParallelLayer::get_name() const
 // Kth input goes to Kth output
 void yann::ParallelLayer::append_layer(std::unique_ptr<Layer> layer)
 {
-  BOOST_VERIFY(get_layers_num() < get_input_frames_num());
+  YANN_CHECK_LT(get_layers_num(), get_input_frames_num());
   Base::append_layer(std::move(layer), {get_layers_num()} );
 }
 
@@ -1000,7 +1000,7 @@ std::string yann::MergeLayer::get_name() const
 // We have only one output / layer
 void yann::MergeLayer::append_layer(std::unique_ptr<Layer> layer)
 {
-  BOOST_VERIFY(get_layers_num() == 0); // only one output/layer is allowed
+  YANN_CHECK_EQ(get_layers_num(), 0); // only one output/layer is allowed
 
   // all inputs into one output
   InputsMapping mappings(get_input_frames_num());

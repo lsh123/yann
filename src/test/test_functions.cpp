@@ -48,8 +48,8 @@ struct FunctionsTestFixture
 
   void softmax_vector(const RefConstVector & input, RefVector output, const Value & beta)
   {
-    BOOST_VERIFY(is_same_size(input, output));
-    BOOST_VERIFY(input.rows() == 1); // RowMajor layout, breaks for ColMajor
+    YANN_CHECK(is_same_size(input, output));
+    YANN_CHECK_EQ(input.rows(), 1); // RowMajor layout, breaks for ColMajor
 
     Value max = input.maxCoeff(); // adjust the computations to avoid overflowing
     Value sum = exp((input.array() - max) * beta).sum();
@@ -58,7 +58,7 @@ struct FunctionsTestFixture
 
   void softmax(const RefConstMatrix & input, RefMatrix output, const Value & beta = 3.0)
   {
-    BOOST_VERIFY(is_same_size(input, output));
+    YANN_CHECK(is_same_size(input, output));
     for(MatrixSize ii = 0; ii < input.rows(); ++ii) {
       softmax_vector(input.row(ii), output.row(ii), beta);
     }
@@ -71,7 +71,7 @@ struct FunctionsTestFixture
       const size_t & epochs,
       bool use_softmax = false)
   {
-    BOOST_VERIFY(is_same_size(actual0, expected));
+    YANN_CHECK(is_same_size(actual0, expected));
 
     // setup
     Matrix delta, actual;
@@ -113,8 +113,8 @@ struct FunctionsTestFixture
       double learning_rate = 1.0, const size_t & epochs = 10,
       int alloc_check_flags = BlockAllocations::None)
   {
-    BOOST_VERIFY(input0.size() == output0.size());
-    BOOST_VERIFY(input0.size() == expected.size());
+    YANN_CHECK_EQ(input0.size(), output0.size());
+    YANN_CHECK_EQ(input0.size(), expected.size());
 
     // setup
     const size_t size = input0.size();

@@ -41,16 +41,16 @@ public:
                               const MatrixSize & batch_size) :
     Base(output_size, batch_size)
   {
-    BOOST_VERIFY(output_size > 0);
-    BOOST_VERIFY(batch_size > 0);
+    YANN_CHECK_GT(output_size, 0);
+    YANN_CHECK_GT(batch_size, 0);
     _zz.resize(get_batch_size(), get_output_size());
   }
 
   FullyConnectedLayer_Context(const RefVectorBatch & output) :
     Base(output)
   {
-    BOOST_VERIFY(yann::get_batch_size(output) > 0);
-    BOOST_VERIFY(yann::get_batch_item_size(output) > 0);
+    YANN_CHECK_GT(yann::get_batch_size(output), 0);
+    YANN_CHECK_GT(yann::get_batch_item_size(output), 0);
 
     _zz.resize(get_batch_size(), get_output_size());
   }
@@ -80,7 +80,7 @@ public:
     _ww_updater(updater->copy()),
     _bb_updater(updater->copy())
   {
-    BOOST_VERIFY(input_size > 0);
+    YANN_CHECK_GT(input_size, 0);
 
     _delta_ww.resize(input_size, get_output_size());
     _delta_bb.resize(get_output_size());
@@ -98,7 +98,7 @@ public:
     _ww_updater(updater->copy()),
     _bb_updater(updater->copy())
   {
-    BOOST_VERIFY(input_size > 0);
+    YANN_CHECK_GT(input_size, 0);
 
     _delta_ww.resize(input_size, get_output_size());
     _delta_bb.resize(get_output_size());
@@ -155,8 +155,8 @@ void yann::FullyConnectedLayer::set_activation_function(const unique_ptr<Activat
 
 void yann::FullyConnectedLayer::set_values(const Matrix & ww, const Vector & bb)
 {
-  BOOST_VERIFY(is_same_size(ww, _ww));
-  BOOST_VERIFY(is_same_size(bb, _bb));
+  YANN_CHECK(is_same_size(ww, _ww));
+  YANN_CHECK(is_same_size(bb, _bb));
   _ww = ww;
   _bb = bb;
 }
@@ -180,7 +180,7 @@ std::string yann::FullyConnectedLayer::get_name() const
 
 void yann::FullyConnectedLayer::print_info(std::ostream & os) const
 {
-  BOOST_VERIFY(is_valid());
+  YANN_CHECK(is_valid());
 
   Base::print_info(os);
   os << " activation: " << _activation_function->get_name();
@@ -220,27 +220,27 @@ MatrixSize yann::FullyConnectedLayer::get_output_size() const
 
 unique_ptr<Layer::Context> yann::FullyConnectedLayer::create_context(const MatrixSize & batch_size) const
 {
-  BOOST_VERIFY(is_valid());
+  YANN_CHECK(is_valid());
   return make_unique<FullyConnectedLayer_Context>(get_output_size(), batch_size);
 }
 unique_ptr<Layer::Context> yann::FullyConnectedLayer::create_context(const RefVectorBatch & output) const
 {
-  BOOST_VERIFY(is_valid());
+  YANN_CHECK(is_valid());
   return make_unique<FullyConnectedLayer_Context>(output);
 }
 unique_ptr<Layer::Context> yann::FullyConnectedLayer::create_training_context(
     const MatrixSize & batch_size, const std::unique_ptr<Layer::Updater> & updater) const
 {
-  BOOST_VERIFY(is_valid());
-  BOOST_VERIFY(updater);
+  YANN_CHECK(is_valid());
+  YANN_CHECK(updater);
   return make_unique<FullyConnectedLayer_TrainingContext>(
       updater, get_input_size(), get_output_size(), batch_size);
 }
 unique_ptr<Layer::Context> yann::FullyConnectedLayer::create_training_context(
     const RefVectorBatch & output, const std::unique_ptr<Layer::Updater> & updater) const
 {
-  BOOST_VERIFY(is_valid());
-  BOOST_VERIFY(updater);
+  YANN_CHECK(is_valid());
+  YANN_CHECK(updater);
   return make_unique<FullyConnectedLayer_TrainingContext>(
       updater, get_input_size(), output);
 }
@@ -248,17 +248,17 @@ unique_ptr<Layer::Context> yann::FullyConnectedLayer::create_training_context(
 void yann::FullyConnectedLayer::feedforward(const RefConstVectorBatch & input, Context * context, enum OperationMode mode) const
 {
   auto ctx = dynamic_cast<FullyConnectedLayer_Context *>(context);
-  BOOST_VERIFY(ctx);
-  BOOST_VERIFY(is_valid());
-  BOOST_VERIFY(get_batch_size(input) == ctx->get_batch_size());
-  BOOST_VERIFY(get_batch_item_size(input) == get_input_size());
+  YANN_CHECK(ctx);
+  YANN_CHECK(is_valid());
+  YANN_CHECK_EQ(get_batch_size(input), ctx->get_batch_size());
+  YANN_CHECK_EQ(get_batch_item_size(input), get_input_size());
 
   // z(l) = a(l-1)*w(l) + b(l)
   ctx->_zz.noalias() = YANN_FAST_MATRIX_PRODUCT(input, _ww);
   plus_batches(ctx->_zz, _bb);
 
   // a(l) = activation(z(l))
-  BOOST_VERIFY(is_same_size(ctx->_zz, ctx->get_output()));
+  YANN_CHECK(is_same_size(ctx->_zz, ctx->get_output()));
   _activation_function->f(ctx->_zz, ctx->get_output(), mode);
 }
 
@@ -268,14 +268,14 @@ void yann::FullyConnectedLayer::backprop(const RefConstVectorBatch & gradient_ou
                                          Context * context) const
 {
   auto ctx = dynamic_cast<FullyConnectedLayer_TrainingContext *>(context);
-  BOOST_VERIFY(ctx);
-  BOOST_VERIFY(is_valid());
-  BOOST_VERIFY(get_batch_size(gradient_output) > 0);
-  BOOST_VERIFY(get_batch_item_size(gradient_output) == get_output_size());
-  BOOST_VERIFY(get_batch_size(input) == get_batch_size(gradient_output));
-  BOOST_VERIFY(get_batch_item_size(input) == get_input_size());
-  BOOST_VERIFY(get_batch_item_size(input) == get_input_size());
-  BOOST_VERIFY(!gradient_input || is_same_size(input, *gradient_input));
+  YANN_CHECK(ctx);
+  YANN_CHECK(is_valid());
+  YANN_CHECK_GT(get_batch_size(gradient_output), 0);
+  YANN_CHECK_EQ(get_batch_item_size(gradient_output), get_output_size());
+  YANN_CHECK_EQ(get_batch_size(input), get_batch_size(gradient_output));
+  YANN_CHECK_EQ(get_batch_item_size(input), get_input_size());
+  YANN_CHECK_EQ(get_batch_item_size(input), get_input_size());
+  YANN_CHECK(!gradient_input || is_same_size(input, *gradient_input));
 
   // just to make it easier to read
   const auto & zz = ctx->_zz;
@@ -287,19 +287,19 @@ void yann::FullyConnectedLayer::backprop(const RefConstVectorBatch & gradient_ou
   const auto batch_size = get_batch_size(input);
 
   // delta(l) = elem_prod(gradient(C, a(l)), activation_derivative(z(l)))
-  BOOST_VERIFY(is_same_size(zz, sigma_derivative_zz));
-  BOOST_VERIFY(is_same_size(zz, gradient_output));
+  YANN_CHECK(is_same_size(zz, sigma_derivative_zz));
+  YANN_CHECK(is_same_size(zz, gradient_output));
   _activation_function->derivative(zz, sigma_derivative_zz);
   delta.array() = gradient_output.array() * sigma_derivative_zz.array();
 
   // update deltas
   // dC/db(l) = delta(l)
   // dC/dw(l) = a(l-1) * delta(l)
-  BOOST_VERIFY(collapse_vector.size() == get_batch_size(delta));
-  BOOST_VERIFY(delta_bb.size() == get_output_size());
-  BOOST_VERIFY(batch_size ==  get_batch_size(gradient_output));
-  BOOST_VERIFY(is_same_size(delta_ww, _ww));
-  BOOST_VERIFY(is_same_size(delta_bb, _bb));
+  YANN_CHECK_EQ(collapse_vector.size(), get_batch_size(delta));
+  YANN_CHECK_EQ(delta_bb.size(), get_output_size());
+  YANN_CHECK_EQ(batch_size,  get_batch_size(gradient_output));
+  YANN_CHECK(is_same_size(delta_ww, _ww));
+  YANN_CHECK(is_same_size(delta_bb, _bb));
   delta_ww.noalias() += YANN_FAST_MATRIX_PRODUCT(input.transpose(), delta);
   delta_bb.noalias() += YANN_FAST_MATRIX_PRODUCT(collapse_vector, delta);
 
@@ -338,11 +338,11 @@ void yann::FullyConnectedLayer::init(enum InitMode mode)
 void yann::FullyConnectedLayer::update(Context * context, const size_t & batch_size)
 {
   auto ctx = dynamic_cast<FullyConnectedLayer_TrainingContext *>(context);
-  BOOST_VERIFY(ctx);
-  BOOST_VERIFY(ctx->_ww_updater);
-  BOOST_VERIFY(ctx->_bb_updater);
-  BOOST_VERIFY(is_same_size(_ww, ctx->_delta_ww));
-  BOOST_VERIFY(is_same_size(_bb, ctx->_delta_bb));
+  YANN_CHECK(ctx);
+  YANN_CHECK(ctx->_ww_updater);
+  YANN_CHECK(ctx->_bb_updater);
+  YANN_CHECK(is_same_size(_ww, ctx->_delta_ww));
+  YANN_CHECK(is_same_size(_bb, ctx->_delta_bb));
 
   ctx->_ww_updater->update(ctx->_delta_ww, batch_size, _ww);
   ctx->_bb_updater->update(ctx->_delta_bb, batch_size, _bb);

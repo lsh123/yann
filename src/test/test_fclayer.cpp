@@ -89,7 +89,7 @@ BOOST_AUTO_TEST_CASE(FullyConnectedLayer_FeedForward_Test)
   // Test writing output to the internal buffer
   {
     std::unique_ptr<Layer::Context> ctx = layer.create_context(batch_size);
-    BOOST_VERIFY (ctx);
+    YANN_CHECK (ctx);
     {
       // ensure we don't do allocations in eigen
       BlockAllocations block;
@@ -117,7 +117,7 @@ BOOST_AUTO_TEST_CASE(FullyConnectedLayer_FeedForward_Test)
     VectorBatch output;
     resize_batch(output, batch_size, output_size);
     std::unique_ptr<Layer::Context> ctx = layer.create_context(output);
-    BOOST_VERIFY (ctx);
+    YANN_CHECK (ctx);
     {
       // ensure we don't do allocations in eigen
       BlockAllocations block;

@@ -85,9 +85,9 @@ unique_ptr<Layer::Context> yann::test::AvgLayer::create_training_context(
 
 void yann::test::AvgLayer::feedforward(const RefConstVectorBatch & input, Context * context, enum OperationMode mode) const
 {
-  BOOST_VERIFY(context);
-  BOOST_VERIFY(get_batch_item_size(input) == _input_size);
-  BOOST_VERIFY(get_batch_item_size(context->get_output()) == _output_size);
+  YANN_CHECK(context);
+  YANN_CHECK_EQ(get_batch_item_size(input), _input_size);
+  YANN_CHECK_EQ(get_batch_item_size(context->get_output()), _output_size);
 
   RefVectorBatch output = context->get_output();
   switch(mode) {

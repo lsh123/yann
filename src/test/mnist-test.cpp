@@ -45,7 +45,7 @@ namespace yann::test {
   inline static MatrixSize get_label(const T & vv) {
     MatrixSize pos = 0;
     vv.maxCoeff(&pos);
-    BOOST_VERIFY(pos <= LABELS_COUNT);
+    YANN_CHECK_LE(pos, LABELS_COUNT);
     return pos;
   }
 };// namespace yann::test
@@ -66,13 +66,13 @@ yann::test::MnistDataset::~MnistDataset()
 
 MatrixSize  yann::test::MnistDataset::get_size() const
 {
-  BOOST_VERIFY(get_batch_size(_images) == get_batch_size(_labels));
+  YANN_CHECK_EQ(get_batch_size(_images), get_batch_size(_labels));
     return get_batch_size(_images);
 }
 
 MatrixSize yann::test::MnistDataset::get_image_size() const
 {
-  BOOST_VERIFY(get_batch_item_size(_images) == _image_rows * _image_cols);
+  YANN_CHECK_EQ(get_batch_item_size(_images), _image_rows * _image_cols);
   return get_batch_item_size(_images);
 }
 
@@ -210,7 +210,7 @@ void yann::test::MnistDataset::read_labels(istream &in)
 
 void yann::test::MnistDataset::filter(const MatrixSize & max_label, const MatrixSize & max_num)
 {
-  BOOST_VERIFY(max_label <= LABELS_COUNT);
+  YANN_CHECK_LE(max_label, LABELS_COUNT);
 
   // find how many labels <= max_label are there
   MatrixSize count = 0;
@@ -245,7 +245,7 @@ void yann::test::MnistDataset::filter(const MatrixSize & max_label, const Matrix
 
 void yann::test::MnistDataset::shift_values(const Value & min_val, const Value & max_val)
 {
-  BOOST_VERIFY(min_val < max_val);
+  YANN_CHECK_LT(min_val, max_val);
   _images.array() = _images.array() * (max_val - min_val) + min_val;
 }
 
@@ -293,10 +293,10 @@ void yann::test::MnistTest::read(const string & base_folder)
   ifs.close();
 
   // validation
-  BOOST_VERIFY(get_batch_size(_training.labels()) == get_batch_size(_training.images()));
-  BOOST_VERIFY(get_batch_size(_testing.labels()) == get_batch_size(_testing.images()));
-  BOOST_VERIFY(_training.get_image_size() == _testing.get_image_size());
-  BOOST_VERIFY(_training.get_label_size() == _testing.get_label_size());
+  YANN_CHECK_EQ(get_batch_size(_training.labels()), get_batch_size(_training.images()));
+  YANN_CHECK_EQ(get_batch_size(_testing.labels()), get_batch_size(_testing.images()));
+  YANN_CHECK_EQ(_training.get_image_size(), _testing.get_image_size());
+  YANN_CHECK_EQ(_training.get_label_size(), _testing.get_label_size());
 }
 
 pair<size_t, Value> yann::test::MnistTest::test(const Network & nn,
@@ -304,14 +304,14 @@ pair<size_t, Value> yann::test::MnistTest::test(const Network & nn,
                                                 const RefConstVectorBatch & labels,
                                                 Context * ctx)
 {
-  BOOST_VERIFY(ctx);
-  BOOST_VERIFY(get_batch_size(images) > 0);
-  BOOST_VERIFY(get_batch_size(images) == get_batch_size(labels));
+  YANN_CHECK(ctx);
+  YANN_CHECK_GT(get_batch_size(images), 0);
+  YANN_CHECK_EQ(get_batch_size(images), get_batch_size(labels));
 
   nn.calculate(images, ctx);
   RefConstVectorBatch output = ctx->get_output();
 
-  BOOST_VERIFY(is_same_size(output, labels));
+  YANN_CHECK(is_same_size(output, labels));
   Value cost = nn.cost(output, labels);
 
   size_t success_count = 0;
@@ -333,16 +333,16 @@ pair<double, Value> yann::test::MnistTest::test(
     const MnistDataset & dataset,
     const MatrixSize & test_batch_size)
 {
-  BOOST_VERIFY(test_batch_size > 0);
-  BOOST_VERIFY(get_batch_size(dataset.images()) >= test_batch_size);
-  BOOST_VERIFY(get_batch_size(dataset.images()) == get_batch_size(dataset.labels()));
+  YANN_CHECK_GT(test_batch_size, 0);
+  YANN_CHECK_GE(get_batch_size(dataset.images()), test_batch_size);
+  YANN_CHECK_EQ(get_batch_size(dataset.images()), get_batch_size(dataset.labels()));
 
   const MatrixSize size = get_batch_size(dataset.images());
   const MatrixSize image_size = get_batch_item_size(dataset.images());
   const MatrixSize label_size = get_batch_item_size(dataset.labels());
 
   unique_ptr<Context> ctx = nn.create_context(test_batch_size);
-  BOOST_VERIFY(ctx);
+  YANN_CHECK(ctx);
 
   pair<double, Value> result = { 0, 0 };
 
@@ -375,7 +375,7 @@ pair<double, Value> yann::test::MnistTest::test(
     const auto images = dataset.images().block(0, 0, size, image_size);
     const auto labels = dataset.labels().block(0, 0, size, label_size);
     nn.calculate(images, output);
-    BOOST_VERIFY(is_same_size(output, labels));
+    YANN_CHECK(is_same_size(output, labels));
     for(MatrixSize ii = 0; ii < size; ++ii) {
       Value cost = nn.cost(get_batch(output, ii), get_batch(labels, ii));
       DBG(ii);
@@ -396,9 +396,9 @@ pair<double, Value> yann::test::MnistTest::train_and_test(
     size_t epochs,
     const MatrixSize & test_batch_size)
 {
-  BOOST_VERIFY(epochs > 0);
-  BOOST_VERIFY(get_batch_size(_training.labels()) == get_batch_size(_training.images()));
-  BOOST_VERIFY(get_batch_size(_testing.labels()) == get_batch_size(_testing.images()));
+  YANN_CHECK_GT(epochs, 0);
+  YANN_CHECK_EQ(get_batch_size(_training.labels()), get_batch_size(_training.images()));
+  YANN_CHECK_EQ(get_batch_size(_testing.labels()), get_batch_size(_testing.images()));
 
   // training
   double test_success_rate = 0, training_success_rate = 0;
@@ -463,23 +463,23 @@ MatrixSize yann::test::MnistTest::get_testing_size() const
 
 MatrixSize yann::test::MnistTest::get_image_rows() const
 {
-  BOOST_VERIFY(_training.get_image_rows() == _testing.get_image_rows());
+  YANN_CHECK_EQ(_training.get_image_rows(), _testing.get_image_rows());
   return _training.get_image_rows();
 }
 MatrixSize yann::test::MnistTest::get_image_cols() const
 {
-  BOOST_VERIFY(_training.get_image_cols() == _testing.get_image_cols());
+  YANN_CHECK_EQ(_training.get_image_cols(), _testing.get_image_cols());
   return _training.get_image_cols();
 }
 MatrixSize yann::test::MnistTest::get_image_size() const
 {
-  BOOST_VERIFY(_training.get_image_size() == _testing.get_image_size());
+  YANN_CHECK_EQ(_training.get_image_size(), _testing.get_image_size());
   return _training.get_image_size();
 }
 
 MatrixSize yann::test::MnistTest::get_label_size() const
 {
-  BOOST_VERIFY(_training.get_label_size() == _testing.get_label_size());
+  YANN_CHECK_EQ(_training.get_label_size(), _testing.get_label_size());
   return _training.get_label_size();
 }
 
