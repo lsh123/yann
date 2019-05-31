@@ -14,7 +14,7 @@
 
 #include "types.h"
 #include "nn.h"
-#include "nntraining.h"
+#include "training.h"
 
 namespace yann::test {
 

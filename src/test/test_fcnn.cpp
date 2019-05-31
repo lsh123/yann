@@ -8,7 +8,7 @@
 #include <sstream>
 
 #include "fcnn.h"
-#include "nntraining.h"
+#include "training.h"
 #include "utils.h"
 #include "functions.h"
 #include "layers/smaxlayer.h"

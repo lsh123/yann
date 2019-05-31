@@ -9,7 +9,7 @@
 #include <memory>
 #include <vector>
 
-#include "nnlayer.h"
+#include "layer.h"
 #include "types.h"
 
 // Forward declarations

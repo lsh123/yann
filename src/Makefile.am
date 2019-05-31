@@ -34,11 +34,11 @@ AM_LDADD_TEST= \
 libyann_la_SOURCES = \
 	types.cpp \
 	utils.cpp \
-	functions.cpp \
 	random.cpp \
-	nnlayer.cpp \
+	layer.cpp \
+	functions.cpp \
 	nn.cpp \
-	nntraining.cpp \
+	training.cpp \
 	layers/contlayer.cpp \
 	layers/fclayer.cpp \
 	layers/polllayer.cpp \

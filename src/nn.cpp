@@ -11,8 +11,8 @@
 
 #include "utils.h"
 #include "functions.h"
-#include "nnlayer.h"
-#include "nntraining.h"
+#include "layer.h"
+#include "training.h"
 #include "layers/contlayer.h"
 #include "nn.h"
 

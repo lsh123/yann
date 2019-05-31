@@ -6,7 +6,7 @@
 #ifndef FCLAYER_H_
 #define FCLAYER_H_
 
-#include "nnlayer.h"
+#include "layer.h"
 
 namespace yann {
 

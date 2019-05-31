@@ -12,7 +12,7 @@
 #include <boost/test/unit_test.hpp>
 
 #include "nn.h"
-#include "nntraining.h"
+#include "training.h"
 #include "utils.h"
 
 #include "timer.h"

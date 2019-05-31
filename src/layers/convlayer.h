@@ -6,7 +6,7 @@
 #ifndef CONVLAYER_H_
 #define CONVLAYER_H_
 
-#include "nnlayer.h"
+#include "layer.h"
 
 namespace yann {
 

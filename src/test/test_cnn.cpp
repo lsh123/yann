@@ -10,7 +10,7 @@
 #include "functions.h"
 #include "utils.h"
 #include "random.h"
-#include "nntraining.h"
+#include "training.h"
 #include "convnn.h"
 #include "layers/smaxlayer.h"
 

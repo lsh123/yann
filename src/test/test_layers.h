@@ -8,7 +8,7 @@
 
 #include <boost/assert.hpp>
 
-#include "nnlayer.h"
+#include "layer.h"
 
 namespace yann{
 namespace test {

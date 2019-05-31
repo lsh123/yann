@@ -7,7 +7,7 @@
 #ifndef POLLLAYER_H_
 #define POLLLAYER_H_
 
-#include "nnlayer.h"
+#include "layer.h"
 
 namespace yann {
 

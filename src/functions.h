@@ -7,7 +7,7 @@
 #define FUNCTIONS_H_
 
 
-#include "nnlayer.h"
+#include "layer.h"
 #include "nn.h"
 #include "types.h"
 

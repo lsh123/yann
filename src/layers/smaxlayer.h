@@ -7,7 +7,7 @@
 #ifndef SMAXLAYER_H_
 #define SMAXLAYER_H_
 
-#include "nnlayer.h"
+#include "layer.h"
 
 namespace yann {
 

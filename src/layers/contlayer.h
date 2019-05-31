@@ -10,7 +10,7 @@
 #include <memory>
 #include <vector>
 
-#include "nnlayer.h"
+#include "layer.h"
 
 namespace yann {
 

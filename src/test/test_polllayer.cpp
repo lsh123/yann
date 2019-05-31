@@ -6,7 +6,7 @@
 #include <sstream>
 
 #include "layers/polllayer.h"
-#include "nntraining.h"
+#include "training.h"
 #include "utils.h"
 
 #include "timer.h"

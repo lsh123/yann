@@ -6,7 +6,7 @@
 #include <sstream>
 
 #include "layers/fclayer.h"
-#include "nntraining.h"
+#include "training.h"
 #include "utils.h"
 #include "functions.h"
 
