@@ -1,7 +1,7 @@
 /*
  * polllayer.h
  *
- * Polls a submatrix into a single output value
+ * Polls a sub-matrix into a single output value
  */
 
 #ifndef POLLLAYER_H_
@@ -43,9 +43,13 @@ public:
   virtual ~PollingLayer();
 
 public:
+  void set_activation_function(const std::unique_ptr<ActivationFunction> & activation_function);
+  void set_values(const Value & ww, const Value & bb);
+
   // Layer overwrites
   virtual std::string get_name() const;
   virtual std::string get_info() const;
+  virtual bool is_valid() const;
   virtual bool is_equal(const Layer& other, double tolerance) const;
   virtual MatrixSize get_input_size() const;
   virtual MatrixSize get_output_size() const;
@@ -69,16 +73,44 @@ public:
   MatrixSize get_output_rows() const;
   MatrixSize get_output_cols() const;
 
-private:
-  static void poll_plus_equal(const RefConstMatrix & input, const MatrixSize & filter_size, enum Mode mode, RefMatrix output);
-  static void backprop(const RefConstMatrix & gradient_output, const RefConstVectorBatch & input,
-                       const MatrixSize & filter_size, enum Mode mode, RefMatrix gradient_input);
+public:
+  static void poll(
+      const RefConstMatrix & input,
+      const MatrixSize & filter_size,
+      enum Mode mode,
+      RefMatrix output);
+  static void poll(
+      const RefConstVectorBatch & input,
+      const MatrixSize & input_rows,
+      const MatrixSize & input_cols,
+      const MatrixSize & filter_size,
+      enum Mode mode,
+      RefVectorBatch output);
+
+  static void poll_gradient_backprop(
+      const RefConstMatrix & gradient_output,
+      const RefConstVectorBatch & input,
+      const MatrixSize & filter_size,
+      enum Mode mode,
+      RefMatrix gradient_input);
+  static void poll_gradient_backprop(
+      const RefConstVectorBatch & gradient_output,
+      const RefConstVectorBatch & input,
+      const MatrixSize & input_rows,
+      const MatrixSize & input_cols,
+      const MatrixSize & filter_size,
+      enum Mode mode,
+      RefVectorBatch gradient_input);
 
 private:
   MatrixSize _input_rows;
   MatrixSize _input_cols;
   MatrixSize _filter_size;
   enum Mode  _mode;
+
+  Value _ww;
+  Value _bb;
+  std::unique_ptr<ActivationFunction> _activation_function;
 }; // class PollingLayer
 
 }; // namespace yann

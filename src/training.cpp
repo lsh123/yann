@@ -43,20 +43,38 @@ std::unique_ptr<Layer::Updater> yann::Updater_GradientDescent::copy() const
   return make_unique<Updater_GradientDescent>(*this);
 }
 
-void yann::Updater_GradientDescent::reset(const RefConstMatrix & delta)
+void yann::Updater_GradientDescent::init(const MatrixSize & rows, const MatrixSize & cols)
 {
   // do nothing
 }
 
+void yann::Updater_GradientDescent::reset()
+{
+  // do nothing
+}
+
+double yann::Updater_GradientDescent::learning_factor(const size_t & batch_size) const
+{
+  YANN_CHECK_GT(batch_size, 0);
+  return _learning_rate / (double) batch_size;
+}
+
+double yann::Updater_GradientDescent::decay_factor(const size_t & batch_size) const
+{
+  YANN_CHECK_GT(batch_size, 0);
+  YANN_CHECK_GT(batch_size, _regularization_parameter * _learning_rate);
+  return 1 - _regularization_parameter * _learning_rate / (double) batch_size;
+}
+
 void yann::Updater_GradientDescent::update(const RefConstMatrix & delta, const size_t & batch_size, RefMatrix value)
 {
-  BOOST_VERIFY(is_same_size(delta, value));
-  BOOST_VERIFY(batch_size > 0);
-  BOOST_VERIFY(_regularization_parameter * _learning_rate < batch_size);
+  YANN_CHECK(is_same_size(delta, value));
+  value = decay_factor(batch_size) * value - learning_factor(batch_size) * delta;
+}
 
-  double learning_factor = _learning_rate / (double) batch_size;
-  double decay_factor = 1 - _regularization_parameter * _learning_rate;
-  value = decay_factor * value - learning_factor * delta;
+void yann::Updater_GradientDescent::update(const Value & delta, const size_t & batch_size, Value & value)
+{
+  value = decay_factor(batch_size) * value - learning_factor(batch_size) * delta;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -86,26 +104,44 @@ std::unique_ptr<Layer::Updater> yann::Updater_GradientDescentWithMomentum::copy(
   return make_unique<Updater_GradientDescentWithMomentum>(*this);
 }
 
-void yann::Updater_GradientDescentWithMomentum::reset(const RefConstMatrix & delta)
+void yann::Updater_GradientDescentWithMomentum::init(const MatrixSize & rows, const MatrixSize & cols)
 {
-  // TODO: create init method for resize
-  if(!is_same_size(_velocity, delta)) {
-    _velocity.resizeLike(delta);
-    _velocity.setZero();
-  }
+  _velocity.resize(rows, cols);
+}
+
+void yann::Updater_GradientDescentWithMomentum::reset()
+{
+  _velocity.setZero();
+}
+
+double yann::Updater_GradientDescentWithMomentum::learning_factor(const size_t & batch_size) const
+{
+  YANN_CHECK_GT(batch_size, 0);
+  return _learning_rate / (double) batch_size;
+}
+
+double yann::Updater_GradientDescentWithMomentum::decay_factor(const size_t & batch_size) const
+{
+  YANN_CHECK_GT(batch_size, 0);
+  YANN_CHECK_GT(batch_size, _regularization_parameter * _learning_rate);
+  return 1 - _regularization_parameter * _learning_rate / (double) batch_size;
 }
 
 void yann::Updater_GradientDescentWithMomentum::update(const RefConstMatrix & delta, const size_t & batch_size, RefMatrix value)
 {
-  BOOST_VERIFY(is_same_size(delta, value));
-  BOOST_VERIFY(batch_size > 0);
-  BOOST_VERIFY(_regularization_parameter * _learning_rate < batch_size);
+  YANN_CHECK(is_same_size(delta, value));
+  YANN_CHECK(is_same_size(_velocity, value));
 
-  double learning_factor = _learning_rate / (double) batch_size;
-  double decay_factor = 1 - _regularization_parameter * _learning_rate;
-
-  _velocity = decay_factor * _velocity + learning_factor * delta;
+  _velocity = decay_factor(batch_size) * _velocity + learning_factor(batch_size) * delta;
   value -= _velocity;
+}
+
+void yann::Updater_GradientDescentWithMomentum::update(const Value & delta, const size_t & batch_size, Value & value)
+{
+  YANN_CHECK_EQ(_velocity.size(), 1);
+
+  _velocity(0,0) = decay_factor(batch_size) * _velocity(0,0) + learning_factor(batch_size) * delta;
+  value -= _velocity(0,0);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -116,7 +152,7 @@ yann::Trainer::Trainer(const MatrixSize & batch_size) :
   _batch_size(batch_size),
   _progress_callback(nullptr)
 {
-  BOOST_VERIFY(batch_size > 0);
+  YANN_CHECK_GT(batch_size, 0);
 }
 
 yann::Trainer::~Trainer()
@@ -170,15 +206,15 @@ void yann::Trainer_Batch::train(Network & nn,
                                 const VectorBatch & inputs,
                                 const VectorBatch & outputs) const
 {
-  BOOST_VERIFY(get_batch_size(inputs) == get_batch_size(outputs));
-  BOOST_VERIFY(_batch_size > 0);
-  BOOST_VERIFY(_batch_size <= get_batch_size(inputs));
-  BOOST_VERIFY(get_batch_item_size(inputs) == nn.get_input_size());
-  BOOST_VERIFY(get_batch_item_size(outputs) == nn.get_output_size());
+  YANN_CHECK(get_batch_size(inputs) == get_batch_size(outputs));
+  YANN_CHECK_GT(_batch_size, 0);
+  YANN_CHECK_LE(_batch_size, get_batch_size(inputs));
+  YANN_CHECK_EQ(get_batch_item_size(inputs), nn.get_input_size());
+  YANN_CHECK_EQ(get_batch_item_size(outputs), nn.get_output_size());
 
   // prepare training
   auto ctx = nn.create_training_context(1, _updater);
-  BOOST_VERIFY(ctx);
+  YANN_CHECK(ctx);
   ctx->reset_state();
 
   // prepare positions vector
@@ -195,7 +231,7 @@ void yann::Trainer_Batch::train(Network & nn,
 
     for (MatrixSize jj = 0; jj < _batch_size; ++jj) {
       MatrixSize pos = shuffled_pos[ii + jj];
-      BOOST_VERIFY(pos < get_batch_size(inputs));
+      YANN_SLOW_CHECK_LT(pos, get_batch_size(inputs));
       in = get_batch_const(inputs, pos);
       out = get_batch_const(outputs, pos);
       nn.train(in, out, ctx.get());
@@ -233,18 +269,18 @@ string yann::Trainer_Stochastic::get_info() const
 
 void yann::Trainer_Stochastic::train(Network & nn, const VectorBatch & inputs, const VectorBatch & outputs) const
 {
-  BOOST_VERIFY(_batch_size > 0);
-  BOOST_VERIFY(_batch_size <= get_batch_size(inputs));
-  BOOST_VERIFY(get_batch_size(inputs) == get_batch_size(outputs));
-  BOOST_VERIFY(get_batch_item_size(inputs) == nn.get_input_size());
-  BOOST_VERIFY(get_batch_item_size(outputs) == nn.get_output_size());
+  YANN_CHECK_GT(_batch_size, 0);
+  YANN_CHECK_LE(_batch_size, get_batch_size(inputs));
+  YANN_CHECK_EQ(get_batch_size(inputs), get_batch_size(outputs));
+  YANN_CHECK_EQ(get_batch_item_size(inputs), nn.get_input_size());
+  YANN_CHECK_EQ(get_batch_item_size(outputs), nn.get_output_size());
 
   // prepare positions vector
   vector<MatrixSize> shuffled_pos(get_batch_size(inputs));
   prepare_shuffled_pos(_select_mode, shuffled_pos);
 
   auto ctx = nn.create_training_context(_batch_size, _updater);
-  BOOST_VERIFY(ctx);
+  YANN_CHECK(ctx);
 
   VectorBatch ins, outs;
   resize_batch(ins, _batch_size, nn.get_input_size());
@@ -258,7 +294,7 @@ void yann::Trainer_Stochastic::train(Network & nn, const VectorBatch & inputs, c
     // prepare inputs/outputs
     for (MatrixSize jj = 0; jj < _batch_size; ++jj) {
       MatrixSize pos = shuffled_pos[ii + jj];
-      BOOST_VERIFY(pos < get_batch_size(inputs));
+      YANN_SLOW_CHECK_LT(pos, get_batch_size(inputs));
 
       get_batch(ins, jj)  = get_batch_const(inputs, pos);
       get_batch(outs, jj) = get_batch(outputs, pos);

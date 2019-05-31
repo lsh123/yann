@@ -187,7 +187,7 @@ unique_ptr<ActivationFunction> yann::TanhFunction::copy() const
 
 // quadratic cost function:
 //  f(actual, expected) = sum((actual<i> - expected<i>)^2)
-//  d f(actual, expected) / d (actual) = (actual<i> - expected<i>)    -- we drop 1/2 coefficient since it doesn't matter
+//  d f(actual, expected) / d (actual) = (actual<i> - expected<i>)
 string yann::QuadraticCost::get_info() const
 {
   return "Quadratic";
@@ -201,7 +201,7 @@ void yann::QuadraticCost::derivative(const RefConstVectorBatch & actual, const R
 {
   YANN_CHECK(is_same_size(actual, expected));
   YANN_CHECK(is_same_size(actual, output));
-  output.noalias() = actual - expected;
+  output.noalias() = 2 * (actual - expected);
 }
 unique_ptr<CostFunction> yann::QuadraticCost::copy() const
 {

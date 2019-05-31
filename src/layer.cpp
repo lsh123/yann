@@ -14,6 +14,29 @@ using namespace yann;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //
+// Layer::Context implementation
+//
+yann::Layer::Context::Context(
+    const MatrixSize & output_size,
+    const MatrixSize & batch_size)
+{
+  YANN_CHECK_GT(output_size, 0);
+  YANN_CHECK_GT(batch_size, 0);
+
+  resize_batch(_output_buffer, batch_size, output_size);
+  _output = _output_buffer;
+}
+
+yann::Layer::Context::Context(
+    const RefVectorBatch & output) :
+    _output(output)
+{
+  YANN_CHECK_GT(yann::get_batch_item_size(output), 0);
+  YANN_CHECK_GT(yann::get_batch_size(output), 0);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+//
 // Layer implementation
 //
 ostream& std::operator<<(ostream & os, const Layer & layer)

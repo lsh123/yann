@@ -9,6 +9,7 @@
 #include <boost/assert.hpp>
 
 #include "layer.h"
+#include "nn.h"
 
 namespace yann{
 namespace test {
@@ -18,7 +19,7 @@ class AvgLayer : public Layer
 {
   typedef Layer Base;
 
-  static const MatrixSize _output_size = 1; // always 1 output
+  const MatrixSize _output_size = 1; // always 1 output
 
 public:
   AvgLayer(MatrixSize input_size);
@@ -56,6 +57,15 @@ private:
 
   static size_t g_counter;
 }; // class AvgLayer
+
+
+void test_layer_training(
+    Layer & layer,
+    const VectorBatch & input,
+    const VectorBatch & expected_output,
+    std::unique_ptr<CostFunction> cost,
+    const double learning_rate,
+    const size_t & epochs);
 
 }  // namespace test
 }; // namespace yann

@@ -95,7 +95,7 @@ private:
   MatrixSize _filter_size;
 
   Matrix _ww;
-  Matrix _bb;
+  Value  _bb;
   std::unique_ptr<ActivationFunction> _activation_function;
 }; // class ConvolutionalLayer
 

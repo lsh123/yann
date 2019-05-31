@@ -8,12 +8,13 @@
 #include "functions.h"
 #include "utils.h"
 #include "random.h"
+#include "training.h"
 #include "layers/convlayer.h"
 #include "layers/smaxlayer.h"
 
 #include "test_utils.h"
 #include "timer.h"
-#include "mnist-test.h"
+#include "test_layers.h"
 
 using namespace std;
 using namespace boost;
@@ -39,32 +40,6 @@ struct ConvolutionalLayerTestFixture
     vv.maxCoeff(&pos);
     return pos;
   }
-
-  class SimpleConvNetwork : public Network
-  {
-    typedef Network Base;
-
-  public:
-    static MatrixSize get_output_size(const MatrixSize & image_size, const MatrixSize & filter_size)
-    {
-      return ConvolutionalLayer::get_conv_output_size(image_size, image_size, filter_size);
-    }
-
-  public:
-    SimpleConvNetwork(const MatrixSize & image_size, const MatrixSize & filter_size)
-    {
-      auto conv_layer = make_unique<ConvolutionalLayer>(image_size, image_size, filter_size);
-      append_layer(std::move(conv_layer));
-      auto smax_layer = make_unique<SoftmaxLayer>(get_output_size(image_size, filter_size));
-      append_layer(std::move(smax_layer));
-    }
-
-    ConvolutionalLayer * get_conv_layer()
-    {
-      YANN_CHECK_EQ(get_layers_num(), 2); // we also have softmax layer
-      return dynamic_cast<ConvolutionalLayer*>(get_layer(0));
-    }
-  }; // SimpleConvNetwork
 
   void conv_perf_test(const MatrixSize & size, const MatrixSize & filter_size, const size_t & epochs)
   {
@@ -138,7 +113,7 @@ struct ConvolutionalLayerTestFixture
 
 BOOST_FIXTURE_TEST_SUITE(ConvolutionalLayerTest, ConvolutionalLayerTestFixture);
 
-BOOST_AUTO_TEST_CASE(ConvolutionalLayer_IO_Test)
+BOOST_AUTO_TEST_CASE(IO_Test)
 {
   BOOST_TEST_MESSAGE("*** ConvolutionalLayer IO test ...");
 
@@ -162,7 +137,7 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_IO_Test)
   BOOST_CHECK(one.is_equal(two, TEST_TOLERANCE));
 }
 
-BOOST_AUTO_TEST_CASE(ConvolutionalLayer_ConvOp_Test)
+BOOST_AUTO_TEST_CASE(ConvOp_Test)
 {
   BOOST_TEST_MESSAGE("*** Convolutional operation test ...");
 
@@ -293,7 +268,7 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_ConvOp_Test)
 
 }
 
-BOOST_AUTO_TEST_CASE(ConvolutionalLayer_ConvOp_Batch_Test)
+BOOST_AUTO_TEST_CASE(ConvOp_Batch_Test)
 {
   BOOST_TEST_MESSAGE("*** Convolutional operation batch test ...");
 
@@ -437,7 +412,7 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_ConvOp_Batch_Test)
   BOOST_CHECK(expected.isApprox(output, TEST_TOLERANCE));
 }
 
-BOOST_AUTO_TEST_CASE(ConvolutionalLayer_FullConvOp_Test)
+BOOST_AUTO_TEST_CASE(FullConvOp_Test)
 {
   BOOST_TEST_MESSAGE("*** Full convolutional operation test ...");
 
@@ -535,7 +510,7 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_FullConvOp_Test)
   BOOST_CHECK(expected.isApprox(output, TEST_TOLERANCE));
 }
 
-BOOST_AUTO_TEST_CASE(ConvolutionalLayer_FullConvOp_Batch_Test)
+BOOST_AUTO_TEST_CASE(FullConvOp_Batch_Test)
 {
   BOOST_TEST_MESSAGE("*** Full convolutional operation batch test ...");
 
@@ -673,7 +648,7 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_FullConvOp_Batch_Test)
 
 }
 
-BOOST_AUTO_TEST_CASE(ConvolutionalLayer_Rotate180_Test)
+BOOST_AUTO_TEST_CASE(Rotate180_Test)
 {
   BOOST_TEST_MESSAGE("*** Rotate180 test ...");
 
@@ -710,7 +685,7 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_Rotate180_Test)
   BOOST_CHECK(expected1.isApprox(output1, TEST_TOLERANCE));
 }
 
-BOOST_AUTO_TEST_CASE(ConvolutionalLayer_FeedForward_Test)
+BOOST_AUTO_TEST_CASE(FeedForward_Test)
 {
   BOOST_TEST_MESSAGE("*** ConvolutionalLayer FeedForward test ...");
 
@@ -718,8 +693,8 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_FeedForward_Test)
   const MatrixSize input_size = image_size * image_size;
   const MatrixSize filter_size = 3;
   const MatrixSize batch_size = 2;
-  const MatrixSize output_size = SimpleConvNetwork::get_output_size(image_size,
-                                                              filter_size);
+  const MatrixSize output_size = ConvolutionalLayer::get_conv_output_size(
+      image_size, image_size, filter_size);
 
   Matrix ww(filter_size, filter_size);
   VectorBatch input, expected;
@@ -782,15 +757,16 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_FeedForward_Test)
   }
 }
 
-BOOST_AUTO_TEST_CASE(ConvolutionalLayer_Backprop_Test)
+BOOST_AUTO_TEST_CASE(Backprop_Test)
 {
   BOOST_TEST_MESSAGE("*** ConvolutionalLayer backprop test ...");
 
   const MatrixSize image_size = 3;
   const MatrixSize input_size = image_size * image_size;
   const MatrixSize filter_size = 2;
-  const MatrixSize output_size = SimpleConvNetwork::get_output_size(image_size,
-                                                              filter_size);
+  const MatrixSize output_size = ConvolutionalLayer::get_conv_output_size(
+      image_size, image_size, filter_size);
+
   const MatrixSize batch_size = 2;
   VectorBatch input, expected;
 
@@ -842,7 +818,7 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_Backprop_Test)
   }
 }
 
-BOOST_AUTO_TEST_CASE(ConvolutionalLayer_Backprop_OnVector_Test)
+BOOST_AUTO_TEST_CASE(Backprop_OnVector_Test)
 {
   BOOST_TEST_MESSAGE("*** ConvolutionalLayer backprop on vector test ...");
 
@@ -850,8 +826,9 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_Backprop_OnVector_Test)
   const MatrixSize image_size = 3;
   const MatrixSize input_size = image_size * image_size;
   const MatrixSize filter_size = 2;
-  const MatrixSize output_size = SimpleConvNetwork::get_output_size(image_size,
-                                                              filter_size);
+  const MatrixSize output_size = ConvolutionalLayer::get_conv_output_size(
+      image_size, image_size, filter_size);
+
   const MatrixSize batch_size = 2;
   Vector input_buffer(shift + batch_size * input_size);
   MapMatrix input(input_buffer.data() + shift, batch_size, input_size); // this assumes RowMajor layout
@@ -907,104 +884,103 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_Backprop_OnVector_Test)
   }
 }
 
-BOOST_AUTO_TEST_CASE(ConvolutionalLayer_Training_Test)
+BOOST_AUTO_TEST_CASE(Training_WithIdentity_Test)
 {
-  BOOST_TEST_MESSAGE("*** ConvolutionalLayer training test ...");
+  BOOST_TEST_MESSAGE("*** ConvolutionalLayer with Identity activation training test ...");
 
-  const MatrixSize image_size = 3;
-  const MatrixSize input_size = image_size * image_size;
+  const MatrixSize image_rows  = 6;
+  const MatrixSize image_cols  = 3;
+  const MatrixSize input_size  = image_rows * image_cols;
   const MatrixSize filter_size = 2;
-  const MatrixSize output_size = SimpleConvNetwork::get_output_size(image_size,
-                                                              filter_size);
-  const MatrixSize batch_size = 2;
-  const double learning_rate = 5.0 / (double) batch_size;
-  const size_t epochs = 100;
-  VectorBatch expected0, inputs1, expected1, inputs2, expected2, outputs;
-  resize_batch(expected0, batch_size, output_size);
-  resize_batch(inputs1, batch_size, input_size);
-  resize_batch(expected1, batch_size, output_size);
-  resize_batch(inputs2, batch_size, input_size);
-  resize_batch(expected2, batch_size, output_size);
-  resize_batch(outputs, batch_size, output_size);
+  const MatrixSize output_size = ConvolutionalLayer::get_conv_output_size(image_rows, image_cols, filter_size);
+  const MatrixSize batch_size  = 2;
 
-  inputs1 << 1, 1, 0,
-             1, 0, 0,
-             0, 0, 0,
-             ///////
-             0, 0, 0,
-             0, 1, 1,
-             0, 1, 0;
-  expected1 << 1, 0,
-               0, 0,
-               ////
-               0, 0,
-               0, 1;
-  inputs2 << 0, 1, 1,
-             0, 1, 0,
-             0, 0, 0,
-             ///////
-             0, 0, 0,
-             1, 1, 0,
-             1, 0, 0;
-  expected2 << 0, 1,
-               0, 0,
-               ////
-               0, 0,
-               1, 0;
 
-  // setup network
-  Matrix ww(filter_size, filter_size);
-  ww.setZero();
+  VectorBatch input, expected;
+  resize_batch(input, batch_size, input_size);
+  resize_batch(expected, batch_size, output_size);
 
-  SimpleConvNetwork net(image_size, filter_size);
-  net.init(InitMode_Zeros);
-  net.get_conv_layer()->set_values(ww, 0);
+  input <<
+      0.01, 0.02, 0.11, 0.10, 0.13, 0.18,
+      0.03, 0.04, 0.12, 0.09, 0.14, 0.17,
+      0.05, 0.06, 0.07, 0.08, 0.15, 0.16,
+      ///////////////////////////////////
+      0.02, 0.06, 0.08, 0.10, 0.13, 0.14,
+      0.03, 0.02, 0.07, 0.09, 0.16, 0.15,
+      0.04, 0.05, 0.13, 0.11, 0.16, 0.18;
 
-   // first calculate with zero ww's and b's: the output should be the same
-  expected0.setConstant(0.25);
-  std::unique_ptr<Context> ctx = net.create_context(outputs);
-  YANN_CHECK(ctx);
-  {
-      // ensure we don't do allocations in eigen
-      BlockAllocations block;
+  expected <<
+      0.347, 0.478, 0.308, 0.462, 0.378,
+      0.492, 0.343, 0.415, 0.409, 0.480,
+      //////////////////////////////////
+      0.373, 0.446, 0.282, 0.368, 0.395,
+      0.442, 0.332, 0.492, 0.429, 0.530;
 
-      net.calculate(inputs1, ctx.get());
-      BOOST_CHECK(expected0.isApprox(outputs, TEST_TOLERANCE));
+  // create layer
+  auto layer = make_unique<ConvolutionalLayer>(image_rows, image_cols, filter_size);
+  BOOST_CHECK(layer);
+  layer->set_activation_function(make_unique<IdentityFunction>());
+  layer->init(InitMode_Zeros);
 
-      net.calculate(inputs2, ctx.get());
-      BOOST_CHECK(expected0.isApprox(outputs, TEST_TOLERANCE));
-  }
+  // test
+  test_layer_training(
+      *layer,
+      input,
+      expected,
+      make_unique<QuadraticCost>(),
+      0.09, // learning rate
+      8000  // epochs
+  );
+}
 
-  auto training_ctx = net.create_training_context(
-      outputs, make_unique<Updater_GradientDescent>(learning_rate, 0.0));
-  YANN_CHECK(training_ctx);
-  {
-    // ensure we don't do allocations in eigen
-    BlockAllocations block;
 
-    // train
-    for(size_t ii = 0; ii < epochs; ++ii) {
-      training_ctx->reset_state();
-      net.train(inputs1, expected1, training_ctx.get());
-      net.update(training_ctx.get(), 1);
-    }
+BOOST_AUTO_TEST_CASE(Training_WithSigmoid_Test)
+{
+  BOOST_TEST_MESSAGE("*** ConvolutionalLayer with Sigmoid activation training test ...");
 
-    // check the results
-    net.calculate(inputs1, training_ctx.get());
-    for(MatrixSize ii = 0; ii < batch_size; ++ii) {
-      BOOST_CHECK_EQUAL(
-          find_max_pos(get_batch_const(outputs, ii)),
-          find_max_pos(get_batch_const(expected1, ii))
-      );
-    }
-    net.calculate(inputs2, training_ctx.get());
-    for(MatrixSize ii = 0; ii < batch_size; ++ii) {
-      BOOST_CHECK_EQUAL(
-          find_max_pos(get_batch_const(outputs, ii)),
-          find_max_pos(get_batch_const(expected2, ii))
-      );
-    }
-  }
+  const MatrixSize image_rows  = 6;
+  const MatrixSize image_cols  = 3;
+  const MatrixSize input_size  = image_rows * image_cols;
+  const MatrixSize filter_size = 2;
+  const MatrixSize output_size = ConvolutionalLayer::get_conv_output_size(image_rows, image_cols, filter_size);
+  const MatrixSize batch_size  = 2;
+
+
+  VectorBatch input, expected;
+  resize_batch(input, batch_size, input_size);
+  resize_batch(expected, batch_size, output_size);
+
+  input <<
+      0.01, 0.02, 0.11, 0.10, 0.13, 0.18,
+      0.03, 0.04, 0.12, 0.09, 0.14, 0.17,
+      0.05, 0.06, 0.07, 0.08, 0.15, 0.16,
+      ///////////////////////////////////
+      0.02, 0.06, 0.08, 0.10, 0.13, 0.14,
+      0.03, 0.02, 0.07, 0.09, 0.16, 0.15,
+      0.04, 0.05, 0.13, 0.11, 0.16, 0.18;
+
+  expected <<
+      0.348, 0.478, 0.309, 0.462, 0.378,
+      0.492, 0.341, 0.412, 0.409, 0.480,
+      //////////////////////////////////
+      0.372, 0.445, 0.287, 0.366, 0.395,
+      0.440, 0.331, 0.494, 0.429, 0.532;
+
+  // create layer
+  auto layer = make_unique<ConvolutionalLayer>(image_rows, image_cols, filter_size);
+  BOOST_CHECK(layer);
+  layer->set_activation_function(make_unique<SigmoidFunction>());
+  layer->init(InitMode_Zeros);
+
+  // test
+  test_layer_training(
+      *layer,
+      input,
+      expected,
+      make_unique<CrossEntropyCost>(),
+      0.75,  // learning rate
+      8000  // epochs
+  );
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////

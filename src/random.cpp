@@ -56,6 +56,11 @@ std::unique_ptr<RandomGenerator> yann::RandomGenerator::normal_distribution(
   return make_unique<RandomGenerator_NormalDistribution>(mean, stddev);
 }
 
+void yann::RandomGenerator::generate(Value & val)
+{
+  val = next();
+}
+
 void yann::RandomGenerator::generate(RefMatrix mm)
 {
   for(auto ii = 0; ii < mm.rows(); ++ii) {

@@ -6,6 +6,8 @@
 #include <boost/test/unit_test.hpp>
 
 #include "utils.h"
+#include "functions.h"
+#include "training.h"
 
 #include "timer.h"
 #include "test_utils.h"
@@ -16,7 +18,6 @@ using namespace boost;
 using namespace boost::unit_test;
 using namespace yann;
 using namespace yann::test;
-
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -144,6 +145,61 @@ void yann::test::AvgLayer::write(ostream & os) const
 {
   Base::write(os);
   os << "(" << _value << ")";
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Test helpers implementation
+//
+void yann::test::test_layer_training(
+    Layer & layer,
+    const VectorBatch & input,
+    const VectorBatch & expected_output,
+    std::unique_ptr<CostFunction> cost,
+    const double learning_rate,
+    const size_t & epochs)
+{
+  auto ctx = layer.create_training_context(
+      get_batch_size(input),
+      make_unique<Updater_GradientDescent>(learning_rate, 0.0));
+  BOOST_CHECK(ctx);
+  ctx->reset_state();
+
+  VectorBatch gradient_input, gradient_output;
+  gradient_input.resizeLike(input);
+  gradient_output.resizeLike(expected_output);
+
+  {
+    // ensure we don't do allocations in eigen
+    BlockAllocations block;
+
+    for(auto ii = epochs; ii > 0; --ii) {
+      // reset
+      ctx->reset_state();
+
+      // feed forward
+      layer.feedforward(input, ctx.get());
+
+      // DBG(ii);
+      // DBG(cost->f(ctx->get_output(), expected_output));
+
+      // backprop
+      cost->derivative(ctx->get_output(), expected_output, gradient_output);
+      layer.backprop(gradient_output, input,
+                      optional<RefVectorBatch>(gradient_input),
+                      ctx.get());
+
+      // update
+      layer.update(ctx.get(), get_batch_size(input));
+    }
+
+    // one more time
+    layer.feedforward(input, ctx.get());
+    DBG(expected_output);
+    DBG(ctx->get_output());
+    DBG(cost->f(ctx->get_output(), expected_output));
+    BOOST_CHECK(expected_output.isApprox(ctx->get_output(), TEST_TOLERANCE));
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////

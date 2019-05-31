@@ -50,19 +50,8 @@ public:
   class Context
   {
   public:
-    Context(const MatrixSize & output_size, const MatrixSize & batch_size)
-    {
-      BOOST_VERIFY(output_size > 0);
-      BOOST_VERIFY(batch_size > 0);
-      resize_batch(_output_buffer, batch_size, output_size);
-      _output = _output_buffer;
-    }
-    Context(const RefVectorBatch & output) :
-      _output(output)
-    {
-      BOOST_VERIFY(yann::get_batch_item_size(output) > 0);
-      BOOST_VERIFY(yann::get_batch_size(output) > 0);
-    }
+    Context(const MatrixSize & output_size, const MatrixSize & batch_size);
+    Context(const RefVectorBatch & output);
 
     inline MatrixSize get_batch_size() const      { return yann::get_batch_size(*_output);  }
     inline MatrixSize get_output_size() const     { return yann::get_batch_item_size(*_output);  }
@@ -82,8 +71,10 @@ public:
     virtual std::string get_info() const = 0;
     virtual std::unique_ptr<Layer::Updater> copy() const = 0;
 
-    virtual void reset(const RefConstMatrix & delta) = 0;
+    virtual void init(const MatrixSize & rows, const MatrixSize & cols) = 0;
+    virtual void reset() = 0;
     virtual void update(const RefConstMatrix & delta, const size_t & batch_size, RefMatrix value) = 0;
+    virtual void update(const Value & delta, const size_t & batch_size, Value & value) = 0;
   }; // class Updater
 
 public:

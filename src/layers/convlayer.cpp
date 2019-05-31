@@ -6,7 +6,6 @@
  *    a(l) = activation(z(l))
  *
  * Back propagation:
- *    gradient(C, a(L)) = gradient(cost(a(L), a(expected)), a(L))
  *    gradient(C, a(l-1)) = full_conv(delta(l), rotate180(w(l)))
  *
  *    delta(l) = elem_prod(gradient(C, a(l)), activation_derivative(z(l)))
@@ -39,7 +38,9 @@ class ConvolutionalLayer_Context :
   friend class ConvolutionalLayer;
 
 public:
-  ConvolutionalLayer_Context(const MatrixSize & output_size, const MatrixSize & batch_size) :
+  ConvolutionalLayer_Context(
+      const MatrixSize & output_size,
+      const MatrixSize & batch_size) :
     Base(output_size, batch_size)
   {
     _zz.resizeLike(get_output());
@@ -54,7 +55,6 @@ protected:
   VectorBatch _zz;
 }; // class ConvolutionalLayer_Context
 
-
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //
 // ConvolutionalLayer_TrainingContext implementation
@@ -67,14 +67,15 @@ class ConvolutionalLayer_TrainingContext :
   friend class ConvolutionalLayer;
 
 public:
-  ConvolutionalLayer_TrainingContext(const unique_ptr<Layer::Updater> & updater,
-                                     const MatrixSize & filter_size,
-                                     const MatrixSize & output_size,
-                                     const MatrixSize & batch_size) :
+  ConvolutionalLayer_TrainingContext(
+      const MatrixSize & output_size,
+      const MatrixSize & batch_size,
+      const MatrixSize & filter_size,
+      const unique_ptr<Layer::Updater> & updater) :
     Base(output_size, batch_size),
     _ww_rotated(filter_size, filter_size),
     _delta_ww(filter_size, filter_size),
-    _delta_bb(1, 1),
+    _delta_bb(0),
     _ww_updater(updater->copy()),
     _bb_updater(updater->copy())
   {
@@ -84,14 +85,18 @@ public:
 
     _delta.resizeLike(_zz);
     _sigma_derivative_zz.resizeLike(_zz);
+
+    _ww_updater->init(filter_size, filter_size);
+    _bb_updater->init(1, 1);
   }
-  ConvolutionalLayer_TrainingContext(const unique_ptr<Layer::Updater> & updater,
-                                     const MatrixSize & filter_size,
-                                     const RefVectorBatch & output) :
+  ConvolutionalLayer_TrainingContext(
+      const RefVectorBatch & output,
+      const MatrixSize & filter_size,
+      const unique_ptr<Layer::Updater> & updater) :
     Base(output),
     _ww_rotated(filter_size, filter_size),
     _delta_ww(filter_size, filter_size),
-    _delta_bb(1, 1),
+    _delta_bb(0),
     _ww_updater(updater->copy()),
     _bb_updater(updater->copy())
   {
@@ -101,22 +106,25 @@ public:
 
     _delta.resizeLike(_zz);
     _sigma_derivative_zz.resizeLike(_zz);
+
+    _ww_updater->init(filter_size, filter_size);
+    _bb_updater->init(1, 1);
   }
 
   // Layer::Context  overwrites
   virtual void reset_state()
   {
     _delta_ww.setZero();
-    _delta_bb.setZero();
+    _delta_bb = 0;
 
-    _ww_updater->reset(_delta_ww);
-    _bb_updater->reset(_delta_bb);
+    _ww_updater->reset();
+    _bb_updater->reset();
   }
 
 private:
   Matrix _ww_rotated;
   Matrix _delta_ww;
-  Matrix _delta_bb;
+  Value  _delta_bb;
 
   VectorBatch _delta;
   VectorBatch _sigma_derivative_zz;
@@ -442,7 +450,7 @@ yann::ConvolutionalLayer::ConvolutionalLayer(
   _input_cols(input_cols),
   _filter_size(filter_size),
   _ww(filter_size, filter_size),
-  _bb(1, 1),
+  _bb(0),
   _activation_function(new SigmoidFunction())
 {
   YANN_CHECK_GE(input_rows, filter_size);
@@ -457,16 +465,15 @@ yann::ConvolutionalLayer::~ConvolutionalLayer()
 void yann::ConvolutionalLayer::set_activation_function(
     const unique_ptr<ActivationFunction> & activation_function)
 {
+  YANN_CHECK(activation_function);
   _activation_function = activation_function->copy();
 }
 
 void yann::ConvolutionalLayer::set_values(const Matrix & ww, const Value & bb)
 {
   YANN_CHECK(is_same_size(ww, _ww));
-  YANN_CHECK_EQ(_bb.rows(), 1);
-  YANN_CHECK_EQ(_bb.cols(), 1);
   _ww = ww;
-  _bb(0, 0) = bb;
+  _bb = bb;
 }
 
 // Layer overwrites
@@ -518,7 +525,7 @@ bool yann::ConvolutionalLayer::is_equal(const Layer& other, double tolerance) co
   if(!_ww.isApprox(the_other->_ww, tolerance)) {
     return false;
   }
-  if(!_bb.isApprox(the_other->_bb, tolerance)) {
+  if(fabs(_bb - the_other->_bb) >= tolerance) {
     return false;
   }
   return true;
@@ -561,7 +568,7 @@ unique_ptr<Layer::Context> yann::ConvolutionalLayer::create_training_context(
   YANN_CHECK(updater);
   YANN_CHECK(is_valid());
   return make_unique<ConvolutionalLayer_TrainingContext>(
-      updater, _filter_size, get_output_size(), batch_size);
+      get_output_size(), batch_size, _filter_size, updater);
 }
 unique_ptr<Layer::Context> yann::ConvolutionalLayer::create_training_context(
     const RefVectorBatch & output,
@@ -570,7 +577,7 @@ unique_ptr<Layer::Context> yann::ConvolutionalLayer::create_training_context(
   YANN_CHECK(updater);
   YANN_CHECK(is_valid());
   return make_unique<ConvolutionalLayer_TrainingContext>(
-      updater, _filter_size, output);
+      output, _filter_size, updater);
 }
 
 void yann::ConvolutionalLayer::feedforward(
@@ -581,14 +588,10 @@ void yann::ConvolutionalLayer::feedforward(
   auto ctx = dynamic_cast<ConvolutionalLayer_Context *>(context);
   YANN_CHECK(ctx);
   YANN_CHECK(is_valid());
-  YANN_CHECK_EQ(get_batch_size(input), ctx->get_batch_size());
-  YANN_CHECK_EQ(get_batch_item_size(input), get_input_size());
-  YANN_CHECK_EQ(_bb.rows(), 1);
-  YANN_CHECK_EQ(_bb.cols(), 1);
 
-  // z(l) = a(l-1)*w(l) + b(l)
+  // z(l) = conv(a(l-1))*w(l) + b(l)
   plus_conv(input, _input_rows, _input_cols, _ww, ctx->_zz);
-  ctx->_zz.array() += _bb(0, 0);
+  ctx->_zz.array() += _bb;
 
   // a(l) = activation(z(l))
   YANN_CHECK(is_same_size(ctx->_zz, ctx->get_output()));
@@ -627,9 +630,7 @@ void yann::ConvolutionalLayer::backprop(
   // update deltas
   // dC/dw(l) = conv(a(l), delta(l + 1))
   // dC/db(l) = sum_elem(delta(l + 1))
-  // ATTENTION: this code operates on raw Matrix.data() and might be broken
-  // if Matrix.data() layout changes
-  YANN_CHECK_EQ(batch_size,get_batch_size(delta));
+  YANN_CHECK_EQ(batch_size, get_batch_size(delta));
   for (MatrixSize ii = 0; ii < batch_size; ++ii) {
     auto input_batch = get_batch(input, ii);
     auto delta_batch = get_batch(delta, ii);
@@ -637,9 +638,7 @@ void yann::ConvolutionalLayer::backprop(
     MapConstMatrix delta_row(delta_batch.data(), get_output_rows(), get_output_cols());
     plus_conv(input_row, delta_row, delta_ww, false); // delta_ww += conv()
   }
-  YANN_CHECK_EQ(delta_bb.rows(), 1);
-  YANN_CHECK_EQ(delta_bb.cols(), 1);
-  delta_bb(0, 0) += delta.array().sum();
+  delta_bb += delta.array().sum();
 
   // we don't need to calculate the first gradient(C, a(l)) for the actual inputs
   if(gradient_input) {
@@ -654,7 +653,7 @@ void yann::ConvolutionalLayer::init(enum InitMode mode)
   switch (mode) {
   case InitMode_Zeros:
     _ww.setZero();
-    _bb.setZero();
+    _bb = 0;;
     break;
   case InitMode_Random_01:
     {
@@ -681,18 +680,14 @@ void yann::ConvolutionalLayer::update(Context * context, const size_t & batch_si
   YANN_CHECK(ctx->_ww_updater);
   YANN_CHECK(ctx->_bb_updater);
   YANN_CHECK(is_same_size(_ww, ctx->_delta_ww));
-  YANN_CHECK(is_same_size(_bb, ctx->_delta_bb));
 
   ctx->_ww_updater->update(ctx->_delta_ww, batch_size, _ww);
   ctx->_bb_updater->update(ctx->_delta_bb, batch_size, _bb);
 }
 
-// the format is (w:<weights>,b:<biases>)
+// the format is (w:<weights>,b:<bias>)
 void yann::ConvolutionalLayer::read(std::istream & is)
 {
-  YANN_CHECK_EQ(_bb.rows(), 1);
-  YANN_CHECK_EQ(_bb.cols(), 1);
-
   Base::read(is);
 
   char ch;
@@ -730,7 +725,7 @@ void yann::ConvolutionalLayer::read(std::istream & is)
     is.setstate(std::ios_base::failbit);
     return;
   }
-  is >> _bb(0, 0);
+  is >> _bb;
   if(is.fail()) {
     return;
   }
@@ -741,13 +736,10 @@ void yann::ConvolutionalLayer::read(std::istream & is)
   }
 }
 
-// the format is (w:<weights>,b:<biases>)
+// the format is (w:<weights>,b:<bias>)
 void yann::ConvolutionalLayer::write(std::ostream & os) const
 {
-  YANN_CHECK_EQ(_bb.rows(), 1);
-  YANN_CHECK_EQ(_bb.cols(), 1);
-
   Base::write(os);
-  os << "(w:" << _ww << ",b:" << _bb(0, 0) << ")";
+  os << "(w:" << _ww << ",b:" << _bb << ")";
 }
 

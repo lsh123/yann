@@ -38,14 +38,14 @@ void yann::ConvolutionalNetwork::append(unique_ptr<SequentialLayer> & container,
                    const MatrixSize & input_frames_num,
                    const ConvPollParams & params)
 {
-  BOOST_VERIFY(container);
-  BOOST_VERIFY(input_rows > 0);
-  BOOST_VERIFY(input_cols > 0);
-  BOOST_VERIFY(input_frames_num > 0);
-  BOOST_VERIFY(input_frames_num == 1 || !params._mappings.empty());
-  BOOST_VERIFY(params._output_frames_num > 0 || !params._mappings.empty());
-  BOOST_VERIFY(params._conv_filter_size > 0);
-  BOOST_VERIFY(params._polling_filter_size > 0);
+  YANN_CHECK(container);
+  YANN_CHECK_GT(input_rows, 0);
+  YANN_CHECK_GT(input_cols, 0);
+  YANN_CHECK_GT(input_frames_num, 0);
+  YANN_CHECK(input_frames_num == 1 || !params._mappings.empty());
+  YANN_CHECK_GT(params._output_frames_num, 0 || !params._mappings.empty());
+  YANN_CHECK_GT(params._conv_filter_size, 0);
+  YANN_CHECK_GT(params._polling_filter_size, 0);
 
   // ConvolutionalLayer
   if(input_frames_num == 1) {
@@ -56,20 +56,20 @@ void yann::ConvolutionalNetwork::append(unique_ptr<SequentialLayer> & container,
         params._conv_filter_size,
         params._conv_activation_funtion
     );
-    BOOST_VERIFY(conv_bcast_layer);
+    YANN_CHECK(conv_bcast_layer);
     container->append_layer(std::move(conv_bcast_layer));
   } else {
-    BOOST_VERIFY(!params._mappings.empty());
-    BOOST_VERIFY(params._output_frames_num == 0 || params._output_frames_num == params._mappings.size());
+    YANN_CHECK(!params._mappings.empty());
+    YANN_CHECK(params._output_frames_num == 0 || params._output_frames_num == params._mappings.size());
 
     auto conv_mapping_layer = make_unique<MappingLayer>(input_frames_num);
-    BOOST_VERIFY(conv_mapping_layer);
+    YANN_CHECK(conv_mapping_layer);
     for(auto & layer_mappings : params._mappings) {
       auto conv_layer = make_unique<ConvolutionalLayer>(
           input_rows,
           input_cols,
           params._conv_filter_size);
-      BOOST_VERIFY(conv_layer);
+      YANN_CHECK(conv_layer);
 
       if(params._conv_activation_funtion) {
         conv_layer->set_activation_function(params._conv_activation_funtion);
@@ -88,7 +88,7 @@ void yann::ConvolutionalNetwork::append(unique_ptr<SequentialLayer> & container,
      poll_input_cols,
      params._polling_filter_size,
      params._polling_mode);
-  BOOST_VERIFY(poll_layer);
+  YANN_CHECK(poll_layer);
   container->append_layer(std::move(poll_layer));
 }
 
@@ -99,10 +99,10 @@ unique_ptr<Network> yann::ConvolutionalNetwork::create(
     const std::unique_ptr<ActivationFunction> & fc_activation_funtion,
     const MatrixSize & output_size)
 {
-  BOOST_VERIFY(output_size > 0);
+  YANN_CHECK_GT(output_size, 0);
 
   auto container = make_unique<SequentialLayer>();
-  BOOST_VERIFY(container);
+  YANN_CHECK(container);
 
   // append one layer: we have 1 input frame
   append(container, input_rows, input_cols, 1, params);
@@ -111,7 +111,7 @@ unique_ptr<Network> yann::ConvolutionalNetwork::create(
   auto fc_layer = make_unique<FullyConnectedLayer>(
       container->get_output_size(),
       output_size);
-  BOOST_VERIFY(fc_layer);
+  YANN_CHECK(fc_layer);
   if(fc_activation_funtion) {
     fc_layer->set_activation_function(fc_activation_funtion);
   }
@@ -129,10 +129,10 @@ std::unique_ptr<Network> yann::ConvolutionalNetwork::create(
     const std::unique_ptr<ActivationFunction> & fc_activation_funtion,
     const MatrixSize & output_size)
 {
-  BOOST_VERIFY(output_size > 0);
+  YANN_CHECK_GT(output_size, 0);
 
   auto container = make_unique<SequentialLayer>();
-  BOOST_VERIFY(container);
+  YANN_CHECK(container);
 
   // append one layer: we have 1 input frame
   append(container, input_rows, input_cols, 1, params1);
@@ -148,7 +148,7 @@ std::unique_ptr<Network> yann::ConvolutionalNetwork::create(
   auto fc_layer = make_unique<FullyConnectedLayer>(
       container->get_output_size(),
       output_size);
-  BOOST_VERIFY(fc_layer);
+  YANN_CHECK(fc_layer);
   if(fc_activation_funtion) {
     fc_layer->set_activation_function(fc_activation_funtion);
   }
@@ -194,11 +194,11 @@ std::unique_ptr<Network> yann::ConvolutionalNetwork::create_lenet1(
   params2._mappings.push_back({ 2, 3 });
 
   auto nn = create(input_rows, input_cols, params1, params2, activation_funtion, fc_size);
-  BOOST_VERIFY(nn);
+  YANN_CHECK(nn);
 
   // add one more FC layer
   auto fc_layer = make_unique<FullyConnectedLayer>(fc_size, output_size);
-  BOOST_VERIFY(fc_layer);
+  YANN_CHECK(fc_layer);
   fc_layer->set_activation_function(activation_funtion);
   nn->append_layer(std::move(fc_layer));
 
@@ -247,17 +247,17 @@ std::unique_ptr<Network> yann::ConvolutionalNetwork::create_lenet5(
   params2._mappings.push_back({ 0, 1, 2, 3, 4, 5 });
 
   auto nn = create(input_rows, input_cols, params1, params2, activation_funtion, fc1_size);
-  BOOST_VERIFY(nn);
+  YANN_CHECK(nn);
 
   // add one more FC layer
   auto fc_layer1 = make_unique<FullyConnectedLayer>(fc1_size, fc2_size);
-  BOOST_VERIFY(fc_layer1);
+  YANN_CHECK(fc_layer1);
   fc_layer1->set_activation_function(activation_funtion);
   nn->append_layer(std::move(fc_layer1));
 
   // and one more FC layer
   auto fc_layer2 = make_unique<FullyConnectedLayer>(fc2_size, output_size);
-  BOOST_VERIFY(fc_layer2);
+  YANN_CHECK(fc_layer2);
   fc_layer2->set_activation_function(activation_funtion);
   nn->append_layer(std::move(fc_layer2));
 

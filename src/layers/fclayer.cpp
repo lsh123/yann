@@ -72,10 +72,10 @@ class FullyConnectedLayer_TrainingContext :
 
 public:
   FullyConnectedLayer_TrainingContext(
-      const unique_ptr<Layer::Updater> & updater,
-      const MatrixSize & input_size,
       const MatrixSize & output_size,
-      const MatrixSize & batch_size) :
+      const MatrixSize & batch_size,
+      const MatrixSize & input_size,
+      const unique_ptr<Layer::Updater> & updater) :
     Base(output_size, batch_size),
     _ww_updater(updater->copy()),
     _bb_updater(updater->copy())
@@ -88,12 +88,15 @@ public:
 
     _sigma_derivative_zz.resizeLike(_zz);
     _collapse_vector = Vector::Ones(get_batch_size());
+
+    _ww_updater->init(input_size, get_output_size());
+    _bb_updater->init(1, get_output_size()); // RowMajor
   }
 
   FullyConnectedLayer_TrainingContext(
-      const unique_ptr<Layer::Updater> & updater,
+      const RefVectorBatch & output,
       const MatrixSize & input_size,
-      const RefVectorBatch & output) :
+      const unique_ptr<Layer::Updater> & updater) :
     Base(output),
     _ww_updater(updater->copy()),
     _bb_updater(updater->copy())
@@ -106,6 +109,9 @@ public:
 
     _sigma_derivative_zz.resizeLike(_zz);
     _collapse_vector = Vector::Ones(get_batch_size());
+
+    _ww_updater->init(input_size, get_output_size());
+    _bb_updater->init(1, get_output_size()); // RowMajor
   }
 
   // Layer::Context overwrites
@@ -114,8 +120,8 @@ public:
     _delta_ww.setZero();
     _delta_bb.setZero();
 
-    _ww_updater->reset(_delta_ww);
-    _bb_updater->reset(_delta_bb);
+    _ww_updater->reset();
+    _bb_updater->reset();
   }
 
 private:
@@ -237,7 +243,7 @@ unique_ptr<Layer::Context> yann::FullyConnectedLayer::create_training_context(
   YANN_CHECK(is_valid());
   YANN_CHECK(updater);
   return make_unique<FullyConnectedLayer_TrainingContext>(
-      updater, get_input_size(), get_output_size(), batch_size);
+      get_output_size(), batch_size, get_input_size(), updater);
 }
 unique_ptr<Layer::Context> yann::FullyConnectedLayer::create_training_context(
     const RefVectorBatch & output, const std::unique_ptr<Layer::Updater> & updater) const
@@ -245,7 +251,7 @@ unique_ptr<Layer::Context> yann::FullyConnectedLayer::create_training_context(
   YANN_CHECK(is_valid());
   YANN_CHECK(updater);
   return make_unique<FullyConnectedLayer_TrainingContext>(
-      updater, get_input_size(), output);
+      output, get_input_size(), updater);
 }
 
 void yann::FullyConnectedLayer::feedforward(const RefConstVectorBatch & input, Context * context, enum OperationMode mode) const

@@ -25,8 +25,14 @@ public:
   virtual std::string get_info() const;
   virtual std::unique_ptr<Layer::Updater> copy() const;
 
-  virtual void reset(const RefConstMatrix & delta);
+  virtual void init(const MatrixSize & rows, const MatrixSize & cols);
+  virtual void reset();
   virtual void update(const RefConstMatrix & delta, const size_t & batch_size, RefMatrix value);
+  virtual void update(const Value & delta, const size_t & batch_size, Value & value);
+
+private:
+  double learning_factor(const size_t & batch_size) const;
+  double decay_factor(const size_t & batch_size) const;
 
 private:
   double _learning_rate;
@@ -45,8 +51,14 @@ public:
   virtual std::string get_info() const;
   virtual std::unique_ptr<Layer::Updater> copy() const;
 
-  virtual void reset(const RefConstMatrix & delta);
+  virtual void init(const MatrixSize & rows, const MatrixSize & cols);
+  virtual void reset();
   virtual void update(const RefConstMatrix & delta, const size_t & batch_size, RefMatrix value);
+  virtual void update(const Value & delta, const size_t & batch_size, Value & value);
+
+private:
+  double learning_factor(const size_t & batch_size) const;
+  double decay_factor(const size_t & batch_size) const;
 
 private:
   double _learning_rate;

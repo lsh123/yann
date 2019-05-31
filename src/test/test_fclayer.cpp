@@ -12,7 +12,7 @@
 
 #include "timer.h"
 #include "test_utils.h"
-#include "mnist-test.h"
+#include "test_layers.h"
 
 using namespace std;
 using namespace boost;
@@ -36,7 +36,7 @@ struct FullyConnectedLayerTestFixture
 
 BOOST_FIXTURE_TEST_SUITE(FullyConnectedLayerTest, FullyConnectedLayerTestFixture);
 
-BOOST_AUTO_TEST_CASE(FullyConnectedLayer_IO_Test)
+BOOST_AUTO_TEST_CASE(IO_Test)
 {
   BOOST_TEST_MESSAGE("*** FullyConnectedLayer IO test ...");
 
@@ -59,7 +59,7 @@ BOOST_AUTO_TEST_CASE(FullyConnectedLayer_IO_Test)
   BOOST_CHECK(one.is_equal(two, TEST_TOLERANCE));
 }
 
-BOOST_AUTO_TEST_CASE(FullyConnectedLayer_FeedForward_Test)
+BOOST_AUTO_TEST_CASE(FeedForward_Test)
 {
   BOOST_TEST_MESSAGE("*** FullyConnectedLayer FeedForward test ...");
 
@@ -142,7 +142,7 @@ BOOST_AUTO_TEST_CASE(FullyConnectedLayer_FeedForward_Test)
 
 }
 
-BOOST_AUTO_TEST_CASE(FullyConnectedLayer_Backprop_Test)
+BOOST_AUTO_TEST_CASE(Backprop_Test)
 {
   BOOST_TEST_MESSAGE("*** FullyConnectedLayer backprop test ...");
 
@@ -195,6 +195,92 @@ BOOST_AUTO_TEST_CASE(FullyConnectedLayer_Backprop_Test)
     layer.feedforward(input, ctx.get());
     BOOST_CHECK(expected.isApprox(ctx->get_output(), TEST_TOLERANCE));
   }
+}
+
+BOOST_AUTO_TEST_CASE(Training_WithIdentity_Test)
+{
+  BOOST_TEST_MESSAGE("*** FullyConnectedLayer with Identity activation training test ...");
+
+  const MatrixSize input_size  = 18;
+  const MatrixSize output_size = 3;
+  const MatrixSize batch_size = 2;
+
+  VectorBatch input, expected;
+  resize_batch(input, batch_size, input_size);
+  resize_batch(expected, batch_size, output_size);
+
+  input <<
+      0.01, 0.02, 0.11, 0.10, 0.13, 0.18,
+      0.03, 0.04, 0.12, 0.09, 0.14, 0.17,
+      0.05, 0.06, 0.07, 0.08, 0.15, 0.16,
+      ///////////////////////////////////
+      0.02, 0.06, 0.08, 0.10, 0.13, 0.14,
+      0.03, 0.02, 0.07, 0.09, 0.16, 0.15,
+      0.04, 0.05, 0.13, 0.11, 0.16, 0.18;
+
+  expected <<
+      0.6, 0.7, 0.5,
+      //////////////
+      0.3, 0.8, 0.1;
+
+  // create layer
+  auto layer = make_unique<FullyConnectedLayer>(input_size, output_size);
+  BOOST_CHECK(layer);
+  layer->set_activation_function(make_unique<IdentityFunction>());
+  layer->init(InitMode_Zeros);
+
+  // test
+  test_layer_training(
+      *layer,
+      input,
+      expected,
+      make_unique<QuadraticCost>(),
+      0.75, // learning rate
+      2000  // epochs
+  );
+}
+
+BOOST_AUTO_TEST_CASE(Training_WithSigmoid_Test)
+{
+  BOOST_TEST_MESSAGE("*** FullyConnectedLayer with Sigmoid activation training test ...");
+
+  const MatrixSize input_size  = 18;
+  const MatrixSize output_size = 3;
+  const MatrixSize batch_size = 2;
+
+  VectorBatch input, expected;
+  resize_batch(input, batch_size, input_size);
+  resize_batch(expected, batch_size, output_size);
+
+  input <<
+      0.01, 0.02, 0.11, 0.10, 0.13, 0.18,
+      0.03, 0.04, 0.12, 0.09, 0.14, 0.17,
+      0.05, 0.06, 0.07, 0.08, 0.15, 0.16,
+      ///////////////////////////////////
+      0.02, 0.06, 0.08, 0.10, 0.13, 0.14,
+      0.03, 0.02, 0.07, 0.09, 0.16, 0.15,
+      0.04, 0.05, 0.13, 0.11, 0.16, 0.18;
+
+  expected <<
+      0.6, 0.7, 0.5,
+      //////////////
+      0.3, 0.8, 0.1;
+
+  // create layer
+  auto layer = make_unique<FullyConnectedLayer>(input_size, output_size);
+  BOOST_CHECK(layer);
+  layer->set_activation_function(make_unique<SigmoidFunction>());
+  layer->init(InitMode_Zeros);
+
+  // test
+  test_layer_training(
+      *layer,
+      input,
+      expected,
+      make_unique<CrossEntropyCost>(),
+      3.0,  // learning rate
+      5000 // epochs
+  );
 }
 
 BOOST_AUTO_TEST_SUITE_END()

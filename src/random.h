@@ -25,6 +25,7 @@ public:
     std::generate(begin, end, [gen]()->Value { return gen->next(); });
   }
 
+  void generate(Value & val);
   void generate(RefMatrix mm);
 
 public:

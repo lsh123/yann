@@ -246,18 +246,18 @@ BOOST_AUTO_TEST_CASE(Mnist_OneLayer_Two_Labels_Test)
 
   // setup
   auto cnn = create_cnn_for_mnist(
-        8, // filter_size
+        10, // filter_size
         4, // polling_size,
         2, // frames_num,
         make_unique<QuadraticCost>());
   BOOST_CHECK(cnn);
-  cnn->init(InitMode_Zeros); // want consistency for this test
+  cnn->init(InitMode_Random_01);
 
   // create trainer
   auto trainer = make_unique<Trainer_Stochastic>(
-      make_unique<Updater_GradientDescent>(5.0, 0.001),
+      make_unique<Updater_GradientDescent>(1.0, 0.0),
       Trainer::Sequential, // want consistency for this test
-      100     // batch_size
+      10     // batch_size
   );
   BOOST_CHECK(trainer);
   trainer->set_progress_callback(progress_callback);
@@ -276,8 +276,8 @@ BOOST_AUTO_TEST_CASE(Mnist_OneLayer_Two_Labels_Test)
   BOOST_TEST_MESSAGE(" epochs: " << epochs);
 
   // check
-  BOOST_CHECK_GE(res.first, 0.995); // > 99.5%%
-  BOOST_CHECK_LE(res.second, 0.02); // < 0.02 per test
+  BOOST_CHECK_GE(res.first, 0.95); // > 95%%
+  BOOST_CHECK_LE(res.second, 0.05); // < 0.05 per test
 }
 
 BOOST_AUTO_TEST_CASE(Mnist_OneLayer_Full_Test, * disabled())
@@ -323,10 +323,10 @@ BOOST_AUTO_TEST_CASE(LeNet1_Two_Labels_Test)
   _mnist_test.filter(1, 1000, 1000); // only allow 0,1 images; 1000 count
   BOOST_TEST_MESSAGE("*** Filtered test set: " << "\n" << _mnist_test);
 
-  const double learning_rate = 3.0;
-  const double regularization = 0.5;
+  const double learning_rate = 0.5;
+  const double regularization = 0.0;
   const MatrixSize training_batch_size = 10;
-  const size_t epochs = 6;
+  const size_t epochs = 5;
 
   auto nn = ConvolutionalNetwork::create_lenet1(
       _mnist_test.get_image_rows(), // input_rows
@@ -337,7 +337,7 @@ BOOST_AUTO_TEST_CASE(LeNet1_Two_Labels_Test)
       make_unique<SigmoidFunction>()
   );
   YANN_CHECK(nn);
-  nn->init(InitMode_Zeros); // want consistency for this test
+  nn->init(InitMode_Random_01);
   nn->set_cost_function(make_unique<QuadraticCost>());
 
   // Trainer
@@ -446,7 +446,7 @@ BOOST_AUTO_TEST_CASE(LeNet5_Two_Labels_Test)
   _mnist_test.filter(1, 2000, 1000); // only allow 0,1 images; 1000 count
   BOOST_TEST_MESSAGE("*** Filtered test set: " << "\n" << _mnist_test);
 
-  const double learning_rate = 0.05;
+  const double learning_rate = 0.1;
   const double regularization = 0.0;
   const MatrixSize training_batch_size = 10;
   const size_t epochs = 10;
@@ -455,8 +455,8 @@ BOOST_AUTO_TEST_CASE(LeNet5_Two_Labels_Test)
       _mnist_test.get_image_rows(), // input_rows
       _mnist_test.get_image_cols(), // input_cols
       PollingLayer::PollMode_Avg,
-      20, // fc1 size
-      15, // fc2 size
+      100, // fc1 size
+      30, // fc2 size
       _mnist_test.get_label_size(), // output_size
       make_unique<SigmoidFunction>()
   );
