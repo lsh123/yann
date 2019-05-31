@@ -486,19 +486,20 @@ std::string yann::ConvolutionalLayer::get_name() const
   return "ConvolutionalLayer";
 }
 
-void yann::ConvolutionalLayer::print_info(std::ostream & os) const
+string yann::ConvolutionalLayer::get_info() const
 {
   YANN_CHECK(is_valid());
 
-  Base::print_info(os);
-
-  os << " activation: " << _activation_function->get_name()
-     << ", input rows: " << _input_rows
-     << ", input cols: " << _input_cols
-     << ", filter: " << _filter_size
-     << ", output rows: " << get_output_rows()
-     << ", output cols: " << get_output_cols()
+  ostringstream oss;
+  oss << Base::get_info()
+      << " activation: " << _activation_function->get_info()
+      << ", input rows: " << _input_rows
+      << ", input cols: " << _input_cols
+      << ", filter: " << _filter_size
+      << ", output rows: " << get_output_rows()
+      << ", output cols: " << get_output_cols()
   ;
+  return oss.str();
 }
 
 bool yann::ConvolutionalLayer::is_equal(const Layer& other, double tolerance) const
@@ -511,7 +512,7 @@ bool yann::ConvolutionalLayer::is_equal(const Layer& other, double tolerance) co
     return false;
   }
   // TOOD: add deep compare
-  if(_activation_function->get_name() != the_other->_activation_function->get_name()) {
+  if(_activation_function->get_info() != the_other->_activation_function->get_info()) {
     return false;
   }
   if(!_ww.isApprox(the_other->_ww, tolerance)) {

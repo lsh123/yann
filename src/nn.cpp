@@ -78,21 +78,16 @@ void yann::Network::load(const std::string & filename)
   ifs.close();
 }
 
-void yann::Network::print_info(ostream & os) const
+string yann::Network::get_info() const
 {
   YANN_CHECK(_container);
 
-  os << "yann::Network"
-     << "[" << get_input_size() << " -> " << get_output_size() << "]"
-     << " cost: " << _cost_function->get_name()
-     << ", layers: (" << _container->get_info() << ")"
-  ;
-}
-
-string yann::Network::get_info() const
-{
   ostringstream oss;
-  print_info(oss);
+  oss << "yann::Network"
+      << "[" << get_input_size() << " -> " << get_output_size() << "]"
+      << " cost: " << _cost_function->get_info()
+      << ", layers: (" << _container->get_info() << ")"
+  ;
   return oss.str();
 }
 
@@ -119,7 +114,7 @@ bool yann::Network::is_equal(const Network& other, double tolerance) const
   YANN_CHECK(other._container);
 
   // TODO: add deep copy comparison
-  if(_cost_function->get_name() != other._cost_function->get_name()) {
+  if(_cost_function->get_info() != other._cost_function->get_info()) {
     return false;
   }
   if(!_container->is_equal(*other._container, tolerance)) {

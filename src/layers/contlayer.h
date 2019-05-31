@@ -69,7 +69,7 @@ public:
   // ContainerLayer overwrites
   virtual void append_layer(std::unique_ptr<Layer> layer);
 
-  virtual void print_info(std::ostream & os) const;
+  virtual std::string get_info() const;
   virtual std::string get_name() const;
   virtual MatrixSize get_input_size() const;
   virtual MatrixSize get_output_size() const;
@@ -113,7 +113,7 @@ public:
   virtual void append_layer(std::unique_ptr<Layer> layer);
 
   virtual bool is_equal(const Layer& other, double tolerance) const;
-  virtual void print_info(std::ostream & os) const;
+  virtual std::string get_info() const;
   virtual std::string get_name() const;
   virtual bool is_valid() const;
   virtual MatrixSize get_input_size() const;

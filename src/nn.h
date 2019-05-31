@@ -32,7 +32,7 @@ namespace yann {
 // Generic interface for cost functions
 class CostFunction {
 public:
-  virtual std::string get_name() const = 0;
+  virtual std::string get_info() const = 0;
   virtual Value f(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected) = 0;
   virtual void derivative(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected, RefVectorBatch output) = 0;
   virtual std::unique_ptr<CostFunction> copy() const = 0;
@@ -57,8 +57,7 @@ public:
 
   void set_cost_function(const std::unique_ptr<CostFunction> & cost_function);
 
-  std::string get_info() const;
-  virtual void print_info(std::ostream & os) const;
+  virtual std::string get_info() const;
 
   virtual bool is_equal(const Network& other, double tolerance) const;
   virtual bool is_valid() const;

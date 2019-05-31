@@ -28,20 +28,15 @@ istream& std::operator>>(istream & is, Layer & layer)
   return is;
 }
 
-std::string yann::Layer::get_info() const
+string yann::Layer::get_info() const
 {
   ostringstream oss;
-  print_info(oss);
-  return oss.str();
-}
 
-void yann::Layer::print_info(std::ostream & os) const
-{
-  os << get_name()
+  oss << get_name()
     << "[" << get_input_size() << " -> " << get_output_size() << "]"
   ;
+  return oss.str();
 }
-
 
 void yann::Layer::read(istream & is)
 {

@@ -30,7 +30,12 @@ yann::Updater_GradientDescent::Updater_GradientDescent(
 
 std::string yann::Updater_GradientDescent::get_info() const
 {
-  return "GradientDescent"; // TODO: print other params
+  ostringstream oss;
+  oss << "GradientDescent["
+      << "learning_rat=" << _learning_rate
+      << "regularization_parameter" << _regularization_parameter
+      << "]";
+  return oss.str();
 }
 
 std::unique_ptr<Layer::Updater> yann::Updater_GradientDescent::copy() const
@@ -68,7 +73,12 @@ yann::Updater_GradientDescentWithMomentum::Updater_GradientDescentWithMomentum(
 
 std::string yann::Updater_GradientDescentWithMomentum::get_info() const
 {
-  return "GradientDescentWithMomentum"; // TODO: print other params
+  ostringstream oss;
+  oss << "GradientDescentWithMomentum["
+      << "learning_rat=" << _learning_rate
+      << "regularization_parameter" << _regularization_parameter
+      << "]";
+  return oss.str();
 }
 
 std::unique_ptr<Layer::Updater> yann::Updater_GradientDescentWithMomentum::copy() const
@@ -113,13 +123,6 @@ yann::Trainer::~Trainer()
 {
 }
 
-std::string yann::Trainer::get_info() const
-{
-  ostringstream oss;
-  print_info(oss);
-  return oss.str();
-}
-
 void yann::Trainer::prepare_shuffled_pos(enum InputSelectionMode select_mode, std::vector<MatrixSize> & shuffled_pos)
 {
   for (size_t ii = 0; ii < shuffled_pos.size(); ++ii) {
@@ -153,12 +156,14 @@ yann::Trainer_Batch::Trainer_Batch(
 }
 
 // Trainer
-void yann::Trainer_Batch::print_info(ostream & os) const
+string yann::Trainer_Batch::get_info() const
 {
-  os << "yann::Trainer_Batch("
-     << " select_mode=" << _select_mode << " batch_size=" << _batch_size
-     << ", updater=" << _updater->get_info()
-     << ")";
+  ostringstream oss;
+  oss << "yann::Trainer_Batch("
+      << " select_mode=" << _select_mode << " batch_size=" << _batch_size
+      << ", updater=" << _updater->get_info()
+      << ")";
+  return oss.str();
 }
 
 void yann::Trainer_Batch::train(Network & nn,
@@ -216,12 +221,14 @@ yann::Trainer_Stochastic::Trainer_Stochastic(
 }
 
 // Trainer
-void yann::Trainer_Stochastic::print_info(ostream & os) const
+string yann::Trainer_Stochastic::get_info() const
 {
-  os << "yann::Trainer_Stochastic("
-     << " select_mode=" << _select_mode << " batch_size=" << _batch_size
-     << ", updater=" << _updater->get_info()
-     << ")";
+  ostringstream oss;
+  oss << "yann::Trainer_Stochastic("
+      << " select_mode=" << _select_mode << " batch_size=" << _batch_size
+      << ", updater=" << _updater->get_info()
+      << ")";
+  return oss.str();
 }
 
 void yann::Trainer_Stochastic::train(Network & nn, const VectorBatch & inputs, const VectorBatch & outputs) const

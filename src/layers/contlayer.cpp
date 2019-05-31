@@ -262,23 +262,24 @@ std::string yann::SequentialLayer::get_name() const
   return "SequentialLayer";
 }
 
-void yann::SequentialLayer::print_info(std::ostream & os) const
+string yann::SequentialLayer::get_info() const
 {
-  Base::print_info(os);
-
-  os << " layers[" << get_layers_num() << "]";
+  ostringstream oss;
+  oss << Base::get_info()
+      << " layers[" << get_layers_num() << "]";
   if(get_layers_num() > 0) {
-    os << ": (";
+    oss << ": (";
     for(size_t ii = 0; ii < get_layers_num(); ++ii) {
       auto layer = get_layer(ii);
       YANN_CHECK(layer);
       if(ii > 0) {
-        os << "; ";
+        oss << "; ";
       }
-      layer->print_info(os);
+      oss << layer->get_info();
     }
-    os << ")";
+    oss << ")";
   }
+  return oss.str();
 }
 
 // 1 input -> 1 output
@@ -620,19 +621,21 @@ std::string yann::MappingLayer::get_name() const
   return "MappingLayer";
 }
 
-void yann::MappingLayer::print_info(std::ostream & os) const
+string yann::MappingLayer::get_info() const
 {
-  Base::print_info(os);
+  ostringstream oss;
+
+  oss << Base::get_info();
 
   // assume that all layers are the same, print only one
-  os << " input frames: " << _input_frames
-     << " layers[" << get_layers_num() << "]";
+  oss << " input frames: " << _input_frames
+      << " layers[" << get_layers_num() << "]";
   if(get_layers_num() > 0) {
     // TODO: print mapping
-    os << ": (";
-    get_layer(0)->print_info(os);
-    os << ")";
+    oss << ": (" << get_layer(0)->get_info() << ")";
   }
+
+  return oss.str();
 }
 
 bool yann::MappingLayer::is_equal(const Layer& other, double tolerance) const

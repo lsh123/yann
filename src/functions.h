@@ -13,8 +13,6 @@
 
 namespace yann {
 
-// TODO: add get_info() to print params
-
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //
 // Activation functions
@@ -25,7 +23,7 @@ namespace yann {
 //  d f(x<i>) / d(x<j>) = 1 if i == j and 0 if i != j
 class IdentityFunction: public ActivationFunction {
 public:
-  virtual std::string get_name() const;
+  virtual std::string get_info() const;
   virtual void f(const RefConstVectorBatch & input, RefVectorBatch output, enum OperationMode mode = Operation_Assign);
   virtual void derivative(const RefConstVectorBatch & input, RefVectorBatch output);
   virtual std::unique_ptr<ActivationFunction> copy() const;
@@ -38,7 +36,7 @@ class ReluFunction: public ActivationFunction {
 public:
   ReluFunction(const Value & a = 0.0) : _a(a) { }
 
-  virtual std::string get_name() const;
+  virtual std::string get_info() const;
   virtual void f(const RefConstVectorBatch & input, RefVectorBatch output, enum OperationMode mode = Operation_Assign);
   virtual void derivative(const RefConstVectorBatch & input, RefVectorBatch output);
   virtual std::unique_ptr<ActivationFunction> copy() const;
@@ -51,7 +49,7 @@ private:
 //  f(x) = 1 / (1 + exp(-x))
 class SigmoidFunction: public ActivationFunction {
 public:
-  virtual std::string get_name() const;
+  virtual std::string get_info() const;
   virtual void f(const RefConstVectorBatch & input, RefVectorBatch output, enum OperationMode mode = Operation_Assign);
   virtual void derivative(const RefConstVectorBatch & input, RefVectorBatch output);
   virtual std::unique_ptr<ActivationFunction> copy() const;
@@ -66,15 +64,15 @@ private:
 //  df/dx = A* S* (1−(tanh(S*x))^2)
 class TanhFunction: public ActivationFunction {
 public:
-  TanhFunction(const Value & A = 1.0, const Value & S = 1.0) : _A(A), _S(S) { }
-  virtual std::string get_name() const;
+  TanhFunction(const Value & AA = 1.0, const Value & SS = 1.0) : _AA(AA), _SS(SS) { }
+  virtual std::string get_info() const;
   virtual void f(const RefConstVectorBatch & input, RefVectorBatch output, enum OperationMode mode = Operation_Assign);
   virtual void derivative(const RefConstVectorBatch & input, RefVectorBatch output);
   virtual std::unique_ptr<ActivationFunction> copy() const;
 
 private:
-  const Value _A;
-  const Value _S;
+  const Value _AA;
+  const Value _SS;
 }; // class TanhFunction
 
 
@@ -88,7 +86,7 @@ private:
 //  d f(actual, expected) / d (actual) = (actual<i> - expected<i>)    -- we drop 1/2 coefficient since it doesn't matter
 class QuadraticCost: public CostFunction {
 public:
-  virtual std::string get_name() const;
+  virtual std::string get_info() const;
   virtual Value f(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected);
   virtual void derivative(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected, RefVectorBatch output);
   virtual std::unique_ptr<CostFunction> copy() const;
@@ -101,7 +99,7 @@ class ExponentialCost: public CostFunction {
 public:
   ExponentialCost(const Value & thaw = 1.0) : _thaw(thaw) { }
 
-  virtual std::string get_name() const;
+  virtual std::string get_info() const;
   virtual Value f(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected);
   virtual void derivative(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected, RefVectorBatch output);
   virtual std::unique_ptr<CostFunction> copy() const;
@@ -116,7 +114,7 @@ private:
 class CrossEntropyCost: public CostFunction {
 public:
   CrossEntropyCost(const Value & epsilon = 1.0e-100) : _epsilon(epsilon) { }
-  virtual std::string get_name() const;
+  virtual std::string get_info() const;
   virtual Value f(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected);
   virtual void derivative(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected, RefVectorBatch output);
   virtual std::unique_ptr<CostFunction> copy() const;
@@ -133,7 +131,7 @@ public:
   // epsilon shifts the values to avoid division by 0 in the derivative
   HellingerDistanceCost(const Value & epsilon = 0) : _epsilon(epsilon) { }
 
-  virtual std::string get_name() const;
+  virtual std::string get_info() const;
   virtual Value f(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected);
   virtual void derivative(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected, RefVectorBatch output);
   virtual std::unique_ptr<CostFunction> copy() const;
@@ -148,7 +146,7 @@ private:
 //  d f(actual, expected) / d (actual(i)) =  if (actual * expected) > 1 then 0; otherwise -2 * (1 - actual * expected) * expected(i)
 class SquaredHingeLoss: public CostFunction {
 public:
-  virtual std::string get_name() const;
+  virtual std::string get_info() const;
   virtual Value f(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected);
   virtual void derivative(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected, RefVectorBatch output);
   virtual std::unique_ptr<CostFunction> copy() const;

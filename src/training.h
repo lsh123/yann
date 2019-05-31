@@ -71,8 +71,7 @@ public:
   Trainer(const MatrixSize & batch_size);
   virtual ~Trainer();
 
-  std::string get_info() const;
-  virtual void print_info(std::ostream & os) const = 0;
+  virtual std::string get_info() const = 0;
   virtual void train(Network & nn, const VectorBatch & inputs, const VectorBatch & outputs) const = 0;
 
   void set_progress_callback(ProgressCallback callback) {  _progress_callback = callback; }
@@ -95,7 +94,7 @@ public:
       enum InputSelectionMode select_mode,
       const MatrixSize & batch_size);
 
-  virtual void print_info(std::ostream & os) const;
+  virtual std::string get_info() const;
   void train(Network & nn, const VectorBatch & inputs, const VectorBatch & outputs) const;
 
 private:
@@ -112,7 +111,7 @@ public:
       enum InputSelectionMode select_mode,
       const MatrixSize & batch_size);
 
-  virtual void print_info(std::ostream & os) const;
+  virtual std::string get_info() const;
   void train(Network & nn, const VectorBatch & inputs, const VectorBatch & outputs) const;
 
 private:

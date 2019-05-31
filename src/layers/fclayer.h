@@ -25,7 +25,7 @@ public:
   // Layer overwrites
   virtual bool is_valid() const;
   virtual std::string get_name() const;
-  virtual void print_info(std::ostream & os) const;
+  virtual std::string get_info() const;
   virtual bool is_equal(const Layer& other, double tolerance) const;
   virtual MatrixSize get_input_size() const;
   virtual MatrixSize get_output_size() const;

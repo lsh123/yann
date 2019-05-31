@@ -25,7 +25,7 @@ using namespace yann;
 // identity function:
 //  f(x) = x
 //  d f(x<i>) / d(x<j>) = 1 if i == j and 0 if i != j
-string yann::IdentityFunction::get_name() const
+string yann::IdentityFunction::get_info() const
 {
   return "Identity";
 }
@@ -54,7 +54,7 @@ unique_ptr<ActivationFunction> yann::IdentityFunction::copy() const
 // rectified linear unit function or leaky ReLU if a != 0:
 //  f(x) = x for x > 0 ; a*x for x < 0
 //  d f(x<i>) / d(x<j>) = 1 if x > 0; a if x < 0
-string yann::ReluFunction::get_name() const
+string yann::ReluFunction::get_info() const
 {
   return "Relu";
 }
@@ -106,7 +106,7 @@ unique_ptr<ActivationFunction> yann::ReluFunction::copy() const
 
 // sigmoid function:
 //  f(x) = 1 / (1 + exp(-x))
-string yann::SigmoidFunction::get_name() const
+string yann::SigmoidFunction::get_info() const
 {
   return "Sigmoid";
 }
@@ -149,9 +149,15 @@ unique_ptr<ActivationFunction> yann::SigmoidFunction::copy() const
 // tanh function:
 //  f(x) = A*tanh(S*x)
 //  df/dx = A* S* (1−(tanh(S*x))^2)
-string yann::TanhFunction::get_name() const
+string yann::TanhFunction::get_info() const
 {
-  return "Tanh";
+  ostringstream oss;
+  oss << "Tanh["
+      << "A=" << _AA
+      << "S=" << _SS
+      << "]"
+      ;
+  return oss.str();
 }
 
 void yann::TanhFunction::f(const RefConstVectorBatch & input, RefVectorBatch output, enum OperationMode mode)
@@ -160,10 +166,10 @@ void yann::TanhFunction::f(const RefConstVectorBatch & input, RefVectorBatch out
 
   switch(mode) {
   case Operation_Assign:
-    output.array() = _A * tanh(input.array() * _S);
+    output.array() = _AA * tanh(input.array() * _SS);
     break;
   case Operation_PlusEqual:
-    output.array() += _A * tanh(input.array()* _S);
+    output.array() += _AA * tanh(input.array()* _SS);
     break;
   }
 }
@@ -172,17 +178,17 @@ void yann::TanhFunction::derivative(const RefConstVectorBatch & input, RefVector
 {
   YANN_CHECK(is_same_size(input, output));
   this->f(input, output);
-  output.array() = (1 - tanh(input.array()* _S).square()) * (_A * _S);
+  output.array() = (1 - tanh(input.array()* _SS).square()) * (_AA * _SS);
 }
 unique_ptr<ActivationFunction> yann::TanhFunction::copy() const
 {
-  return make_unique<TanhFunction>(_A, _S);
+  return make_unique<TanhFunction>(_AA, _SS);
 }
 
 // quadratic cost function:
 //  f(actual, expected) = sum((actual<i> - expected<i>)^2)
 //  d f(actual, expected) / d (actual) = (actual<i> - expected<i>)    -- we drop 1/2 coefficient since it doesn't matter
-string yann::QuadraticCost::get_name() const
+string yann::QuadraticCost::get_info() const
 {
   return "Quadratic";
 }
@@ -205,9 +211,14 @@ unique_ptr<CostFunction> yann::QuadraticCost::copy() const
 // Exponential cost:
 //  f(actual, expected) = thaw * exp(sum((actual<i> - expected<i>)^2) / thaw)
 //  d f(actual, expected) / d (actual) = 2 * (actual<i> - expected<i>) * f(actual, expected) / thaw
-string yann::ExponentialCost::get_name() const
+string yann::ExponentialCost::get_info() const
 {
-  return "Exponential";
+  ostringstream oss;
+  oss << "Exponential["
+      << "thaw=" << _thaw
+      << "]"
+      ;
+  return oss.str();
 }
 Value yann::ExponentialCost::f(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected)
 {
@@ -229,9 +240,14 @@ unique_ptr<CostFunction> yann::ExponentialCost::copy() const
 // cross entropy function:
 //  f(actual, expected) = sum(-(expected * ln(actual) + (1 - expected) * ln(1 - actual)))
 //  d f(actual, expected) / d (actual) = (actual - expected) / ((1 - actual) * actual)
-string yann::CrossEntropyCost::get_name() const
+string yann::CrossEntropyCost::get_info() const
 {
-  return "CrossEntropy";
+  ostringstream oss;
+  oss << "CrossEntropy["
+      << "epsilon=" << _epsilon
+      << "]"
+      ;
+  return oss.str();
 }
 
 Value yann::CrossEntropyCost::f(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected)
@@ -287,10 +303,16 @@ unique_ptr<CostFunction> yann::CrossEntropyCost::copy() const
 // Hellinger distance cost:
 //  f(actual, expected) = sum(sqrt(actual) - sqrt(expected))^2
 //  d f(actual, expected) / d (actual) =  (1 -  sqrt(expected) /  sqrt(actual))
-string yann::HellingerDistanceCost::get_name() const
+string yann::HellingerDistanceCost::get_info() const
 {
-  return "HellingerDistance";
+  ostringstream oss;
+  oss << "HellingerDistance["
+      << "epsilon=" << _epsilon
+      << "]"
+      ;
+  return oss.str();
 }
+
 Value yann::HellingerDistanceCost::f(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected)
 {
   YANN_CHECK(is_same_size(actual, expected));
@@ -311,7 +333,7 @@ unique_ptr<CostFunction> yann::HellingerDistanceCost::copy() const
 // Squared Hinge Loss:
 //  f(actual, expected) = (max(0, 1 - actual * expected))^2
 //  d f(actual, expected) / d (actual(i)) =  if (actual * expected) > 1 then 0; otherwise -2 * (1 - actual * expected) * expected(i)
-string yann::SquaredHingeLoss::get_name() const
+string yann::SquaredHingeLoss::get_info() const
 {
   return "SquaredHingeLoss";
 }

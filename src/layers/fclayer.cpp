@@ -178,12 +178,15 @@ std::string yann::FullyConnectedLayer::get_name() const
   return "FullyConnectedLayer";
 }
 
-void yann::FullyConnectedLayer::print_info(std::ostream & os) const
+string yann::FullyConnectedLayer::get_info() const
 {
   YANN_CHECK(is_valid());
 
-  Base::print_info(os);
-  os << " activation: " << _activation_function->get_name();
+  ostringstream oss;
+  oss << Base::get_info()
+      << " activation: " << _activation_function->get_info()
+      ;
+  return oss.str();
 }
 
 bool yann::FullyConnectedLayer::is_equal(const Layer & other, double tolerance) const
@@ -196,7 +199,7 @@ bool yann::FullyConnectedLayer::is_equal(const Layer & other, double tolerance) 
     return false;
   }
   // TOOD: add deep compare
-  if(_activation_function->get_name() != the_other->_activation_function->get_name()) {
+  if(_activation_function->get_info() != the_other->_activation_function->get_info()) {
     return false;
   }
   if(!_ww.isApprox(the_other->_ww, tolerance)) {

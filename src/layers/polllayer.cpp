@@ -113,25 +113,28 @@ std::string yann::PollingLayer::get_name() const
   return "PollingLayer";
 }
 
-void yann::PollingLayer::print_info(std::ostream & os) const
+string yann::PollingLayer::get_info() const
 {
-  Base::print_info(os);
+  ostringstream oss;
+
+  oss << Base::get_info();
 
   // assume that all layers are the same, print only one
-  os << " input rows: " << _input_rows
-     << ", input cols: " << _input_cols
-     << ", filter: " << _filter_size
-     << ", output rows: " << get_output_rows()
-     << ", output cols: " << get_output_cols()
+  oss << " input rows: " << _input_rows
+      << ", input cols: " << _input_cols
+      << ", filter: " << _filter_size
+      << ", output rows: " << get_output_rows()
+      << ", output cols: " << get_output_cols()
   ;
   switch(_mode) {
   case PollMode_Max:
-    os << ", mode: Max";
+    oss << ", mode: Max";
     break;
   case PollMode_Avg:
-    os << ", mode: Avg";
+    oss << ", mode: Avg";
     break;
   }
+  return oss.str();
 }
 
 bool yann::PollingLayer::is_equal(const Layer & other, double tolerance) const

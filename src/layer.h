@@ -26,7 +26,7 @@ enum OperationMode {
 // Generic interface for activation functions
 class ActivationFunction {
 public:
-  virtual std::string get_name() const = 0;
+  virtual std::string get_info() const = 0;
   virtual void f(const RefConstVectorBatch & input, RefVectorBatch output, enum OperationMode mode = Operation_Assign) = 0;
   virtual void derivative(const RefConstVectorBatch & input, RefVectorBatch output) = 0;
   virtual std::unique_ptr<ActivationFunction> copy() const = 0;
@@ -87,9 +87,7 @@ public:
   }; // class Updater
 
 public:
-  std::string get_info() const;
-  virtual void print_info(std::ostream & os) const;
-
+  virtual std::string get_info() const;
   virtual std::string get_name() const = 0;
 
   virtual bool is_valid() const { return true; }
