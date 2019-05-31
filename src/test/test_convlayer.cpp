@@ -818,7 +818,7 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_Backprop_Test)
   layer.set_activation_function(make_unique<IdentityFunction>());
   layer.set_values(ww, 0.0);
 
-  unique_ptr<Layer::Context> ctx = layer.create_training_context(batch_size);
+  auto ctx = layer.create_training_context(batch_size, make_unique<Updater_GradientDescent>());
   ctx->reset_state();
 
   VectorBatch gradient_input, gradient_output;
@@ -883,7 +883,7 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_Backprop_OnVector_Test)
   layer.set_activation_function(make_unique<IdentityFunction>());
   layer.set_values(ww, 0.0);
 
-  unique_ptr<Layer::Context> ctx = layer.create_training_context(batch_size);
+  auto ctx = layer.create_training_context(batch_size, make_unique<Updater_GradientDescent>());
   ctx->reset_state();
 
   VectorBatch gradient_input, gradient_output;
@@ -975,7 +975,8 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_Training_Test)
       BOOST_CHECK(expected0.isApprox(outputs, TEST_TOLERANCE));
   }
 
-  std::unique_ptr<TrainingContext> training_ctx = net.create_training_context(outputs);
+  auto training_ctx = net.create_training_context(
+      outputs, make_unique<Updater_GradientDescent>(learning_rate, 0.0));
   BOOST_VERIFY(training_ctx);
   {
     // ensure we don't do allocations in eigen
@@ -985,7 +986,7 @@ BOOST_AUTO_TEST_CASE(ConvolutionalLayer_Training_Test)
     for(size_t ii = 0; ii < epochs; ++ii) {
       training_ctx->reset_state();
       net.train(inputs1, expected1, training_ctx.get());
-      net.update(training_ctx.get(), learning_rate, 0.0);
+      net.update(training_ctx.get(), 1);
     }
 
     // check the results

@@ -14,6 +14,27 @@
 
 namespace yann {
 
+// Updates the values according to the gradient descent with weight decay:
+//
+class Updater_GradientDescent :
+    public Layer::Updater
+{
+public:
+  Updater_GradientDescent(double learning_rate = 1.0, double regularization_parameter = 0.0);
+
+  // Layer::Updater overwrites
+  virtual std::string get_info() const;
+  virtual std::unique_ptr<Layer::Updater> copy() const;
+
+  virtual void reset(const RefConstMatrix & delta);
+  virtual void update(const RefConstMatrix & delta, const size_t & batch_size, RefMatrix value);
+
+private:
+  double _learning_rate;
+  double _regularization_parameter;
+}; // Updater_GradientDescent
+
+
 class Trainer
 {
 public:
@@ -46,12 +67,11 @@ protected:
 
 // Apply training data in batches but don't apply deltas until all
 // the training data is processed.
-class Trainer_BatchGradientDescent : public Trainer
+class Trainer_Batch : public Trainer
 {
 public:
-  Trainer_BatchGradientDescent(
-      double learning_rate,
-      double regularization_parameter,
+  Trainer_Batch(
+      const std::unique_ptr<Layer::Updater> & updater,
       enum InputSelectionMode select_mode,
       const MatrixSize & batch_size);
 
@@ -59,18 +79,16 @@ public:
   void train(Network & nn, const VectorBatch & inputs, const VectorBatch & outputs) const;
 
 private:
-  double _learning_rate;
-  double _regularization_parameter;
+  std::unique_ptr<Layer::Updater> _updater;
   enum InputSelectionMode _select_mode;
-}; // class Trainer_BatchGradientDescent
+}; // class Trainer_Batch
 
 // After each batch of training data, apply deltas to the network.
-class Trainer_StochasticGradientDescent : public Trainer
+class Trainer_Stochastic : public Trainer
 {
 public:
-  Trainer_StochasticGradientDescent(
-      double learning_rate,
-      double regularization_parameter,
+  Trainer_Stochastic(
+      const std::unique_ptr<Layer::Updater> & updater,
       enum InputSelectionMode select_mode,
       const MatrixSize & batch_size);
 
@@ -78,10 +96,9 @@ public:
   void train(Network & nn, const VectorBatch & inputs, const VectorBatch & outputs) const;
 
 private:
-  double _learning_rate;
-  double _regularization_parameter;
+  std::unique_ptr<Layer::Updater> _updater;
   enum InputSelectionMode _select_mode;
-}; // class Trainer_StochasticGradientDescent
+}; // class Trainer_Stochastic
 
 }; // namespace yann
 

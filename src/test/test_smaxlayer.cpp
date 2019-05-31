@@ -6,6 +6,7 @@
 #include <sstream>
 
 #include "layers/smaxlayer.h"
+#include "nntraining.h"
 #include "utils.h"
 
 #include "timer.h"
@@ -127,7 +128,7 @@ BOOST_AUTO_TEST_CASE(SoftmaxLayer_Backprop_Test)
 
   SoftmaxLayer layer(size);
 
-  unique_ptr<Layer::Context> ctx = layer.create_training_context(batch_size);
+  auto ctx = layer.create_training_context(batch_size, make_unique<Updater_GradientDescent>());
   ctx->reset_state();
 
   VectorBatch gradient_input, gradient_output;

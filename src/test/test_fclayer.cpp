@@ -6,6 +6,7 @@
 #include <sstream>
 
 #include "layers/fclayer.h"
+#include "nntraining.h"
 #include "utils.h"
 #include "functions.h"
 
@@ -171,7 +172,7 @@ BOOST_AUTO_TEST_CASE(FullyConnectedLayer_Backprop_Test)
   layer.set_activation_function(make_unique<IdentityFunction>());
   layer.set_values(ww, bb);
 
-  unique_ptr<Layer::Context> ctx = layer.create_training_context(batch_size);
+  auto ctx = layer.create_training_context(batch_size, make_unique<Updater_GradientDescent>());
   ctx->reset_state();
 
   VectorBatch gradient_input, gradient_output;

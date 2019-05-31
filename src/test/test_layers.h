@@ -35,15 +35,17 @@ public:
 
   virtual std::unique_ptr<Layer::Context> create_context(const MatrixSize & batch_size) const;
   virtual std::unique_ptr<Layer::Context> create_context(const RefVectorBatch & output) const;
-  virtual std::unique_ptr<Layer::Context> create_training_context(const MatrixSize & batch_size) const;
-  virtual std::unique_ptr<Layer::Context> create_training_context(const RefVectorBatch & output) const;
+  virtual std::unique_ptr<Layer::Context> create_training_context(
+      const MatrixSize & batch_size, const std::unique_ptr<Layer::Updater> & updater) const;
+  virtual std::unique_ptr<Layer::Context> create_training_context(
+      const RefVectorBatch & output, const std::unique_ptr<Layer::Updater> & updater) const;
 
   virtual void feedforward(const RefConstVectorBatch & input, Layer::Context * context, enum OperationMode mode) const;
   virtual void backprop(const RefConstVectorBatch & gradient_output, const RefConstVectorBatch & input,
                         boost::optional<RefVectorBatch> gradient_input, Layer::Context * context) const;
 
   virtual void init(enum InitMode mode);
-  virtual void update(Layer::Context * context, double learning_factor, double decay_factor);
+  virtual void update(Layer::Context * context, const size_t & batch_size);
 
   virtual void read(std::istream & is);
   virtual void write(std::ostream & os) const;

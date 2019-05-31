@@ -236,7 +236,9 @@ BOOST_AUTO_TEST_CASE(Training_StochasticGD_Test)
   auto fcnn = FullyConnectedNetwork::create( { 4, 2 });
   BOOST_VERIFY(fcnn);
 
-  Trainer_StochasticGradientDescent trainer(3, 0.0, Trainer::Random, 4);
+  Trainer_Stochastic trainer(
+      make_unique<Updater_GradientDescent>(3.0, 0.0),
+      Trainer::Random, 4);
   BOOST_TEST_MESSAGE("trainer: " << trainer.get_info());
   {
     Timer timer("Initializing FullyConnectedNetwork");
@@ -280,9 +282,8 @@ BOOST_AUTO_TEST_CASE(Mnist_BatchGradientDescent_Sigmoid_CrossEntropy_Test)
   _mnist_test.filter(1, 2000, 1000); // only allow 0,1 images; 1000 count
   BOOST_TEST_MESSAGE("*** Filtered test set: " << "\n" << _mnist_test);
 
-  Trainer_BatchGradientDescent trainer(
-      0.01,  // learning rate
-      0,
+  Trainer_Batch trainer(
+      make_unique<Updater_GradientDescent>(2.0, 0.0),
       Trainer::Sequential, // reduce test variability
       10   // batch size
   );
@@ -291,7 +292,7 @@ BOOST_AUTO_TEST_CASE(Mnist_BatchGradientDescent_Sigmoid_CrossEntropy_Test)
   pair<double, Value> res = test_fcnn_mnist(
       trainer,
       {20},
-      make_unique<CrossEntropyCost>(),
+      make_unique<CrossEntropyCost>(1.0e-100),
       Sigmoid,
       InitMode_Zeros, // reduce test variability
       10);
@@ -301,7 +302,9 @@ BOOST_AUTO_TEST_CASE(Mnist_BatchGradientDescent_Sigmoid_CrossEntropy_Test)
 
 BOOST_AUTO_TEST_CASE(Mnist_StochasticGD_Quadratic_Sigmoid_Test)
 {
-  Trainer_StochasticGradientDescent trainer(3.0, 0, Trainer::Random, 10);
+  Trainer_Stochastic trainer(
+      make_unique<Updater_GradientDescent>(3.0, 0.0),
+      Trainer::Random, 10);
   trainer.set_progress_callback(progress_callback);
 
   pair<double, Value> res = test_fcnn_mnist(
@@ -322,11 +325,11 @@ BOOST_AUTO_TEST_CASE(Mnist_BatchGradientDescent_HellingerDistance_Softmax_Test)
   _mnist_test.filter(1, 2000, 1000); // only allow 0,1 images; 1000 count
   BOOST_TEST_MESSAGE("*** Filtered test set: " << "\n" << _mnist_test);
 
-  Trainer_BatchGradientDescent trainer(
-      0.1,
-      0,
+  Trainer_Batch trainer(
+      make_unique<Updater_GradientDescent>(5.0, 0.0),
       Trainer::Sequential, // reduce tests variability
-      10);
+      10 // batch size
+  );
   trainer.set_progress_callback(progress_callback);
 
   pair<double, Value> res = test_fcnn_mnist(
@@ -335,14 +338,18 @@ BOOST_AUTO_TEST_CASE(Mnist_BatchGradientDescent_HellingerDistance_Softmax_Test)
       make_unique<HellingerDistanceCost>(0.0001),
       Softmax,
       InitMode_Zeros, // reduce tests variability
-      6);
+      8 // epochs
+  );
   BOOST_CHECK_GE(res.first, 0.99); // > 99%
   BOOST_CHECK_LE(res.second, 0.40);// < 0.4 per test
 }
 
 BOOST_AUTO_TEST_CASE(Mnist_StochasticGD_Quadratic_Sigmoid_Regularization_Test)
 {
-  Trainer_StochasticGradientDescent trainer(3.0, 0.0005, Trainer::Random, 10);
+  Trainer_Stochastic trainer(
+      make_unique<Updater_GradientDescent>(3.0, 0.0005),
+      Trainer::Random,
+      10);
   trainer.set_progress_callback(progress_callback);
 
   pair<double, Value> res = test_fcnn_mnist(
@@ -358,7 +365,10 @@ BOOST_AUTO_TEST_CASE(Mnist_StochasticGD_Quadratic_Sigmoid_Regularization_Test)
 
 BOOST_AUTO_TEST_CASE(Mnist_StochasticGD_CrossEntropy_Sigmoid_Test)
 {
-  Trainer_StochasticGradientDescent trainer(1.0, 0.0, Trainer::Random, 10);
+  Trainer_Stochastic trainer(
+      make_unique<Updater_GradientDescent>(1.0, 0.0),
+      Trainer::Random,
+      10);
   trainer.set_progress_callback(progress_callback);
 
   pair<double, Value> res = test_fcnn_mnist(
@@ -374,7 +384,10 @@ BOOST_AUTO_TEST_CASE(Mnist_StochasticGD_CrossEntropy_Sigmoid_Test)
 
 BOOST_AUTO_TEST_CASE(Mnist_FindBest_StochasticGD_Quadratic_Sigmoid_Test, * disabled())
 {
-  Trainer_BatchGradientDescent trainer(3.0, 0.0, Trainer::Random, 10);
+  Trainer_Batch trainer(
+      make_unique<Updater_GradientDescent>(3.0, 0.0),
+      Trainer::Random,
+      10);
   trainer.set_progress_callback(progress_callback);
 
   double res = test_fcnn_mnist_find_best(
@@ -389,7 +402,10 @@ BOOST_AUTO_TEST_CASE(Mnist_FindBest_StochasticGD_Quadratic_Sigmoid_Test, * disab
 
 BOOST_AUTO_TEST_CASE(Mnist_FindBest_StochasticGD_CrossEntropy_Sigmoid_Test, * disabled())
 {
-  Trainer_BatchGradientDescent trainer(3.0, 0.0, Trainer::Random, 10);
+  Trainer_Batch trainer(
+      make_unique<Updater_GradientDescent>(3.0, 0.0),
+      Trainer::Random,
+      10);
   trainer.set_progress_callback(progress_callback);
 
   double res = test_fcnn_mnist_find_best(
@@ -404,9 +420,8 @@ BOOST_AUTO_TEST_CASE(Mnist_FindBest_StochasticGD_CrossEntropy_Sigmoid_Test, * di
 
 BOOST_AUTO_TEST_CASE(Mnist_StochasticGD_Sigmoid_400_epochs_Test, * disabled())
 {
-  Trainer_StochasticGradientDescent trainer(
-      0.5,     // learning rate
-      0.001,     // regularization
+  Trainer_Stochastic trainer(
+      make_unique<Updater_GradientDescent>(0.5, 0.001),
       Trainer::Random,
       10       // batch size
     );

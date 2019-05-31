@@ -201,7 +201,10 @@ BOOST_AUTO_TEST_CASE(Training_BatchGradientDescent_Test)
   }
 
   // training
-  Trainer_BatchGradientDescent trainer(3, 0.0, Trainer::Random, 1);
+  Trainer_Batch trainer(
+      make_unique<Updater_GradientDescent>(3.0, 0.0),
+      Trainer::Random,
+      1);
   BOOST_TEST_MESSAGE("trainer: " << trainer.get_info());
   {
     Timer timer("Training");
@@ -251,9 +254,8 @@ BOOST_AUTO_TEST_CASE(Mnist_OneLayer_Two_Labels_Test)
   cnn->init(InitMode_Zeros); // want consistency for this test
 
   // create trainer
-  auto trainer = make_unique<Trainer_StochasticGradientDescent>(
-      5.0,    // learning rate
-      0.001,  // regularization
+  auto trainer = make_unique<Trainer_Stochastic>(
+      make_unique<Updater_GradientDescent>(5.0, 0.001),
       Trainer::Sequential, // want consistency for this test
       100     // batch_size
   );
@@ -292,9 +294,8 @@ BOOST_AUTO_TEST_CASE(Mnist_OneLayer_Full_Test, * disabled())
   cnn->init(InitMode_Random_SqrtInputs);
 
   // trainer
-  auto trainer = make_unique<Trainer_StochasticGradientDescent>(
-      5.0,  // learning rate
-      0,    // regularization
+  auto trainer = make_unique<Trainer_Stochastic>(
+      make_unique<Updater_GradientDescent>(5.0, 0.0),
       Trainer::Random,
       20    // batch_size
   );
@@ -339,9 +340,8 @@ BOOST_AUTO_TEST_CASE(LeNet4_Two_Labels_Test)
   nn->set_cost_function(make_unique<QuadraticCost>());
 
   // Trainer
-  auto trainer = make_unique<Trainer_StochasticGradientDescent>(
-      learning_rate,       // learning rate
-      regularization,      // regularization
+  auto trainer = make_unique<Trainer_Stochastic>(
+      make_unique<Updater_GradientDescent>(learning_rate, regularization),
       Trainer::Sequential, // want consistency for this test
       training_batch_size  // batch_size
   );
@@ -387,9 +387,8 @@ BOOST_AUTO_TEST_CASE(LeNet4_Full_Test, * disabled())
   nn->set_cost_function(make_unique<QuadraticCost>());
 
   // Trainer
-  auto trainer = make_unique<Trainer_StochasticGradientDescent>(
-      learning_rate,      // learning rate
-      regularization,     // regularization
+  auto trainer = make_unique<Trainer_Stochastic>(
+      make_unique<Updater_GradientDescent>(learning_rate, regularization),
       Trainer::Random,
       training_batch_size  // batch_size
   );
@@ -436,9 +435,8 @@ BOOST_AUTO_TEST_CASE(LeNet5_Two_Labels_Test)
   // nn->set_cost_function(make_unique<ExponentialCost>(2.0));
 
   // Trainer
-  auto trainer = make_unique<Trainer_StochasticGradientDescent>(
-      learning_rate,      // learning rate
-      regularization,     // regularization
+  auto trainer = make_unique<Trainer_Stochastic>(
+      make_unique<Updater_GradientDescent>(learning_rate, regularization),
       Trainer::Sequential,
       training_batch_size  // batch_size
   );
@@ -502,9 +500,8 @@ BOOST_AUTO_TEST_CASE(LeNet5_Full_Test, * disabled())
   // nn->set_cost_function(make_unique<SquaredHingeLoss>());
 
   // Trainer
-  auto trainer = make_unique<Trainer_StochasticGradientDescent>(
-      learning_rate,      // learning rate
-      regularization,     // regularization
+  auto trainer = make_unique<Trainer_Stochastic>(
+      make_unique<Updater_GradientDescent>(learning_rate, regularization),
       Trainer::Random,
       training_batch_size  // batch_size
   );

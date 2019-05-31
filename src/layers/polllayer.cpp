@@ -178,12 +178,12 @@ unique_ptr<Layer::Context> yann::PollingLayer::create_context(const RefVectorBat
   BOOST_VERIFY(is_valid());
   return make_unique<PollingLayer_Context>(output);
 }
-unique_ptr<Layer::Context> yann::PollingLayer::create_training_context(const MatrixSize & batch_size) const
+unique_ptr<Layer::Context> yann::PollingLayer::create_training_context(const MatrixSize & batch_size, const std::unique_ptr<Layer::Updater> & updater) const
 {
   BOOST_VERIFY(is_valid());
   return make_unique<PollingLayer_TrainingContext>(get_output_size(), batch_size);
 }
-unique_ptr<Layer::Context> yann::PollingLayer::create_training_context(const RefVectorBatch & output) const
+unique_ptr<Layer::Context> yann::PollingLayer::create_training_context(const RefVectorBatch & output, const std::unique_ptr<Layer::Updater> & updater) const
 {
   BOOST_VERIFY(is_valid());
   return make_unique<PollingLayer_TrainingContext>(output);
@@ -299,14 +299,12 @@ void yann::PollingLayer::backprop(const RefConstVectorBatch & gradient_output,
   }
 }
 
-void yann::PollingLayer::init(enum InitMode /* mode */)
+void yann::PollingLayer::init(enum InitMode mode)
 {
   // nothing to do
 }
 
-void yann::PollingLayer::update(Context * /* context */,
-                                double /* learning_factor */,
-                                double /* decay_factor */)
+void yann::PollingLayer::update(Context * context, const size_t & batch_size)
 {
   // auto ctx = dynamic_cast<PollingLayer_TrainingContext *>(context);
   // BOOST_VERIFY(ctx);

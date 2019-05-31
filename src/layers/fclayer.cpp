@@ -61,7 +61,7 @@ protected:
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// FullyConnectedLayer_Context implementation
+// FullyConnectedLayer_TrainingContext implementation
 //
 class FullyConnectedLayer_TrainingContext :
     public FullyConnectedLayer_Context
@@ -71,10 +71,14 @@ class FullyConnectedLayer_TrainingContext :
   friend class FullyConnectedLayer;
 
 public:
-  FullyConnectedLayer_TrainingContext(const MatrixSize & input_size,
-                                      const MatrixSize & output_size,
-                                      const MatrixSize & batch_size) :
-    Base(output_size, batch_size)
+  FullyConnectedLayer_TrainingContext(
+      const unique_ptr<Layer::Updater> & updater,
+      const MatrixSize & input_size,
+      const MatrixSize & output_size,
+      const MatrixSize & batch_size) :
+    Base(output_size, batch_size),
+    _ww_updater(updater->copy()),
+    _bb_updater(updater->copy())
   {
     BOOST_VERIFY(input_size > 0);
 
@@ -86,9 +90,13 @@ public:
     _collapse_vector = Vector::Ones(get_batch_size());
   }
 
-  FullyConnectedLayer_TrainingContext(const MatrixSize & input_size,
-                                      const RefVectorBatch & output) :
-    Base(output)
+  FullyConnectedLayer_TrainingContext(
+      const unique_ptr<Layer::Updater> & updater,
+      const MatrixSize & input_size,
+      const RefVectorBatch & output) :
+    Base(output),
+    _ww_updater(updater->copy()),
+    _bb_updater(updater->copy())
   {
     BOOST_VERIFY(input_size > 0);
 
@@ -105,6 +113,9 @@ public:
   {
     _delta_ww.setZero();
     _delta_bb.setZero();
+
+    _ww_updater->reset(_delta_ww);
+    _bb_updater->reset(_delta_bb);
   }
 
 private:
@@ -114,6 +125,9 @@ private:
 
   VectorBatch _sigma_derivative_zz;
   Vector _collapse_vector;
+
+  unique_ptr<Layer::Updater> _ww_updater;
+  unique_ptr<Layer::Updater> _bb_updater;
 }; // class FullyConnectedLayer_TrainingContext
 
 }; // namespace yann
@@ -214,15 +228,21 @@ unique_ptr<Layer::Context> yann::FullyConnectedLayer::create_context(const RefVe
   BOOST_VERIFY(is_valid());
   return make_unique<FullyConnectedLayer_Context>(output);
 }
-unique_ptr<Layer::Context> yann::FullyConnectedLayer::create_training_context(const MatrixSize & batch_size) const
+unique_ptr<Layer::Context> yann::FullyConnectedLayer::create_training_context(
+    const MatrixSize & batch_size, const std::unique_ptr<Layer::Updater> & updater) const
 {
   BOOST_VERIFY(is_valid());
-  return make_unique<FullyConnectedLayer_TrainingContext>(get_input_size(), get_output_size(), batch_size);
+  BOOST_VERIFY(updater);
+  return make_unique<FullyConnectedLayer_TrainingContext>(
+      updater, get_input_size(), get_output_size(), batch_size);
 }
-unique_ptr<Layer::Context> yann::FullyConnectedLayer::create_training_context(const RefVectorBatch & output) const
+unique_ptr<Layer::Context> yann::FullyConnectedLayer::create_training_context(
+    const RefVectorBatch & output, const std::unique_ptr<Layer::Updater> & updater) const
 {
   BOOST_VERIFY(is_valid());
-  return make_unique<FullyConnectedLayer_TrainingContext>(get_input_size(), output);
+  BOOST_VERIFY(updater);
+  return make_unique<FullyConnectedLayer_TrainingContext>(
+      updater, get_input_size(), output);
 }
 
 void yann::FullyConnectedLayer::feedforward(const RefConstVectorBatch & input, Context * context, enum OperationMode mode) const
@@ -315,17 +335,17 @@ void yann::FullyConnectedLayer::init(enum InitMode mode)
   }
 }
 
-void yann::FullyConnectedLayer::update(Context * context,
-                                       double learning_factor,
-                                       double decay_factor)
+void yann::FullyConnectedLayer::update(Context * context, const size_t & batch_size)
 {
   auto ctx = dynamic_cast<FullyConnectedLayer_TrainingContext *>(context);
   BOOST_VERIFY(ctx);
+  BOOST_VERIFY(ctx->_ww_updater);
+  BOOST_VERIFY(ctx->_bb_updater);
   BOOST_VERIFY(is_same_size(_ww, ctx->_delta_ww));
   BOOST_VERIFY(is_same_size(_bb, ctx->_delta_bb));
 
-  _ww = decay_factor * _ww - learning_factor * ctx->_delta_ww;
-  _bb -= learning_factor * ctx->_delta_bb;
+  ctx->_ww_updater->update(ctx->_delta_ww, batch_size, _ww);
+  ctx->_bb_updater->update(ctx->_delta_bb, batch_size, _bb);
 }
 
 // the format is (w:<weights>,b:<biases>)

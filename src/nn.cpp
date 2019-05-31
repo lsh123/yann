@@ -199,7 +199,7 @@ unique_ptr<yann::Context> yann::Network::create_context(const RefVectorBatch & o
   return ctx;
 }
 
-unique_ptr<yann::TrainingContext> yann::Network::create_training_context(const MatrixSize & batch_size) const
+unique_ptr<yann::TrainingContext> yann::Network::create_training_context(const MatrixSize & batch_size, const std::unique_ptr<Layer::Updater> & updater) const
 {
   BOOST_VERIFY(is_valid());
   BOOST_VERIFY(batch_size > 0);
@@ -207,13 +207,13 @@ unique_ptr<yann::TrainingContext> yann::Network::create_training_context(const M
   std::unique_ptr<TrainingContext> ctx(new TrainingContext(batch_size, get_output_size()));
   BOOST_VERIFY(ctx);
 
-  ctx->_container_ctx = _container->create_training_context(batch_size);
+  ctx->_container_ctx = _container->create_training_context(batch_size, updater);
   BOOST_VERIFY(ctx->_container_ctx);
   return ctx;
 }
 
 
-unique_ptr<yann::TrainingContext> yann::Network::create_training_context(const RefVectorBatch & output) const
+unique_ptr<yann::TrainingContext> yann::Network::create_training_context(const RefVectorBatch & output, const std::unique_ptr<Layer::Updater> & updater) const
 {
   BOOST_VERIFY(is_valid());
   BOOST_VERIFY(get_batch_size(output) > 0);
@@ -222,7 +222,7 @@ unique_ptr<yann::TrainingContext> yann::Network::create_training_context(const R
   std::unique_ptr<TrainingContext> ctx(new TrainingContext(get_batch_size(output), get_output_size()));
   BOOST_VERIFY(ctx);
 
-  ctx->_container_ctx = _container->create_training_context(output);
+  ctx->_container_ctx = _container->create_training_context(output, updater);
   BOOST_VERIFY(ctx->_container_ctx);
   return ctx;
 }
@@ -297,12 +297,12 @@ void yann::Network::train(const VectorBatch & input, const VectorBatch & output,
   backprop(input, output, ctx);
 }
 
-void yann::Network::update(const TrainingContext * ctx, double learning_factor, double decay_factor)
+void yann::Network::update(const TrainingContext * ctx, const size_t & batch_size)
 {
   BOOST_VERIFY(is_valid());
   BOOST_VERIFY(ctx);
 
-  _container->update(ctx->_container_ctx.get(), learning_factor, decay_factor);
+  _container->update(ctx->_container_ctx.get(), batch_size);
 }
 
 // format:

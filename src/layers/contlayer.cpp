@@ -351,7 +351,7 @@ unique_ptr<Layer::Context> yann::SequentialLayer::create_context(const RefVector
   return ctx;
 }
 
-unique_ptr<Layer::Context> yann::SequentialLayer::create_training_context(const MatrixSize & batch_size) const
+unique_ptr<Layer::Context> yann::SequentialLayer::create_training_context(const MatrixSize & batch_size, const std::unique_ptr<Layer::Updater> & updater) const
 {
   BOOST_VERIFY(is_valid());
   BOOST_VERIFY(batch_size > 0);
@@ -366,10 +366,10 @@ unique_ptr<Layer::Context> yann::SequentialLayer::create_training_context(const 
 
     // the last context should point to the shared buffer
     if(ii + 1 < get_layers_num()) {
-      auto layer_context = layer->create_training_context(batch_size);
+      auto layer_context = layer->create_training_context(batch_size, updater);
       ctx->append_context(std::move(layer_context));
     } else {
-      auto layer_context = layer->create_training_context(ctx->get_output());
+      auto layer_context = layer->create_training_context(ctx->get_output(), updater);
       ctx->append_context(std::move(layer_context));
     }
 
@@ -379,7 +379,7 @@ unique_ptr<Layer::Context> yann::SequentialLayer::create_training_context(const 
   return ctx;
 }
 
-unique_ptr<Layer::Context> yann::SequentialLayer::create_training_context(const RefVectorBatch & output) const
+unique_ptr<Layer::Context> yann::SequentialLayer::create_training_context(const RefVectorBatch & output, const std::unique_ptr<Layer::Updater> & updater) const
 {
   BOOST_VERIFY(is_valid());
   BOOST_VERIFY(get_batch_size(output) > 0);
@@ -396,10 +396,10 @@ unique_ptr<Layer::Context> yann::SequentialLayer::create_training_context(const 
 
     // the last context should point to the shared buffer
     if(ii + 1 < get_layers_num()) {
-      auto layer_context = layer->create_training_context(batch_size);
+      auto layer_context = layer->create_training_context(batch_size, updater);
       ctx->append_context(std::move(layer_context));
     } else {
-      auto layer_context = layer->create_training_context(ctx->get_output());
+      auto layer_context = layer->create_training_context(ctx->get_output(), updater);
       ctx->append_context(std::move(layer_context));
     }
 
@@ -482,9 +482,7 @@ void yann::SequentialLayer::backprop(const RefConstVectorBatch & gradient_output
   }
 }
 
-void yann::SequentialLayer::update(yann::Layer::Context * context,
-                                  double learning_factor,
-                                  double decay_factor)
+void yann::SequentialLayer::update(yann::Layer::Context * context, const size_t & batch_size)
 {
   auto ctx = dynamic_cast<SequentialLayer_TrainingContext *>(context);
   BOOST_VERIFY(ctx);
@@ -494,7 +492,7 @@ void yann::SequentialLayer::update(yann::Layer::Context * context,
   size_t ii = 0;
   for(auto & layer: layers()) {
     auto layer_ctx = ctx->get_context(ii);
-    layer->update(layer_ctx, learning_factor, decay_factor);
+    layer->update(layer_ctx, batch_size);
     ++ii;
   }
 }
@@ -779,7 +777,7 @@ unique_ptr<Layer::Context> yann::MappingLayer::create_context(const RefVectorBat
 
   return ctx;
 }
-unique_ptr<Layer::Context> yann::MappingLayer::create_training_context(const MatrixSize & batch_size) const
+unique_ptr<Layer::Context> yann::MappingLayer::create_training_context(const MatrixSize & batch_size, const std::unique_ptr<Layer::Updater> & updater) const
 {
   BOOST_VERIFY(is_valid());
   BOOST_VERIFY(batch_size > 0);
@@ -797,7 +795,7 @@ unique_ptr<Layer::Context> yann::MappingLayer::create_training_context(const Mat
     auto out = get_output_block(ctx->get_output(), output_pos, layer->get_output_size());
     const auto & input_mapping = _mappings[layer_num];
     for(const auto & input_frame : input_mapping) {
-      auto layer_context = layer->create_training_context(out); // we will use += operation on the output block
+      auto layer_context = layer->create_training_context(out, updater); // we will use += operation on the output block
       ctx->add_context(layer_num, input_frame, std::move(layer_context));
     }
     ++layer_num;
@@ -806,7 +804,7 @@ unique_ptr<Layer::Context> yann::MappingLayer::create_training_context(const Mat
 
   return ctx;
 }
-unique_ptr<Layer::Context> yann::MappingLayer::create_training_context(const RefVectorBatch & output) const
+unique_ptr<Layer::Context> yann::MappingLayer::create_training_context(const RefVectorBatch & output, const std::unique_ptr<Layer::Updater> & updater) const
 {
   BOOST_VERIFY(is_valid());
   BOOST_VERIFY(get_batch_size(output) > 0);
@@ -824,7 +822,7 @@ unique_ptr<Layer::Context> yann::MappingLayer::create_training_context(const Ref
     auto out = get_output_block(ctx->get_output(), output_pos, layer->get_output_size());
     const auto & input_mapping = _mappings[layer_num];
     for(const auto & input_frame : input_mapping) {
-      auto layer_context = layer->create_training_context(out); // we will use += operation on the output block
+      auto layer_context = layer->create_training_context(out, updater); // we will use += operation on the output block
       ctx->add_context(layer_num, input_frame, std::move(layer_context));
     }
     ++layer_num;
@@ -910,9 +908,7 @@ void yann::MappingLayer::backprop(
   BOOST_VERIFY(gradient_output_pos == get_output_size());
 }
 
-void yann::MappingLayer::update(yann::Layer::Context * context,
-                                  double learning_factor,
-                                  double decay_factor)
+void yann::MappingLayer::update(yann::Layer::Context * context, const size_t & batch_size)
 {
   auto ctx = dynamic_cast<MappingLayer_TrainingContext *>(context);
   BOOST_VERIFY(ctx);
@@ -923,7 +919,7 @@ void yann::MappingLayer::update(yann::Layer::Context * context,
     const auto & input_mapping = _mappings[layer_num];
     for(const auto & input_frame : input_mapping) {
       auto layer_ctx = ctx->get_context(layer_num, input_frame);
-      layer->update(layer_ctx, learning_factor, decay_factor);
+      layer->update(layer_ctx, batch_size);
     }
     ++layer_num;
   }

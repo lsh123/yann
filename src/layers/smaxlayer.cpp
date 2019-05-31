@@ -158,12 +158,12 @@ unique_ptr<Layer::Context> yann::SoftmaxLayer::create_context(const RefVectorBat
   BOOST_VERIFY(is_valid());
   return make_unique<SoftmaxLayer_Context>(output);
 }
-unique_ptr<Layer::Context> yann::SoftmaxLayer::create_training_context(const MatrixSize & batch_size) const
+unique_ptr<Layer::Context> yann::SoftmaxLayer::create_training_context(const MatrixSize & batch_size, const std::unique_ptr<Layer::Updater> & updater) const
 {
   BOOST_VERIFY(is_valid());
   return make_unique<SoftmaxLayer_TrainingContext>(get_output_size(), batch_size);
 }
-unique_ptr<Layer::Context> yann::SoftmaxLayer::create_training_context(const RefVectorBatch & output) const
+unique_ptr<Layer::Context> yann::SoftmaxLayer::create_training_context(const RefVectorBatch & output, const std::unique_ptr<Layer::Updater> & updater) const
 {
   BOOST_VERIFY(is_valid());
   return make_unique<SoftmaxLayer_TrainingContext>(output);
@@ -227,9 +227,7 @@ void yann::SoftmaxLayer::init(enum InitMode /* mode */)
   // nothing to do
 }
 
-void yann::SoftmaxLayer::update(Context * /* context */,
-                                double /* learning_factor */,
-                                double /* decay_factor */)
+void yann::SoftmaxLayer::update(Context * context, const size_t & batch_size)
 {
   // auto ctx = dynamic_cast<SoftmaxLayer_Context *>(context);
   // BOOST_VERIFY(ctx);

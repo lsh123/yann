@@ -275,9 +275,8 @@ BOOST_AUTO_TEST_CASE(Mapping_Test, * disabled())
   BOOST_VERIFY(nn);
 
   // Trainer
-  auto trainer = make_unique<Trainer_StochasticGradientDescent>(
-      learning_rate,      // learning rate
-      regularization,     // regularization
+  auto trainer = make_unique<Trainer_Stochastic>(
+      make_unique<Updater_GradientDescent>(learning_rate, regularization),
       Trainer::Random,
       training_batch_size  // batch_size
   );
@@ -351,9 +350,8 @@ BOOST_AUTO_TEST_CASE(LeNet4_Test)
   BOOST_VERIFY(nn);
 
   // Trainer
-  auto trainer = make_unique<Trainer_StochasticGradientDescent>(
-      learning_rate,      // learning rate
-      regularization,     // regularization
+  auto trainer = make_unique<Trainer_Stochastic>(
+      make_unique<Updater_GradientDescent>(learning_rate, regularization),
       Trainer::Random,
       training_batch_size  // batch_size
   );
@@ -422,9 +420,8 @@ BOOST_AUTO_TEST_CASE(Large_FC_Test, * disabled())
   nn->append_layer(std::move(smax_layer));
 
   // Trainer
-  auto trainer = make_unique<Trainer_StochasticGradientDescent>(
-      learning_rate,      // learning rate
-      regularization,     // regularization
+  auto trainer = make_unique<Trainer_Stochastic>(
+      make_unique<Updater_GradientDescent>(learning_rate, regularization),
       Trainer::Random,
       training_batch_size  // batch_size
   );

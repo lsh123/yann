@@ -6,6 +6,7 @@
 #include <sstream>
 
 #include "layers/contlayer.h"
+#include "nntraining.h"
 #include "utils.h"
 
 #include "timer.h"
@@ -159,7 +160,8 @@ BOOST_AUTO_TEST_CASE(BroadcastLayer_Backprop_Test)
                     //////////
                     7, 8, 9, 10;
 
-  auto ctx = layer->create_training_context(batch_size);
+  auto ctx = layer->create_training_context(
+      batch_size,make_unique<Updater_GradientDescent>());
   ctx->reset_state();
 
   VectorBatch gradient_input, gradient_output;
@@ -297,7 +299,8 @@ BOOST_AUTO_TEST_CASE(ParallelLayer_Backprop_Test)
                      3,  4,  5,  6,
                     13, 14, 15, 16;
 
-  auto ctx = layer->create_training_context(batch_size);
+  auto ctx = layer->create_training_context(
+      batch_size, make_unique<Updater_GradientDescent>());
   ctx->reset_state();
 
   VectorBatch gradient_input, gradient_output;
@@ -423,7 +426,8 @@ BOOST_AUTO_TEST_CASE(MergeLayer_Backprop_Test)
       7,  8,  9, 10;  // -6
 
 
-  auto ctx = layer->create_training_context(batch_size);
+  auto ctx = layer->create_training_context(
+      batch_size, make_unique<Updater_GradientDescent>());
   ctx->reset_state();
 
   VectorBatch gradient_input, gradient_output;

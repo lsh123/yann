@@ -17,7 +17,46 @@ using namespace yann;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// NN Trainer implementation
+// Updater_GradientDescent implementation
+//
+yann::Updater_GradientDescent::Updater_GradientDescent(
+    double learning_rate,
+    double regularization_parameter) :
+    _learning_rate(learning_rate),
+    _regularization_parameter(regularization_parameter)
+{
+
+}
+
+std::string yann::Updater_GradientDescent::get_info() const
+{
+  return "GradientDescent"; // TODO: print other params
+}
+
+std::unique_ptr<Layer::Updater> yann::Updater_GradientDescent::copy() const
+{
+  return make_unique<Updater_GradientDescent>(*this);
+}
+
+void yann::Updater_GradientDescent::reset(const RefConstMatrix & delta)
+{
+  // do nothing
+}
+
+void yann::Updater_GradientDescent::update(const RefConstMatrix & delta, const size_t & batch_size, RefMatrix value)
+{
+  BOOST_VERIFY(is_same_size(delta, value));
+  BOOST_VERIFY(batch_size > 0);
+  BOOST_VERIFY(_regularization_parameter * _learning_rate < batch_size);
+
+  double learning_factor = _learning_rate / (double) batch_size;
+  double decay_factor = 1 - _regularization_parameter * _learning_rate;
+  value = decay_factor * value - learning_factor * delta;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Trainer implementation
 //
 yann::Trainer::Trainer(const MatrixSize & batch_size) :
   _batch_size(batch_size),
@@ -59,30 +98,28 @@ void yann::Trainer::prepare_shuffled_pos(enum InputSelectionMode select_mode, st
 // Apply training data in batches but don't apply deltas until all
 // the training data is processed.
 //
-yann::Trainer_BatchGradientDescent::Trainer_BatchGradientDescent(
-    double learning_rate, double regularization_parameter,
+yann::Trainer_Batch::Trainer_Batch(
+    const unique_ptr<Layer::Updater> & updater,
     enum InputSelectionMode select_mode,
     const MatrixSize & batch_size) :
     Trainer(batch_size),
-    _learning_rate(learning_rate),
-    _regularization_parameter(regularization_parameter),
+    _updater(updater->copy()),
     _select_mode(select_mode)
 {
-  BOOST_VERIFY(regularization_parameter * learning_rate < _batch_size);
 }
 
 // Trainer
-void yann::Trainer_BatchGradientDescent::print_info(ostream & os) const
+void yann::Trainer_Batch::print_info(ostream & os) const
 {
-  os << "yann::Trainer_BatchGradientDescent(" << "learning_rate=" << _learning_rate
-     << " regularization_parameter=" << _regularization_parameter
+  os << "yann::Trainer_Batch("
      << " select_mode=" << _select_mode << " batch_size=" << _batch_size
+     << ", updater=" << _updater->get_info()
      << ")";
 }
 
-void yann::Trainer_BatchGradientDescent::train(Network & nn,
-                                         const VectorBatch & inputs,
-                                         const VectorBatch & outputs) const
+void yann::Trainer_Batch::train(Network & nn,
+                                const VectorBatch & inputs,
+                                const VectorBatch & outputs) const
 {
   BOOST_VERIFY(get_batch_size(inputs) == get_batch_size(outputs));
   BOOST_VERIFY(_batch_size > 0);
@@ -91,15 +128,14 @@ void yann::Trainer_BatchGradientDescent::train(Network & nn,
   BOOST_VERIFY(get_batch_item_size(outputs) == nn.get_output_size());
 
   // prepare training
-  std::unique_ptr<TrainingContext> ctx(nn.create_training_context());
+  auto ctx = nn.create_training_context(1, _updater);
+  BOOST_VERIFY(ctx);
   ctx->reset_state();
 
   // prepare positions vector
   vector<MatrixSize> shuffled_pos(get_batch_size(inputs));
   prepare_shuffled_pos(_select_mode, shuffled_pos);
 
-  double learning_factor = _learning_rate / (double) _batch_size;
-  double decay_factor = 1 - _regularization_parameter * _learning_rate;
   Vector in(get_batch_item_size(inputs));
   Vector out(get_batch_item_size(outputs));
   auto last_batch_pos = shuffled_pos.size() - _batch_size;
@@ -118,35 +154,33 @@ void yann::Trainer_BatchGradientDescent::train(Network & nn,
   }
 
   // update deltas at the end of the training set
-  nn.update(ctx.get(), learning_factor, decay_factor);
+  nn.update(ctx.get(), get_batch_size(inputs));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //
 // After each batch of training data, apply deltas to the network.
 //
-yann::Trainer_StochasticGradientDescent::Trainer_StochasticGradientDescent(
-    double learning_rate, double regularization_parameter,
+yann::Trainer_Stochastic::Trainer_Stochastic(
+    const unique_ptr<Layer::Updater> & updater,
     enum InputSelectionMode select_mode,
     const MatrixSize & batch_size) :
     Trainer(batch_size),
-    _learning_rate(learning_rate),
-    _regularization_parameter(regularization_parameter),
+    _updater(updater->copy()),
     _select_mode(select_mode)
 {
-  BOOST_VERIFY(regularization_parameter * learning_rate < _batch_size);
 }
 
 // Trainer
-void yann::Trainer_StochasticGradientDescent::print_info(ostream & os) const
+void yann::Trainer_Stochastic::print_info(ostream & os) const
 {
-  os << "yann::Trainer_StochasticGradientDescent(" << "learning_rate=" << _learning_rate
-     << " regularization_parameter=" << _regularization_parameter
+  os << "yann::Trainer_Stochastic("
      << " select_mode=" << _select_mode << " batch_size=" << _batch_size
+     << ", updater=" << _updater->get_info()
      << ")";
 }
 
-void yann::Trainer_StochasticGradientDescent::train(Network & nn, const VectorBatch & inputs, const VectorBatch & outputs) const
+void yann::Trainer_Stochastic::train(Network & nn, const VectorBatch & inputs, const VectorBatch & outputs) const
 {
   BOOST_VERIFY(_batch_size > 0);
   BOOST_VERIFY(_batch_size <= get_batch_size(inputs));
@@ -158,10 +192,9 @@ void yann::Trainer_StochasticGradientDescent::train(Network & nn, const VectorBa
   vector<MatrixSize> shuffled_pos(get_batch_size(inputs));
   prepare_shuffled_pos(_select_mode, shuffled_pos);
 
-  // TODO: move this to TrainingContext?
-  double learning_factor = _learning_rate / (double) _batch_size;
-  double decay_factor = 1 - _regularization_parameter * _learning_rate;
-  std::unique_ptr<TrainingContext> ctx(nn.create_training_context(_batch_size));
+  auto ctx = nn.create_training_context(_batch_size, _updater);
+  BOOST_VERIFY(ctx);
+
   VectorBatch ins, outs;
   resize_batch(ins, _batch_size, nn.get_input_size());
   resize_batch(outs, _batch_size, nn.get_output_size());
@@ -183,7 +216,7 @@ void yann::Trainer_StochasticGradientDescent::train(Network & nn, const VectorBa
     // train and apply deltas after each "mini-batch"
     ctx->reset_state();
     nn.train(ins, outs, ctx.get());
-    nn.update(ctx.get(), learning_factor, decay_factor);
+    nn.update(ctx.get(), _batch_size);
   }
 }
 

@@ -76,6 +76,16 @@ public:
     VectorBatch                     _output_buffer;
   }; // class Context
 
+  // Updater interface
+  class Updater {
+  public:
+    virtual std::string get_info() const = 0;
+    virtual std::unique_ptr<Layer::Updater> copy() const = 0;
+
+    virtual void reset(const RefConstMatrix & delta) = 0;
+    virtual void update(const RefConstMatrix & delta, const size_t & batch_size, RefMatrix value) = 0;
+  }; // class Updater
+
 public:
   std::string get_info() const;
   virtual void print_info(std::ostream & os) const;
@@ -87,10 +97,10 @@ public:
   virtual MatrixSize get_input_size() const = 0;
   virtual MatrixSize get_output_size() const = 0;
 
-  virtual std::unique_ptr<Context> create_context(const MatrixSize & batch_size = 1) const = 0;
+  virtual std::unique_ptr<Context> create_context(const MatrixSize & batch_size) const = 0;
   virtual std::unique_ptr<Context> create_context(const RefVectorBatch & output) const = 0;
-  virtual std::unique_ptr<Context> create_training_context(const MatrixSize & batch_size = 1) const = 0;
-  virtual std::unique_ptr<Context> create_training_context(const RefVectorBatch & output) const = 0;
+  virtual std::unique_ptr<Context> create_training_context(const MatrixSize & batch_size, const std::unique_ptr<Layer::Updater> & updater) const = 0;
+  virtual std::unique_ptr<Context> create_training_context(const RefVectorBatch & output, const std::unique_ptr<Layer::Updater> & updater) const = 0;
 
   virtual void feedforward(const RefConstVectorBatch & input, Context * context, enum OperationMode mode = Operation_Assign) const = 0;
   virtual void backprop(const RefConstVectorBatch & gradient_output,
@@ -99,7 +109,7 @@ public:
                         Context * context) const = 0;
 
   virtual void init(enum InitMode mode) = 0;
-  virtual void update(Context * context, double learning_factor, double decay_factor) = 0;
+  virtual void update(Context * context, const size_t & batch_size) = 0;
 
   virtual void read(std::istream & is);
   virtual void write(std::ostream & os) const;

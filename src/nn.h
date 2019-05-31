@@ -69,15 +69,15 @@ public:
   Value cost(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected) const;
 
   // Contexts
-  std::unique_ptr<Context> create_context(const MatrixSize & batch_size = 1) const;
+  std::unique_ptr<Context> create_context(const MatrixSize & batch_size) const;
   std::unique_ptr<Context> create_context(const RefVectorBatch & output) const;
-  std::unique_ptr<TrainingContext> create_training_context(const MatrixSize & batch_size = 1) const;
-  std::unique_ptr<TrainingContext> create_training_context(const RefVectorBatch & output) const;
+  std::unique_ptr<TrainingContext> create_training_context(const MatrixSize & batch_size, const std::unique_ptr<Layer::Updater> & updater) const;
+  std::unique_ptr<TrainingContext> create_training_context(const RefVectorBatch & output, const std::unique_ptr<Layer::Updater> & updater) const;
 
   // Training
   virtual void init(enum InitMode mode);
   virtual void train(const VectorBatch & input, const VectorBatch & output, TrainingContext * ctx) const;
-  virtual void update(const TrainingContext * ctx, double learning_factor, double decay_factor);
+  virtual void update(const TrainingContext * ctx, const size_t & batch_size);
 
   // access to layers
   const Layer * get_layer(const size_t & pos) const;

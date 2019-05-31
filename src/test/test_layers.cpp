@@ -70,11 +70,15 @@ unique_ptr<Layer::Context> yann::test::AvgLayer::create_context(const RefVectorB
 {
   return make_unique<Context>(output);
 }
-unique_ptr<Layer::Context> yann::test::AvgLayer::create_training_context(const MatrixSize & batch_size) const
+unique_ptr<Layer::Context> yann::test::AvgLayer::create_training_context(
+    const MatrixSize & batch_size,
+    const std::unique_ptr<Layer::Updater> & updater) const
 {
   return make_unique<Context>(_output_size, batch_size);
 }
-unique_ptr<Layer::Context> yann::test::AvgLayer::create_training_context(const RefVectorBatch & output) const
+unique_ptr<Layer::Context> yann::test::AvgLayer::create_training_context(
+    const RefVectorBatch & output,
+    const std::unique_ptr<Layer::Updater> & updater) const
 {
   return make_unique<Context>(output);
 }
@@ -115,7 +119,7 @@ void yann::test::AvgLayer::init(enum InitMode mode)
 {
   // do nothing
 }
-void yann::test::AvgLayer::update(Context * context, double learning_factor, double decay_factor)
+void yann::test::AvgLayer::update(Context * context, const size_t & batch_size)
 {
   // do nothing
 }
