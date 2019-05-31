@@ -366,14 +366,14 @@ BOOST_AUTO_TEST_CASE(Mnist_StochasticGD_Quadratic_Sigmoid_Regularization_Test)
 BOOST_AUTO_TEST_CASE(Mnist_StochasticGD_CrossEntropy_Sigmoid_Test)
 {
   Trainer_Stochastic trainer(
-      make_unique<Updater_GradientDescent>(1.0, 0.0),
-      Trainer::Random,
+      make_unique<Updater_GradientDescentWithMomentum>(0.75, 0.5),
+      Trainer::Sequential,
       10);
   trainer.set_progress_callback(progress_callback);
 
   pair<double, Value> res = test_fcnn_mnist(
       trainer,
-      {20},
+      {50},
       make_unique<CrossEntropyCost>(),
       Sigmoid,
       InitMode_Random_01,
@@ -418,10 +418,10 @@ BOOST_AUTO_TEST_CASE(Mnist_FindBest_StochasticGD_CrossEntropy_Sigmoid_Test, * di
   BOOST_CHECK_GE(res, 0.90); // > 90%
 }
 
-BOOST_AUTO_TEST_CASE(Mnist_StochasticGD_Sigmoid_400_epochs_Test, * disabled())
+BOOST_AUTO_TEST_CASE(Mnist_LargeFCNN_Stochastic_GDWithMomentum_Sigmoid_CrossEntropy_Test, * disabled())
 {
   Trainer_Stochastic trainer(
-      make_unique<Updater_GradientDescent>(0.5, 0.001),
+      make_unique<Updater_GradientDescentWithMomentum>(0.75, 0.5),
       Trainer::Random,
       10       // batch size
     );
@@ -430,10 +430,10 @@ BOOST_AUTO_TEST_CASE(Mnist_StochasticGD_Sigmoid_400_epochs_Test, * disabled())
   pair<double, Value> res = test_fcnn_mnist(
       trainer,
       {100},
-      make_unique<CrossEntropyCost>(),
+      make_unique<CrossEntropyCost>(1.0e-200),
       Sigmoid,
       InitMode_Random_01,
-      400 // epochs
+      100 // epochs
   );
   BOOST_TEST_MESSAGE("Result success rate: " << res.first);
 }

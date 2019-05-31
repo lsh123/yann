@@ -56,6 +56,50 @@ void yann::Updater_GradientDescent::update(const RefConstMatrix & delta, const s
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //
+// Updater_GradientDescentWithMomentum implementation
+//
+yann::Updater_GradientDescentWithMomentum::Updater_GradientDescentWithMomentum(
+    double learning_rate,
+    double regularization_parameter) :
+    _learning_rate(learning_rate),
+    _regularization_parameter(regularization_parameter)
+{
+}
+
+std::string yann::Updater_GradientDescentWithMomentum::get_info() const
+{
+  return "GradientDescentWithMomentum"; // TODO: print other params
+}
+
+std::unique_ptr<Layer::Updater> yann::Updater_GradientDescentWithMomentum::copy() const
+{
+  return make_unique<Updater_GradientDescentWithMomentum>(*this);
+}
+
+void yann::Updater_GradientDescentWithMomentum::reset(const RefConstMatrix & delta)
+{
+  // TODO: create init method for resize
+  if(!is_same_size(_velocity, delta)) {
+    _velocity.resizeLike(delta);
+    _velocity.setZero();
+  }
+}
+
+void yann::Updater_GradientDescentWithMomentum::update(const RefConstMatrix & delta, const size_t & batch_size, RefMatrix value)
+{
+  BOOST_VERIFY(is_same_size(delta, value));
+  BOOST_VERIFY(batch_size > 0);
+  BOOST_VERIFY(_regularization_parameter * _learning_rate < batch_size);
+
+  double learning_factor = _learning_rate / (double) batch_size;
+  double decay_factor = 1 - _regularization_parameter * _learning_rate;
+
+  _velocity = decay_factor * _velocity + learning_factor * delta;
+  value -= _velocity;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+//
 // Trainer implementation
 //
 yann::Trainer::Trainer(const MatrixSize & batch_size) :

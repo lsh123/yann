@@ -14,8 +14,7 @@
 
 namespace yann {
 
-// Updates the values according to the gradient descent with weight decay:
-//
+// Updates the values according to the gradient descent with weight decay
 class Updater_GradientDescent :
     public Layer::Updater
 {
@@ -33,6 +32,27 @@ private:
   double _learning_rate;
   double _regularization_parameter;
 }; // Updater_GradientDescent
+
+// Updates the values according to the gradient descent with momentum and weight decay:
+//
+class Updater_GradientDescentWithMomentum :
+    public Layer::Updater
+{
+public:
+  Updater_GradientDescentWithMomentum(double learning_rate = 1.0, double regularization_parameter = 0.0);
+
+  // Layer::Updater overwrites
+  virtual std::string get_info() const;
+  virtual std::unique_ptr<Layer::Updater> copy() const;
+
+  virtual void reset(const RefConstMatrix & delta);
+  virtual void update(const RefConstMatrix & delta, const size_t & batch_size, RefMatrix value);
+
+private:
+  double _learning_rate;
+  double _regularization_parameter;
+  Matrix _velocity;
+}; // Updater_GradientDescentWithMomentum
 
 
 class Trainer

@@ -323,10 +323,10 @@ BOOST_AUTO_TEST_CASE(LeNet4_Two_Labels_Test)
   _mnist_test.filter(1, 1000, 1000); // only allow 0,1 images; 1000 count
   BOOST_TEST_MESSAGE("*** Filtered test set: " << "\n" << _mnist_test);
 
-  const double learning_rate = 1.0;
-  const double regularization = 0.0;
+  const double learning_rate = 3.0;
+  const double regularization = 0.5;
   const MatrixSize training_batch_size = 10;
-  const size_t epochs = 10;
+  const size_t epochs = 6;
 
   auto nn = ConvolutionalNetwork::create_lenet4(
       _mnist_test.get_image_rows(), // input_rows
@@ -341,7 +341,7 @@ BOOST_AUTO_TEST_CASE(LeNet4_Two_Labels_Test)
 
   // Trainer
   auto trainer = make_unique<Trainer_Stochastic>(
-      make_unique<Updater_GradientDescent>(learning_rate, regularization),
+      make_unique<Updater_GradientDescentWithMomentum>(learning_rate, regularization),
       Trainer::Sequential, // want consistency for this test
       training_batch_size  // batch_size
   );
