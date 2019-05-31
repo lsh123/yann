@@ -45,7 +45,7 @@ libyann_la_SOURCES = \
 	layers/convlayer.cpp \
 	layers/smaxlayer.cpp \
 	fcnn.cpp \
-	convnn.cpp \
+	cnn.cpp \
 	$(NULL)
 libyann_la_CXXFLAGS=$(AM_CXXFLAGS)
 libyann_la_LDFLAGS=$(AM_LDFLAGS)

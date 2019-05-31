@@ -11,7 +11,7 @@
 #include "utils.h"
 #include "random.h"
 #include "training.h"
-#include "convnn.h"
+#include "cnn.h"
 #include "layers/smaxlayer.h"
 
 #include "test_utils.h"
