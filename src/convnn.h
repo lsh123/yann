@@ -46,9 +46,10 @@ public:
       const std::unique_ptr<ActivationFunction> & fc_activation_funtion,
       const MatrixSize & output_size);
 
-  static std::unique_ptr<Network> create_lenet4(
+  static std::unique_ptr<Network> create_lenet1(
       const MatrixSize & input_rows,
       const MatrixSize & input_cols,
+      PollingLayer::Mode polling_mode,
       const MatrixSize & fc_size,
       const MatrixSize & output_size,
       const std::unique_ptr<ActivationFunction> & activation_funtion);
@@ -56,6 +57,7 @@ public:
   static std::unique_ptr<Network> create_lenet5(
       const MatrixSize & input_rows,
       const MatrixSize & input_cols,
+      PollingLayer::Mode polling_mode,
       const MatrixSize & fc1_size,
       const MatrixSize & fc2_size,
       const MatrixSize & output_size,

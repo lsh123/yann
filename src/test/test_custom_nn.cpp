@@ -303,7 +303,7 @@ BOOST_AUTO_TEST_CASE(Mapping_Test, * disabled())
   // BOOST_TEST_MESSAGE("*** Saved to file: " << filename);
 }
 
-BOOST_AUTO_TEST_CASE(LeNet4_Test)
+BOOST_AUTO_TEST_CASE(LeNet1_Test)
 {
   // reduce the test size to make it faster
   /*

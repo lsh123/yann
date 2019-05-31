@@ -158,9 +158,10 @@ std::unique_ptr<Network> yann::ConvolutionalNetwork::create(
   return make_unique<Network>(container);
 }
 
-std::unique_ptr<Network> yann::ConvolutionalNetwork::create_lenet4(
+std::unique_ptr<Network> yann::ConvolutionalNetwork::create_lenet1(
     const MatrixSize & input_rows,
     const MatrixSize & input_cols,
+    PollingLayer::Mode polling_mode,
     const MatrixSize & fc_size,
     const MatrixSize & output_size,
     const std::unique_ptr<ActivationFunction> & activation_funtion)
@@ -170,14 +171,14 @@ std::unique_ptr<Network> yann::ConvolutionalNetwork::create_lenet4(
   params1._output_frames_num = 4;
   params1._conv_filter_size  = 5;
   params1._conv_activation_funtion = activation_funtion->copy();
-  params1._polling_mode = PollingLayer::PollMode_Avg;
+  params1._polling_mode = polling_mode;
   params1._polling_filter_size = 2;
 
   ConvPollParams params2;
   params2._output_frames_num = 12;
   params2._conv_filter_size  = 5;
   params2._conv_activation_funtion = activation_funtion->copy();
-  params2._polling_mode = PollingLayer::PollMode_Avg;
+  params2._polling_mode = polling_mode;
   params2._polling_filter_size = 2;
   params2._mappings.push_back({ 0 });
   params2._mappings.push_back({ 0, 1 });
@@ -208,6 +209,7 @@ std::unique_ptr<Network> yann::ConvolutionalNetwork::create_lenet4(
 std::unique_ptr<Network> yann::ConvolutionalNetwork::create_lenet5(
     const MatrixSize & input_rows,
     const MatrixSize & input_cols,
+    PollingLayer::Mode polling_mode,
     const MatrixSize & fc1_size,
     const MatrixSize & fc2_size,
     const MatrixSize & output_size,
@@ -218,14 +220,14 @@ std::unique_ptr<Network> yann::ConvolutionalNetwork::create_lenet5(
   params1._output_frames_num = 6;
   params1._conv_filter_size  = 5;
   params1._conv_activation_funtion = activation_funtion->copy();
-  params1._polling_mode = PollingLayer::PollMode_Avg;
+  params1._polling_mode = polling_mode;
   params1._polling_filter_size = 2;
 
   ConvPollParams params2;
   params2._output_frames_num = 16;
   params2._conv_filter_size  = 5;
   params2._conv_activation_funtion = activation_funtion->copy();
-  params2._polling_mode = PollingLayer::PollMode_Avg;
+  params2._polling_mode = polling_mode;
   params2._polling_filter_size = 2;
   params2._mappings.push_back({ 0, 1, 2 }); // 0
   params2._mappings.push_back({ 1, 2, 3 });

@@ -316,7 +316,7 @@ BOOST_AUTO_TEST_CASE(Mnist_OneLayer_Full_Test, * disabled())
   BOOST_TEST_MESSAGE(" epochs: " << epochs);
 }
 
-BOOST_AUTO_TEST_CASE(LeNet4_Two_Labels_Test)
+BOOST_AUTO_TEST_CASE(LeNet1_Two_Labels_Test)
 {
   // reduce the test size to two labels to make it faster
   BOOST_TEST_MESSAGE("*** Filtering test set...");
@@ -328,9 +328,10 @@ BOOST_AUTO_TEST_CASE(LeNet4_Two_Labels_Test)
   const MatrixSize training_batch_size = 10;
   const size_t epochs = 6;
 
-  auto nn = ConvolutionalNetwork::create_lenet4(
+  auto nn = ConvolutionalNetwork::create_lenet1(
       _mnist_test.get_image_rows(), // input_rows
       _mnist_test.get_image_cols(), // input_cols
+      PollingLayer::PollMode_Avg,
       20, // fc_size
       _mnist_test.get_label_size(), // output_size
       make_unique<SigmoidFunction>()
@@ -368,23 +369,52 @@ BOOST_AUTO_TEST_CASE(LeNet4_Two_Labels_Test)
   BOOST_CHECK_LE(res.second, 0.05); // < 0.05 per test
 }
 
-BOOST_AUTO_TEST_CASE(LeNet4_Full_Test, * disabled())
+// The best result so far:
+//
+// Success rate for epoch 100: against training dataset: 98.3633% against test dataset: 98.38%
+// Cost/loss per test for epoch 100: against training dataset: 0.122933 against test dataset: 0.122639
+// Training time 17385 milliseconds
+// Testing against training dataset time 7825.93 milliseconds
+// Testing against test dataset time 1340.66 milliseconds
+//
+//  auto polling_mode = PollingLayer::PollMode_Avg;
+//  unique_ptr<ActivationFunction> activation_func = make_unique<SigmoidFunction>();
+//  unique_ptr<CostFunction> cost_func = make_unique<CrossEntropyCost>(1.0e-10);
+//  const MatrixSize fc_size = 100;
+//  auto init_mode = InitMode_Random_01;
+//  const double learning_rate = 0.01;
+//  const double regularization = 0.0001;
+//  const MatrixSize training_batch_size = 10;
+//  const size_t epochs = 100;
+//
+//  auto trainer = make_unique<Trainer_Stochastic>(
+//      make_unique<Updater_GradientDescent>(learning_rate, regularization),
+//      Trainer::Random,
+//      training_batch_size  // batch_size
+//  );
+BOOST_AUTO_TEST_CASE(LeNet1_Full_Test, * disabled())
 {
+  auto polling_mode = PollingLayer::PollMode_Max;
+  unique_ptr<ActivationFunction> activation_func = make_unique<SigmoidFunction>();
+  unique_ptr<CostFunction> cost_func = make_unique<CrossEntropyCost>(1.0e-10);
+  const MatrixSize fc_size = 120;
+  auto init_mode = InitMode_Random_01;
   const double learning_rate = 0.01;
   const double regularization = 0.0001;
   const MatrixSize training_batch_size = 10;
-  const size_t epochs = 30;
+  const size_t epochs = 100;
 
-  auto nn = ConvolutionalNetwork::create_lenet4(
+  auto nn = ConvolutionalNetwork::create_lenet1(
       _mnist_test.get_image_rows(), // input_rows
       _mnist_test.get_image_cols(), // input_cols
-      100, // fc_size
+      polling_mode,
+      fc_size,
       _mnist_test.get_label_size(), // output_size
-      make_unique<SigmoidFunction>()
+      activation_func
   );
   BOOST_VERIFY(nn);
-  nn->init(InitMode_Random_SqrtInputs);
-  nn->set_cost_function(make_unique<QuadraticCost>());
+  nn->init(init_mode);
+  nn->set_cost_function(cost_func);
 
   // Trainer
   auto trainer = make_unique<Trainer_Stochastic>(
@@ -424,6 +454,7 @@ BOOST_AUTO_TEST_CASE(LeNet5_Two_Labels_Test)
   auto nn = ConvolutionalNetwork::create_lenet5(
       _mnist_test.get_image_rows(), // input_rows
       _mnist_test.get_image_cols(), // input_cols
+      PollingLayer::PollMode_Avg,
       20, // fc1 size
       15, // fc2 size
       _mnist_test.get_label_size(), // output_size
@@ -465,39 +496,45 @@ BOOST_AUTO_TEST_CASE(LeNet5_Full_Test, * disabled())
 {
   // reduce the test size
   BOOST_TEST_MESSAGE("*** Filtering test set...");
-  _mnist_test.filter(9, 10000, 1000);
+  //_mnist_test.filter(9, 10000, 1000);
   BOOST_TEST_MESSAGE("*** Filtered test set: " << "\n" << _mnist_test);
 
-  const double learning_rate = 0.00005;
-  const double regularization = 0.0;
+  // unique_ptr<ActivationFunction> activation_func = make_unique<ReluFunction>(0);
+  // unique_ptr<ActivationFunction> activation_func = make_unique<TanhFunction>(1.7159, 0.6666);
+  unique_ptr<ActivationFunction> activation_func = make_unique<SigmoidFunction>();
+  unique_ptr<CostFunction> cost_func = make_unique<CrossEntropyCost>(1.0e-10);
+  auto polling_mode = PollingLayer::PollMode_Max;
+  const MatrixSize fc1_size = 120;
+  const MatrixSize fc2_size = 84;
+  auto init_mode = InitMode_Random_01;
+  const double learning_rate = 0.01;
+  const double regularization = 0.0001;
   const MatrixSize training_batch_size = 10;
   const size_t epochs = 300;
 
   auto nn = ConvolutionalNetwork::create_lenet5(
       _mnist_test.get_image_rows(), // input_rows
       _mnist_test.get_image_cols(), // input_cols
-      30, // 120, // fc1 size
-      20, // 84,  // fc2 size
+      polling_mode,
+      fc1_size,
+      fc2_size,
       _mnist_test.get_label_size(), // output_size
-      // make_unique<ReluFunction>(0)
-      // make_unique<TanhFunction>(1.7159, 0.6666)
-      make_unique<SigmoidFunction>()
+      activation_func
   );
   BOOST_VERIFY(nn);
 
   // add softmaxLayer
+  /*
   auto smax_layer = make_unique<SoftmaxLayer>(
       nn->get_output_size(),
       1000.0 // beta to make max more prominent
   );
   BOOST_VERIFY(smax_layer);
   nn->append_layer(std::move(smax_layer));
+  */
 
-  nn->init(InitMode_Random_SqrtInputs);
-  // nn->set_cost_function(make_unique<QuadraticCost>());
-  // nn->set_cost_function(make_unique<ExponentialCost>(100.0));
-  nn->set_cost_function(make_unique<CrossEntropyCost>(1.0e-200));
-  // nn->set_cost_function(make_unique<SquaredHingeLoss>());
+  nn->init(init_mode);
+  nn->set_cost_function(cost_func);
 
   // Trainer
   auto trainer = make_unique<Trainer_Stochastic>(
