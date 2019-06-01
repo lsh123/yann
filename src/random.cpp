@@ -12,8 +12,8 @@
 #include "random.h"
 
 using namespace std;
+using namespace boost;
 using namespace yann;
-
 
 
 namespace yann {
@@ -25,8 +25,8 @@ class RandomGenerator_NormalDistribution : public RandomGenerator {
   friend class RandomGenerator;
 
 public:
-  RandomGenerator_NormalDistribution(const Value & mean, const Value & stddev) :
-    _gen(_rd()),
+  RandomGenerator_NormalDistribution(const Value & mean, const Value & stddev, boost::optional<Value> seed) :
+    _gen(seed ? (unsigned)(*seed) : _rd()),
     _dist(mean, stddev)
   {
   }
@@ -51,9 +51,9 @@ private:
 // yann::RandomGenerator implementation
 //
 std::unique_ptr<RandomGenerator> yann::RandomGenerator::normal_distribution(
-    const Value & mean, const Value & stddev)
+    const Value & mean, const Value & stddev, boost::optional<Value> seed)
 {
-  return make_unique<RandomGenerator_NormalDistribution>(mean, stddev);
+  return make_unique<RandomGenerator_NormalDistribution>(mean, stddev, seed);
 }
 
 void yann::RandomGenerator::generate(Value & val)

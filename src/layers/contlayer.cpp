@@ -84,11 +84,11 @@ bool yann::ContainerLayer::is_equal(const Layer & other, double tolerance) const
   return true;
 }
 
-void yann::ContainerLayer::init(enum InitMode mode)
+void yann::ContainerLayer::init(enum InitMode mode, boost::optional<InitContext> init_context)
 {
   YANN_CHECK(is_valid());
   for(auto & layer: _layers) {
-    layer->init(mode);
+    layer->init(mode, init_context ? boost::optional<InitContext>(init_context->next()) : boost::none);
   }
 }
 

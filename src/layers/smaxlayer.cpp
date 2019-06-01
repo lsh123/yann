@@ -222,7 +222,7 @@ void yann::SoftmaxLayer::backprop(const RefConstVectorBatch & gradient_output,
   }
 }
 
-void yann::SoftmaxLayer::init(enum InitMode /* mode */)
+void yann::SoftmaxLayer::init(enum InitMode mode, boost::optional<InitContext> init_context)
 {
   // nothing to do
 }

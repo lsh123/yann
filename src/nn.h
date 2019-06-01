@@ -74,7 +74,7 @@ public:
   std::unique_ptr<TrainingContext> create_training_context(const RefVectorBatch & output, const std::unique_ptr<Layer::Updater> & updater) const;
 
   // Training
-  virtual void init(enum InitMode mode);
+  virtual void init(enum Layer::InitMode mode, boost::optional<Layer::InitContext> init_context = boost::none);
   virtual void train(const VectorBatch & input, const VectorBatch & output, TrainingContext * ctx) const;
   virtual void update(const TrainingContext * ctx, const size_t & batch_size);
 

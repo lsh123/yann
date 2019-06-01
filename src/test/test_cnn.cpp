@@ -121,7 +121,7 @@ BOOST_AUTO_TEST_CASE(IO_Test)
       output_size      // output size
   );
   YANN_CHECK(one);
-  one->init(InitMode_Random_01);
+  one->init(Layer::InitMode_Random);
 
   // BOOST_TEST_MESSAGE("ConvolutionalNetwork before writing to file: " << (*one));
   ostringstream oss;
@@ -150,7 +150,7 @@ BOOST_AUTO_TEST_CASE(Training_BatchGradientDescent_Test)
 {
   BOOST_TEST_MESSAGE("*** ConvolutionalNetwork training test...");
 
-  const size_t epochs = 100;
+  const size_t epochs = 300;
   const MatrixSize image_size = 2;
   const MatrixSize filter_size = 2;
   const MatrixSize polling_size = 1;
@@ -196,14 +196,14 @@ BOOST_AUTO_TEST_CASE(Training_BatchGradientDescent_Test)
   YANN_CHECK(cnn);
   {
     Timer timer("Initializing ConvolutionalNetwork");
-    cnn->init(InitMode_Zeros); // want consistency for this test
+    cnn->init(Layer::InitMode_Random, Layer::InitContext(12345));
     BOOST_TEST_MESSAGE(timer);
   }
 
   // training
   Trainer_Batch trainer(
-      make_unique<Updater_GradientDescent>(3.0, 0.0),
-      Trainer::Random,
+      make_unique<Updater_GradientDescent>(1.0, 0.0),
+      Trainer::Sequential,
       1);
   BOOST_TEST_MESSAGE("trainer: " << trainer.get_info());
   {
@@ -231,7 +231,7 @@ BOOST_AUTO_TEST_CASE(Training_BatchGradientDescent_Test)
     BOOST_TEST_MESSAGE("test " << ii << " actual: " << res);
     BOOST_TEST_MESSAGE("test " << ii << " cost/loss: " << cost);
 
-    BOOST_CHECK_LE(cost, 0.7);
+    BOOST_CHECK_LE(cost, 0.06);
   }
 }
 
@@ -251,7 +251,7 @@ BOOST_AUTO_TEST_CASE(Mnist_OneLayer_Two_Labels_Test)
         2, // frames_num,
         make_unique<QuadraticCost>());
   BOOST_CHECK(cnn);
-  cnn->init(InitMode_Random_01);
+  cnn->init(Layer::InitMode_Random, Layer::InitContext(12345));
 
   // create trainer
   auto trainer = make_unique<Trainer_Stochastic>(
@@ -276,8 +276,8 @@ BOOST_AUTO_TEST_CASE(Mnist_OneLayer_Two_Labels_Test)
   BOOST_TEST_MESSAGE(" epochs: " << epochs);
 
   // check
-  BOOST_CHECK_GE(res.first, 0.95); // > 95%%
-  BOOST_CHECK_LE(res.second, 0.05); // < 0.05 per test
+  BOOST_CHECK_GE(res.first, 0.995); // > 995%%
+  BOOST_CHECK_LE(res.second, 0.006); // < 0.006 per test
 }
 
 BOOST_AUTO_TEST_CASE(Mnist_OneLayer_Full_Test, * disabled())
@@ -291,7 +291,7 @@ BOOST_AUTO_TEST_CASE(Mnist_OneLayer_Full_Test, * disabled())
         3, // frames_num,
         make_unique<QuadraticCost>());
   BOOST_CHECK(cnn);
-  cnn->init(InitMode_Random_SqrtInputs);
+  cnn->init(Layer::InitMode_Random);
 
   // trainer
   auto trainer = make_unique<Trainer_Stochastic>(
@@ -326,7 +326,7 @@ BOOST_AUTO_TEST_CASE(LeNet1_Two_Labels_Test)
   const double learning_rate = 0.5;
   const double regularization = 0.0;
   const MatrixSize training_batch_size = 10;
-  const size_t epochs = 5;
+  const size_t epochs = 3;
 
   auto nn = ConvolutionalNetwork::create_lenet1(
       _mnist_test.get_image_rows(), // input_rows
@@ -337,7 +337,7 @@ BOOST_AUTO_TEST_CASE(LeNet1_Two_Labels_Test)
       make_unique<SigmoidFunction>()
   );
   YANN_CHECK(nn);
-  nn->init(InitMode_Random_01);
+  nn->init(Layer::InitMode_Random, Layer::InitContext(12345));
   nn->set_cost_function(make_unique<QuadraticCost>());
 
   // Trainer
@@ -381,7 +381,7 @@ BOOST_AUTO_TEST_CASE(LeNet1_Two_Labels_Test)
 //  unique_ptr<ActivationFunction> activation_func = make_unique<SigmoidFunction>();
 //  unique_ptr<CostFunction> cost_func = make_unique<CrossEntropyCost>(1.0e-10);
 //  const MatrixSize fc_size = 100;
-//  auto init_mode = InitMode_Random_01;
+//  auto init_mode = Layer::InitMode_Random;
 //  const double learning_rate = 0.01;
 //  const double regularization = 0.0001;
 //  const MatrixSize training_batch_size = 10;
@@ -398,7 +398,7 @@ BOOST_AUTO_TEST_CASE(LeNet1_Full_Test, * disabled())
   unique_ptr<ActivationFunction> activation_func = make_unique<SigmoidFunction>();
   unique_ptr<CostFunction> cost_func = make_unique<CrossEntropyCost>(1.0e-10);
   const MatrixSize fc_size = 120;
-  auto init_mode = InitMode_Random_01;
+  auto init_mode = Layer::InitMode_Random;
   const double learning_rate = 0.01;
   const double regularization = 0.0001;
   const MatrixSize training_batch_size = 10;
@@ -449,7 +449,7 @@ BOOST_AUTO_TEST_CASE(LeNet5_Two_Labels_Test)
   const double learning_rate = 0.1;
   const double regularization = 0.0;
   const MatrixSize training_batch_size = 10;
-  const size_t epochs = 10;
+  const size_t epochs = 3;
 
   auto nn = ConvolutionalNetwork::create_lenet5(
       _mnist_test.get_image_rows(), // input_rows
@@ -461,7 +461,7 @@ BOOST_AUTO_TEST_CASE(LeNet5_Two_Labels_Test)
       make_unique<SigmoidFunction>()
   );
   YANN_CHECK(nn);
-  nn->init(InitMode_Random_SqrtInputs);
+  nn->init(Layer::InitMode_Random, Layer::InitContext(12345));
   nn->set_cost_function(make_unique<CrossEntropyCost>(1.0e-300));
   // nn->set_cost_function(make_unique<ExponentialCost>(2.0));
 
@@ -494,23 +494,16 @@ BOOST_AUTO_TEST_CASE(LeNet5_Two_Labels_Test)
 
 BOOST_AUTO_TEST_CASE(LeNet5_Full_Test, * disabled())
 {
-  // reduce the test size
-  BOOST_TEST_MESSAGE("*** Filtering test set...");
-  //_mnist_test.filter(9, 10000, 1000);
-  BOOST_TEST_MESSAGE("*** Filtered test set: " << "\n" << _mnist_test);
-
-  // unique_ptr<ActivationFunction> activation_func = make_unique<ReluFunction>(0);
-  // unique_ptr<ActivationFunction> activation_func = make_unique<TanhFunction>(1.7159, 0.6666);
   unique_ptr<ActivationFunction> activation_func = make_unique<SigmoidFunction>();
   unique_ptr<CostFunction> cost_func = make_unique<CrossEntropyCost>(1.0e-10);
   auto polling_mode = PollingLayer::PollMode_Max;
   const MatrixSize fc1_size = 120;
   const MatrixSize fc2_size = 84;
-  auto init_mode = InitMode_Random_01;
+  auto init_mode = Layer::InitMode_Random;
   const double learning_rate = 0.01;
   const double regularization = 0.0001;
   const MatrixSize training_batch_size = 10;
-  const size_t epochs = 300;
+  const size_t epochs = 50;
 
   auto nn = ConvolutionalNetwork::create_lenet5(
       _mnist_test.get_image_rows(), // input_rows
@@ -523,22 +516,12 @@ BOOST_AUTO_TEST_CASE(LeNet5_Full_Test, * disabled())
   );
   YANN_CHECK(nn);
 
-  // add softmaxLayer
-  /*
-  auto smax_layer = make_unique<SoftmaxLayer>(
-      nn->get_output_size(),
-      1000.0 // beta to make max more prominent
-  );
-  YANN_CHECK(smax_layer);
-  nn->append_layer(std::move(smax_layer));
-  */
-
   nn->init(init_mode);
   nn->set_cost_function(cost_func);
 
   // Trainer
   auto trainer = make_unique<Trainer_Stochastic>(
-      make_unique<Updater_GradientDescent>(learning_rate, regularization),
+      make_unique<Updater_GradientDescentWithMomentum>(learning_rate, regularization),
       Trainer::Random,
       training_batch_size  // batch_size
   );

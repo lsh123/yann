@@ -162,7 +162,8 @@ unique_ptr<ParallelLayer> yann::PollingLayer::create_poll_parallel_layer(
     const MatrixSize & input_rows,
     const MatrixSize & input_cols,
     const MatrixSize & filter_size,
-    enum Mode mode)
+    enum Mode mode,
+    const std::unique_ptr<ActivationFunction> & activation_function)
 {
   YANN_CHECK_GT(frames_num, 0);
 
@@ -175,6 +176,9 @@ unique_ptr<ParallelLayer> yann::PollingLayer::create_poll_parallel_layer(
         filter_size,
         mode);
     YANN_CHECK(poll_layer);
+    if(activation_function) {
+      poll_layer->set_activation_function(activation_function);
+    }
 
     poll_container_layer->append_layer(std::move(poll_layer));
   }
@@ -516,25 +520,18 @@ void yann::PollingLayer::backprop(
   }
 }
 
-void yann::PollingLayer::init(enum InitMode mode)
+void yann::PollingLayer::init(enum InitMode mode, boost::optional<InitContext> init_context)
 {
   switch (mode) {
   case InitMode_Zeros:
     _ww = 0;
     _bb = 0;
     break;
-  case InitMode_Random_01:
+  case InitMode_Random:
     {
-      unique_ptr<RandomGenerator> gen01 = RandomGenerator::normal_distribution(0, 1);
+      unique_ptr<RandomGenerator> gen01 = RandomGenerator::normal_distribution(0, 1,
+          init_context ? optional<Value>(init_context->seed()) : boost::none);
       gen01->generate(_ww);
-      gen01->generate(_bb);
-    }
-    break;
-  case InitMode_Random_SqrtInputs:
-    {
-      unique_ptr<RandomGenerator> gen = RandomGenerator::normal_distribution(0, sqrt((Value)get_input_size()));
-      unique_ptr<RandomGenerator> gen01 = RandomGenerator::normal_distribution(0, 1);
-      gen->generate(_ww);
       gen01->generate(_bb);
     }
     break;

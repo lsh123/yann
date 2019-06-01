@@ -126,7 +126,7 @@ BOOST_AUTO_TEST_CASE(IO_Test)
   const MatrixSize input_cols = 7;
   const MatrixSize filter_size = 2;
   PollingLayer one(input_cols, input_rows, filter_size, PollingLayer::PollMode_Max);
-  one.init(InitMode_Random_01);
+  one.init(Layer::InitMode_Random);
 
   BOOST_TEST_MESSAGE("PollingLayer before writing to file: " << "\n" << one);
   ostringstream oss;

@@ -40,7 +40,7 @@ public:
   virtual bool is_valid() const;
   virtual bool is_equal(const Layer& other, double tolerance) const;
 
-  virtual void init(enum InitMode mode);
+  virtual void init(enum InitMode mode, boost::optional<InitContext> init_context = boost::none);
 
   virtual void read(std::istream & is);
   virtual void write(std::ostream & os) const;

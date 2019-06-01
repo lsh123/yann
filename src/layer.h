@@ -33,19 +33,27 @@ public:
 }; // class ActivationFunction
 
 
-// Layer initialization mode
-enum InitMode
-{
-  InitMode_Zeros = 0,
-  InitMode_Random_01,
-  InitMode_Random_SqrtInputs,
-};
-
 class Layer
 {
   friend class Network;
 
 public:
+  // Layer initialization mode
+  enum InitMode
+  {
+    InitMode_Zeros = 0,
+    InitMode_Random,
+  };
+  class InitContext {
+  public:
+    InitContext(double seed) : _seed(seed) { }
+    inline const double & seed() const { return _seed; }
+    InitContext next() const { return InitContext(_seed + 1); }
+
+  private:
+    double _seed;
+  }; // InitContext
+
   // Context for processing inputs (i.e. for feedforward)
   class Context
   {
@@ -97,7 +105,7 @@ public:
                         boost::optional<RefVectorBatch> gradient_input,
                         Context * context) const = 0;
 
-  virtual void init(enum InitMode mode) = 0;
+  virtual void init(enum InitMode mode, boost::optional<InitContext> init_context = boost::none) = 0;
   virtual void update(Context * context, const size_t & batch_size) = 0;
 
   virtual void read(std::istream & is);

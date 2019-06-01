@@ -275,10 +275,10 @@ void yann::Network::backprop(const RefConstVectorBatch & input, const RefConstVe
   _container->backprop(ctx->_output_gradient, input, optional<RefVectorBatch>(), ctx->_container_ctx.get());
 }
 
-void yann::Network::init(enum InitMode mode)
+void yann::Network::init(enum Layer::InitMode mode, boost::optional<Layer::InitContext> init_context)
 {
   YANN_CHECK(is_valid());
-  _container->init(mode);
+  _container->init(mode, init_context);
 }
 
 void yann::Network::train(const VectorBatch & input, const VectorBatch & output, TrainingContext * ctx) const

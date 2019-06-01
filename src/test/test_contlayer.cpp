@@ -61,7 +61,7 @@ BOOST_AUTO_TEST_CASE(BroadcastLayer_IO_Test)
   const MatrixSize input_size = 2;
   const MatrixSize output_frames_num = 4;
   auto one = create_bcast_layer(input_size, output_frames_num);
-  one->init(InitMode_Random_01);
+  one->init(Layer::InitMode_Random);
 
   BOOST_TEST_MESSAGE("BroadcastLayer before writing to file: " << "\n" << *one);
   ostringstream oss;
@@ -195,7 +195,7 @@ BOOST_AUTO_TEST_CASE(ParallelLayer_IO_Test)
   const MatrixSize input_size = 2;
   const MatrixSize frames_num = 3;
   auto one = create_parallel_layer(input_size, frames_num);
-  one->init(InitMode_Random_01);
+  one->init(Layer::InitMode_Random);
 
   BOOST_TEST_MESSAGE("ParallelLayer before writing to file: " << "\n" << *one);
   ostringstream oss;

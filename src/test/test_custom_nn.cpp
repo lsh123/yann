@@ -115,7 +115,8 @@ struct CustomNNTestFixture
        poll1_input_rows,
        poll1_input_cols,
        poll1_filter_size,
-       PollingLayer::PollMode_Avg);
+       PollingLayer::PollMode_Avg,
+       make_unique<SigmoidFunction>());
     YANN_CHECK(poll1_layer);
 
     // ConvolutionalLayer #2
@@ -139,7 +140,8 @@ struct CustomNNTestFixture
        poll2_input_rows,
        poll2_input_cols,
        poll2_filter_size,
-       PollingLayer::PollMode_Avg);
+       PollingLayer::PollMode_Avg,
+       make_unique<SigmoidFunction>());
     YANN_CHECK(poll2_layer);
 
     // FullyConnectedLayer #1
@@ -207,7 +209,8 @@ struct CustomNNTestFixture
          poll1_input_rows,
          poll1_input_cols,
          poll1_filter_size,
-         PollingLayer::PollMode_Avg);
+         PollingLayer::PollMode_Avg,
+         make_unique<SigmoidFunction>());
       YANN_CHECK(poll1_layer);
 
       // FullyConnectedLayer #1
@@ -290,7 +293,7 @@ BOOST_AUTO_TEST_CASE(Mapping_Test, * disabled())
   BOOST_TEST_MESSAGE(" epochs: " << epochs);
 
   // train and test
-  nn->init(InitMode_Random_01);
+  nn->init(Layer::InitMode_Random);
   pair<double, Value> res = _mnist_test.train_and_test(*nn, *trainer,epochs, testing_batch_size);
   BOOST_TEST_MESSAGE("*** Success rate: " << (res.first * 100) << "% Loss: " << res.second << " after " << epochs << " epochs");
   BOOST_TEST_MESSAGE(" CustomlNetwork: " << nn->get_info());
@@ -365,7 +368,7 @@ BOOST_AUTO_TEST_CASE(LeNet1_Test)
   BOOST_TEST_MESSAGE(" epochs: " << epochs);
 
   // train and test
-  nn->init(InitMode_Random_01);
+  nn->init(Layer::InitMode_Random);
   pair<double, Value> res = _mnist_test.train_and_test(*nn, *trainer, epochs, 100);
   BOOST_TEST_MESSAGE("*** Success rate: " << (res.first * 100) << "% Loss: " << res.second << " after " << epochs << " epochs");
   BOOST_TEST_MESSAGE(" CustomlNetwork: " << nn->get_info());
@@ -435,7 +438,7 @@ BOOST_AUTO_TEST_CASE(Large_FC_Test, * disabled())
   BOOST_TEST_MESSAGE(" epochs: " << epochs);
 
   // train and test
-  nn->init(InitMode_Random_01);
+  nn->init(Layer::InitMode_Random);
   pair<double, Value> res = _mnist_test.train_and_test(*nn, *trainer,epochs, 100);
   BOOST_TEST_MESSAGE("*** Success rate: " << (res.first * 100) << "% Loss: " << res.second << " after " << epochs << " epochs");
   BOOST_TEST_MESSAGE(" CustomlNetwork: " << nn->get_info());

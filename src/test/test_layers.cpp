@@ -116,7 +116,7 @@ void yann::test::AvgLayer::backprop(const RefConstVectorBatch & gradient_output,
   }
 }
 
-void yann::test::AvgLayer::init(enum InitMode mode)
+void yann::test::AvgLayer::init(enum InitMode mode, boost::optional<InitContext> init_context)
 {
   // do nothing
 }
@@ -227,7 +227,7 @@ BOOST_AUTO_TEST_CASE(Layer_IO_Test)
 
   const MatrixSize input_size = 2;
   unique_ptr<AvgLayer> one(new AvgLayer(input_size));
-  one->init(InitMode_Random_01);
+  one->init(Layer::InitMode_Random);
 
   BOOST_TEST_MESSAGE("AvgLayer before writing to file: " << "\n" << *one);
   ostringstream oss;

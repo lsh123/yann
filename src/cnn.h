@@ -26,7 +26,8 @@ public:
     MatrixSize                               _conv_filter_size;
     std::unique_ptr<ActivationFunction>      _conv_activation_funtion;
     PollingLayer::Mode                       _polling_mode;
-    MatrixSize                              _polling_filter_size;
+    MatrixSize                               _polling_filter_size;
+    std::unique_ptr<ActivationFunction>      _polling_activation_funtion;
   }; // class ConvPollParams
 
   // create network with one conv+poll layer

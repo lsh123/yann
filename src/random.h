@@ -9,6 +9,8 @@
 #include <algorithm>
 #include <memory>
 
+#include <boost/optional.hpp>
+
 #include "types.h"
 
 namespace yann {
@@ -29,7 +31,9 @@ public:
   void generate(RefMatrix mm);
 
 public:
-  static std::unique_ptr<RandomGenerator> normal_distribution(const Value & mean, const Value & stddev);
+  static std::unique_ptr<RandomGenerator> normal_distribution(
+      const Value & mean, const Value & stddev,
+      boost::optional<Value> seed = boost::none);
 }; // class RandomGenerator
 
 }; // namespace yann

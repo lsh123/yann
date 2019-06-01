@@ -39,7 +39,7 @@ BOOST_AUTO_TEST_CASE(SoftmaxLayer_IO_Test)
 
   const MatrixSize size = 7;
   SoftmaxLayer one(size);
-  one.init(InitMode_Random_01);
+  one.init(Layer::InitMode_Random);
 
   BOOST_TEST_MESSAGE("SoftmaxLayer before writing to file: " << "\n" << one);
   ostringstream oss;

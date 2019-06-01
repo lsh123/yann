@@ -367,25 +367,6 @@ pair<double, Value> yann::test::MnistTest::test(
     result.second /= pos;
   }
 
-  // TODO: remove
-  /*
-  {
-    const MatrixSize size = 3;
-    VectorBatch output(size, label_size);
-    const auto images = dataset.images().block(0, 0, size, image_size);
-    const auto labels = dataset.labels().block(0, 0, size, label_size);
-    nn.calculate(images, output);
-    YANN_CHECK(is_same_size(output, labels));
-    for(MatrixSize ii = 0; ii < size; ++ii) {
-      Value cost = nn.cost(get_batch(output, ii), get_batch(labels, ii));
-      DBG(ii);
-      DBG(get_batch(output, ii));
-      DBG(get_batch(labels, ii));
-      DBG(cost);
-    }
-  }
-  */
-
   // done
   return result;
 }

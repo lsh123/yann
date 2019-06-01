@@ -35,7 +35,8 @@ public:
       const MatrixSize & input_rows,
       const MatrixSize & input_cols,
       const MatrixSize & filter_size,
-      enum Mode mode);
+      enum Mode mode,
+      const std::unique_ptr<ActivationFunction> & activation_function);
 
 public:
   PollingLayer(const MatrixSize & input_rows, const MatrixSize & input_cols,
@@ -63,7 +64,7 @@ public:
   virtual void backprop(const RefConstVectorBatch & gradient_output, const RefConstVectorBatch & input,
                         boost::optional<RefVectorBatch> gradient_input, Context * context) const;
 
-  virtual void init(enum InitMode mode);
+  virtual void init(enum InitMode mode, boost::optional<InitContext> init_context = boost::none);
   virtual void update(Context * context, const size_t & batch_size);
 
   virtual void read(std::istream & is);

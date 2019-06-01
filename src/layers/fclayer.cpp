@@ -319,25 +319,18 @@ void yann::FullyConnectedLayer::backprop(const RefConstVectorBatch & gradient_ou
   }
 }
 
-void yann::FullyConnectedLayer::init(enum InitMode mode)
+void yann::FullyConnectedLayer::init(enum InitMode mode, boost::optional<InitContext> init_context)
 {
   switch (mode) {
   case InitMode_Zeros:
     _ww.setZero();
     _bb.setZero();
     break;
-  case InitMode_Random_01:
+  case InitMode_Random:
     {
-      unique_ptr<RandomGenerator> gen01 = RandomGenerator::normal_distribution(0, 1);
+      unique_ptr<RandomGenerator> gen01 = RandomGenerator::normal_distribution(0, 1,
+          init_context ? optional<Value>(init_context->seed()) : boost::none);
       gen01->generate(_ww);
-      gen01->generate(_bb);
-    }
-    break;
-  case InitMode_Random_SqrtInputs:
-    {
-      unique_ptr<RandomGenerator> gen = RandomGenerator::normal_distribution(0, sqrt((Value)get_input_size()));
-      unique_ptr<RandomGenerator> gen01 = RandomGenerator::normal_distribution(0, 1);
-      gen->generate(_ww);
       gen01->generate(_bb);
     }
     break;

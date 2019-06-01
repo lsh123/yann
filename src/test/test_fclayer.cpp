@@ -43,7 +43,7 @@ BOOST_AUTO_TEST_CASE(IO_Test)
   const MatrixSize input_size = 5;
   const MatrixSize output_size = 3;
   FullyConnectedLayer one(input_size, output_size);
-  one.init(InitMode_Random_01);
+  one.init(Layer::InitMode_Random);
 
   BOOST_TEST_MESSAGE("FullyConnectedLayer before writing to file: " << "\n" << one);
   ostringstream oss;
@@ -227,7 +227,7 @@ BOOST_AUTO_TEST_CASE(Training_WithIdentity_Test)
   auto layer = make_unique<FullyConnectedLayer>(input_size, output_size);
   BOOST_CHECK(layer);
   layer->set_activation_function(make_unique<IdentityFunction>());
-  layer->init(InitMode_Zeros);
+  layer->init(Layer::InitMode_Zeros);
 
   // test
   test_layer_training(
@@ -270,7 +270,7 @@ BOOST_AUTO_TEST_CASE(Training_WithSigmoid_Test)
   auto layer = make_unique<FullyConnectedLayer>(input_size, output_size);
   BOOST_CHECK(layer);
   layer->set_activation_function(make_unique<SigmoidFunction>());
-  layer->init(InitMode_Zeros);
+  layer->init(Layer::InitMode_Zeros);
 
   // test
   test_layer_training(

@@ -87,7 +87,8 @@ void yann::ConvolutionalNetwork::append(unique_ptr<SequentialLayer> & container,
      poll_input_rows,
      poll_input_cols,
      params._polling_filter_size,
-     params._polling_mode);
+     params._polling_mode,
+     params._polling_activation_funtion);
   YANN_CHECK(poll_layer);
   container->append_layer(std::move(poll_layer));
 }
@@ -173,6 +174,7 @@ std::unique_ptr<Network> yann::ConvolutionalNetwork::create_lenet1(
   params1._conv_activation_funtion = activation_funtion->copy();
   params1._polling_mode = polling_mode;
   params1._polling_filter_size = 2;
+  params1._polling_activation_funtion = activation_funtion->copy(); // TODO: support different activation funcs
 
   ConvPollParams params2;
   params2._output_frames_num = 12;
@@ -180,6 +182,7 @@ std::unique_ptr<Network> yann::ConvolutionalNetwork::create_lenet1(
   params2._conv_activation_funtion = activation_funtion->copy();
   params2._polling_mode = polling_mode;
   params2._polling_filter_size = 2;
+  params2._polling_activation_funtion = activation_funtion->copy(); // TODO: support different activation funcs
   params2._mappings.push_back({ 0 });
   params2._mappings.push_back({ 0, 1 });
   params2._mappings.push_back({ 0, 1 });
@@ -222,6 +225,7 @@ std::unique_ptr<Network> yann::ConvolutionalNetwork::create_lenet5(
   params1._conv_activation_funtion = activation_funtion->copy();
   params1._polling_mode = polling_mode;
   params1._polling_filter_size = 2;
+  params1._polling_activation_funtion = activation_funtion->copy(); // TODO: support different activation funcs
 
   ConvPollParams params2;
   params2._output_frames_num = 16;
@@ -229,6 +233,7 @@ std::unique_ptr<Network> yann::ConvolutionalNetwork::create_lenet5(
   params2._conv_activation_funtion = activation_funtion->copy();
   params2._polling_mode = polling_mode;
   params2._polling_filter_size = 2;
+  params2._polling_activation_funtion = activation_funtion->copy(); // TODO: support different activation funcs
   params2._mappings.push_back({ 0, 1, 2 }); // 0
   params2._mappings.push_back({ 1, 2, 3 });
   params2._mappings.push_back({ 2, 3, 4 });
