@@ -11,7 +11,7 @@ using namespace std;
 using namespace yann;
 using namespace yann::test;
 
-// Overwrites for YANN_CHECK()
+// Overwrites for BOOST_VERIFY()
 namespace boost {
 void assertion_failed(char const * expr, char const * function,
                       char const * file, long line)

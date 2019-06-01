@@ -32,8 +32,8 @@ std::string yann::Updater_GradientDescent::get_info() const
 {
   ostringstream oss;
   oss << "GradientDescent["
-      << "learning_rat=" << _learning_rate
-      << ", regularization_parameter" << _regularization_parameter
+      << "learning_rate=" << _learning_rate
+      << ", regularization_parameter=" << _regularization_parameter
       << "]";
   return oss.str();
 }
@@ -93,8 +93,8 @@ std::string yann::Updater_GradientDescentWithMomentum::get_info() const
 {
   ostringstream oss;
   oss << "GradientDescentWithMomentum["
-      << "learning_rat=" << _learning_rate
-      << ", regularization_parameter" << _regularization_parameter
+      << "learning_rate=" << _learning_rate
+      << ", regularization_parameter=" << _regularization_parameter
       << "]";
   return oss.str();
 }

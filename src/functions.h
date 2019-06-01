@@ -61,7 +61,7 @@ private:
 
 // tanh function:
 //  f(x) = A*tanh(S*x)
-//  df/dx = A* S* (1−(tanh(S*x))^2)
+//  df/dx = A * S * (1−(tanh(S*x))^2)
 class TanhFunction: public ActivationFunction {
 public:
   TanhFunction(const Value & AA = 1.0, const Value & SS = 1.0) : _AA(AA), _SS(SS) { }

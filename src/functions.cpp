@@ -154,7 +154,7 @@ string yann::TanhFunction::get_info() const
   ostringstream oss;
   oss << "Tanh["
       << "A=" << _AA
-      << "S=" << _SS
+      << ", S=" << _SS
       << "]"
       ;
   return oss.str();

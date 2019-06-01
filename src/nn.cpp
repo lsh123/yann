@@ -41,7 +41,7 @@ yann::Network::Network() :
 {
 }
 
-yann::Network::Network(std::unique_ptr<SequentialLayer> & container) :
+yann::Network::Network(std::unique_ptr<SequentialLayer> container) :
     _container(std::move(container)),
     _cost_function(new QuadraticCost())
 {

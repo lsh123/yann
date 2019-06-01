@@ -45,7 +45,7 @@ class Network
 
 public:
   Network();
-  Network(std::unique_ptr<SequentialLayer> & container);
+  Network(std::unique_ptr<SequentialLayer> container);
   virtual ~Network();
 
   size_t get_layers_num() const;

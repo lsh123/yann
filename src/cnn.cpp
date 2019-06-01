@@ -93,7 +93,7 @@ void yann::ConvolutionalNetwork::append(unique_ptr<SequentialLayer> & container,
   container->append_layer(std::move(poll_layer));
 }
 
-unique_ptr<Network> yann::ConvolutionalNetwork::create(
+unique_ptr<SequentialLayer> yann::ConvolutionalNetwork::create(
     const MatrixSize & input_rows,
     const MatrixSize & input_cols,
     const ConvPollParams & params,
@@ -118,11 +118,11 @@ unique_ptr<Network> yann::ConvolutionalNetwork::create(
   }
   container->append_layer(std::move(fc_layer));
 
-  // create network
-  return make_unique<Network>(container);
+  // done
+  return container;
 }
 
-std::unique_ptr<Network> yann::ConvolutionalNetwork::create(
+std::unique_ptr<SequentialLayer> yann::ConvolutionalNetwork::create(
     const MatrixSize & input_rows,
     const MatrixSize & input_cols,
     const ConvPollParams & params1,
@@ -155,34 +155,44 @@ std::unique_ptr<Network> yann::ConvolutionalNetwork::create(
   }
   container->append_layer(std::move(fc_layer));
 
-  // create network
-  return make_unique<Network>(container);
+  // done
+  return container;
 }
 
-std::unique_ptr<Network> yann::ConvolutionalNetwork::create_lenet1(
+std::unique_ptr<SequentialLayer> yann::ConvolutionalNetwork::create_lenet1(
     const MatrixSize & input_rows,
     const MatrixSize & input_cols,
     PollingLayer::Mode polling_mode,
     const MatrixSize & fc_size,
     const MatrixSize & output_size,
-    const std::unique_ptr<ActivationFunction> & activation_funtion)
+    const std::unique_ptr<ActivationFunction> & conv_activation_funtion,
+    const std::unique_ptr<ActivationFunction> & poll_activation_funtion,
+    const std::unique_ptr<ActivationFunction> & fc_activation_funtion)
 {
   // see http://yann.lecun.com/exdb/publis/pdf/lecun-90c.pdf
   ConvPollParams params1;
   params1._output_frames_num = 4;
   params1._conv_filter_size  = 5;
-  params1._conv_activation_funtion = activation_funtion->copy();
+  if(conv_activation_funtion) {
+    params1._conv_activation_funtion = conv_activation_funtion->copy();
+  }
   params1._polling_mode = polling_mode;
   params1._polling_filter_size = 2;
-  params1._polling_activation_funtion = activation_funtion->copy(); // TODO: support different activation funcs
+  if(poll_activation_funtion) {
+    params1._polling_activation_funtion = poll_activation_funtion->copy();
+  }
 
   ConvPollParams params2;
   params2._output_frames_num = 12;
   params2._conv_filter_size  = 5;
-  params2._conv_activation_funtion = activation_funtion->copy();
+  if(conv_activation_funtion) {
+    params2._conv_activation_funtion = conv_activation_funtion->copy();
+  }
   params2._polling_mode = polling_mode;
   params2._polling_filter_size = 2;
-  params2._polling_activation_funtion = activation_funtion->copy(); // TODO: support different activation funcs
+  if(poll_activation_funtion) {
+    params2._polling_activation_funtion = poll_activation_funtion->copy();
+  }
   params2._mappings.push_back({ 0 });
   params2._mappings.push_back({ 0, 1 });
   params2._mappings.push_back({ 0, 1 });
@@ -196,44 +206,103 @@ std::unique_ptr<Network> yann::ConvolutionalNetwork::create_lenet1(
   params2._mappings.push_back({ 2, 3 });
   params2._mappings.push_back({ 2, 3 });
 
-  auto nn = create(input_rows, input_cols, params1, params2, activation_funtion, fc_size);
-  YANN_CHECK(nn);
+  auto container = create(
+      input_rows, input_cols, params1, params2,
+      fc_activation_funtion, fc_size > 0 ? fc_size : output_size);
+  YANN_CHECK(container);
 
-  // add one more FC layer
-  auto fc_layer = make_unique<FullyConnectedLayer>(fc_size, output_size);
-  YANN_CHECK(fc_layer);
-  fc_layer->set_activation_function(activation_funtion);
-  nn->append_layer(std::move(fc_layer));
+  // add one more FC layer if needed
+  if(fc_size > 0) {
+    auto fc_layer = make_unique<FullyConnectedLayer>(fc_size, output_size);
+    YANN_CHECK(fc_layer);
+    if(fc_activation_funtion) {
+      fc_layer->set_activation_function(fc_activation_funtion);
+    }
+    container->append_layer(std::move(fc_layer));
+  }
 
   // done
-  return nn;
+  return container;
 }
 
-std::unique_ptr<Network> yann::ConvolutionalNetwork::create_lenet5(
+std::unique_ptr<SequentialLayer> yann::ConvolutionalNetwork::create_boosted_lenet1(
+    const MatrixSize & paths_num,
+    const MatrixSize & input_rows,
+    const MatrixSize & input_cols,
+    PollingLayer::Mode polling_mode,
+    const MatrixSize & fc_size,
+    const MatrixSize & output_size,
+    const std::unique_ptr<ActivationFunction> & conv_activation_funtion,
+    const std::unique_ptr<ActivationFunction> & poll_activation_funtion,
+    const std::unique_ptr<ActivationFunction> & fc_activation_funtion)
+{
+  // create N paths
+  auto bcast_layer = make_unique<BroadcastLayer>();
+  YANN_CHECK(bcast_layer);
+  for(auto ii = paths_num; ii > 0; --ii) {
+    auto path = create_lenet1(
+        input_rows, input_cols, polling_mode,
+        0, fc_size, // don't create fc layer, we will add one for the merge
+        conv_activation_funtion, poll_activation_funtion,
+        fc_activation_funtion);
+    YANN_CHECK(path);
+    bcast_layer->append_layer(std::move(path));
+  }
+
+  // merge them together
+  auto fc_layer = make_unique<FullyConnectedLayer>(fc_size, output_size);
+  YANN_CHECK(fc_layer);
+  fc_layer->set_activation_function(fc_activation_funtion);
+
+  auto merge_layer = make_unique<MergeLayer>(paths_num);
+  YANN_CHECK(merge_layer);
+  merge_layer->append_layer(std::move(fc_layer));
+
+  // and finally create container
+  auto container = make_unique<SequentialLayer>();
+  YANN_CHECK(container);
+  container->append_layer(std::move(bcast_layer));
+  container->append_layer(std::move(merge_layer));
+
+  // done
+  return container;
+}
+
+std::unique_ptr<SequentialLayer> yann::ConvolutionalNetwork::create_lenet5(
     const MatrixSize & input_rows,
     const MatrixSize & input_cols,
     PollingLayer::Mode polling_mode,
     const MatrixSize & fc1_size,
     const MatrixSize & fc2_size,
     const MatrixSize & output_size,
-    const std::unique_ptr<ActivationFunction> & activation_funtion)
+    const std::unique_ptr<ActivationFunction> & conv_activation_funtion,
+    const std::unique_ptr<ActivationFunction> & poll_activation_funtion,
+    const std::unique_ptr<ActivationFunction> & fc_activation_funtion)
 {
   // see http://vision.stanford.edu/cs598_spring07/papers/Lecun98.pdf
   ConvPollParams params1;
   params1._output_frames_num = 6;
   params1._conv_filter_size  = 5;
-  params1._conv_activation_funtion = activation_funtion->copy();
+  if(conv_activation_funtion) {
+    params1._conv_activation_funtion = conv_activation_funtion->copy();
+  }
   params1._polling_mode = polling_mode;
   params1._polling_filter_size = 2;
-  params1._polling_activation_funtion = activation_funtion->copy(); // TODO: support different activation funcs
+  if(poll_activation_funtion) {
+    params1._polling_activation_funtion = poll_activation_funtion->copy();
+  }
 
   ConvPollParams params2;
   params2._output_frames_num = 16;
   params2._conv_filter_size  = 5;
-  params2._conv_activation_funtion = activation_funtion->copy();
+  if(conv_activation_funtion) {
+    params2._conv_activation_funtion = conv_activation_funtion->copy();
+  }
   params2._polling_mode = polling_mode;
   params2._polling_filter_size = 2;
-  params2._polling_activation_funtion = activation_funtion->copy(); // TODO: support different activation funcs
+  if(poll_activation_funtion) {
+    params2._polling_activation_funtion = poll_activation_funtion->copy();
+  }
   params2._mappings.push_back({ 0, 1, 2 }); // 0
   params2._mappings.push_back({ 1, 2, 3 });
   params2._mappings.push_back({ 2, 3, 4 });
@@ -251,23 +320,27 @@ std::unique_ptr<Network> yann::ConvolutionalNetwork::create_lenet5(
   params2._mappings.push_back({ 0, 2, 3, 5 });
   params2._mappings.push_back({ 0, 1, 2, 3, 4, 5 });
 
-  auto nn = create(input_rows, input_cols, params1, params2, activation_funtion, fc1_size);
-  YANN_CHECK(nn);
+  auto container = create(input_rows, input_cols, params1, params2, fc_activation_funtion, fc1_size);
+  YANN_CHECK(container);
 
   // add one more FC layer
   auto fc_layer1 = make_unique<FullyConnectedLayer>(fc1_size, fc2_size);
   YANN_CHECK(fc_layer1);
-  fc_layer1->set_activation_function(activation_funtion);
-  nn->append_layer(std::move(fc_layer1));
+  if(fc_activation_funtion) {
+    fc_layer1->set_activation_function(fc_activation_funtion);
+  }
+  container->append_layer(std::move(fc_layer1));
 
   // and one more FC layer
   auto fc_layer2 = make_unique<FullyConnectedLayer>(fc2_size, output_size);
   YANN_CHECK(fc_layer2);
-  fc_layer2->set_activation_function(activation_funtion);
-  nn->append_layer(std::move(fc_layer2));
+  if(fc_activation_funtion) {
+    fc_layer2->set_activation_function(fc_activation_funtion);
+  }
+  container->append_layer(std::move(fc_layer2));
 
   // done
-  return nn;
+  return container;
 }
 
 

@@ -31,7 +31,7 @@ public:
   }; // class ConvPollParams
 
   // create network with one conv+poll layer
-  static std::unique_ptr<Network> create(
+  static std::unique_ptr<SequentialLayer> create(
       const MatrixSize & input_rows,
       const MatrixSize & input_cols,
       const ConvPollParams & params,
@@ -39,7 +39,7 @@ public:
       const MatrixSize & output_size);
 
   // create network with two conv+poll layers
-  static std::unique_ptr<Network> create(
+  static std::unique_ptr<SequentialLayer> create(
       const MatrixSize & input_rows,
       const MatrixSize & input_cols,
       const ConvPollParams & params1,
@@ -47,22 +47,37 @@ public:
       const std::unique_ptr<ActivationFunction> & fc_activation_funtion,
       const MatrixSize & output_size);
 
-  static std::unique_ptr<Network> create_lenet1(
+  static std::unique_ptr<SequentialLayer> create_lenet1(
       const MatrixSize & input_rows,
       const MatrixSize & input_cols,
       PollingLayer::Mode polling_mode,
       const MatrixSize & fc_size,
       const MatrixSize & output_size,
-      const std::unique_ptr<ActivationFunction> & activation_funtion);
+      const std::unique_ptr<ActivationFunction> & conv_activation_funtion,
+      const std::unique_ptr<ActivationFunction> & poll_activation_funtion,
+      const std::unique_ptr<ActivationFunction> & fc_activation_funtion);
 
-  static std::unique_ptr<Network> create_lenet5(
+  static std::unique_ptr<SequentialLayer> create_boosted_lenet1(
+      const MatrixSize & paths_num,
+      const MatrixSize & input_rows,
+      const MatrixSize & input_cols,
+      PollingLayer::Mode polling_mode,
+      const MatrixSize & fc_size,
+      const MatrixSize & output_size,
+      const std::unique_ptr<ActivationFunction> & conv_activation_funtion,
+      const std::unique_ptr<ActivationFunction> & poll_activation_funtion,
+      const std::unique_ptr<ActivationFunction> & fc_activation_funtion);
+
+  static std::unique_ptr<SequentialLayer> create_lenet5(
       const MatrixSize & input_rows,
       const MatrixSize & input_cols,
       PollingLayer::Mode polling_mode,
       const MatrixSize & fc1_size,
       const MatrixSize & fc2_size,
       const MatrixSize & output_size,
-      const std::unique_ptr<ActivationFunction> & activation_funtion);
+      const std::unique_ptr<ActivationFunction> & conv_activation_funtion,
+      const std::unique_ptr<ActivationFunction> & poll_activation_funtion,
+      const std::unique_ptr<ActivationFunction> & fc_activation_funtion);
 
 private:
   // Appends one conv+poll layer to the sequential network

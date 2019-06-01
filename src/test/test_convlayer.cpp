@@ -10,7 +10,6 @@
 #include "random.h"
 #include "training.h"
 #include "layers/convlayer.h"
-#include "layers/smaxlayer.h"
 
 #include "test_utils.h"
 #include "timer.h"
