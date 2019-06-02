@@ -1,16 +1,18 @@
 #
 # Targets
 #
-lib_LTLIBRARIES=libyann.la libyann_test.la
-bin_PROGRAMS=test-funcs test-layers test-fcnn test-cnn test-custom
+lib_LTLIBRARIES=libyann.la libyann_word2vec.la libyann_test.la
+bin_PROGRAMS=test-funcs test-layers test-fcnn test-cnn test-custom test-word2vec
 
 AM_CXXFLAGS=\
+	@AM_CXXFLAGS@ \
 	-Wall -Werror \
 	-DBOOST_ENABLE_ASSERT_HANDLER=1 \
 	$(NULL)
 
 AM_LDFLAGS= \
-	-lboost_filesystem -lboost_system -lboost_thread \
+	@AM_LDFLAGS@ \
+	 -lboost_system -lboost_thread \
 	$(NULL)
 
 #
@@ -21,10 +23,14 @@ AM_CXXFLAGS_TEST= \
 	$(NULL)
 AM_LDFLAGS_TEST= \
 	-static \
+	-lboost_iostreams \
+	-lboost_filesystem \
 	-lboost_unit_test_framework \
+	-lz \
 	$(NULL)
 AM_LDADD_TEST= \
 	libyann.la \
+	libyann_word2vec.la \
 	libyann_test.la \
 	$(NULL)
 
@@ -32,31 +38,44 @@ AM_LDADD_TEST= \
 # Main YANN library
 #
 libyann_la_SOURCES = \
-	types.cpp \
-	utils.cpp \
-	random.cpp \
-	layer.cpp \
-	functions.cpp \
-	nn.cpp \
-	training.cpp \
+	core/types.cpp \
+	core/utils.cpp \
+	core/random.cpp \
+	core/layer.cpp \
+	core/functions.cpp \
+	core/nn.cpp \
+	core/training.cpp \
 	layers/contlayer.cpp \
 	layers/fclayer.cpp \
 	layers/polllayer.cpp \
 	layers/convlayer.cpp \
 	layers/smaxlayer.cpp \
-	fcnn.cpp \
-	cnn.cpp \
+	networks/fcnn.cpp \
+	networks/cnn.cpp \
 	$(NULL)
 libyann_la_CXXFLAGS=$(AM_CXXFLAGS)
 libyann_la_LDFLAGS=$(AM_LDFLAGS)
 
+#
+# Word2Vec implementation with YANN library
+#
+libyann_word2vec_la_SOURCES = \
+	word2vec/text_parser.cpp \
+	word2vec/word2vec.cpp \
+	$(NULL)
+libyann_word2vec_la_CXXFLAGS=$(AM_CXXFLAGS)
+libyann_word2vec_la_LDFLAGS=$(AM_LDFLAGS)
+libyann_word2vec_la_LIBADD= \
+	libyann.la \
+	$(NULL)
+	
 #
 # Testing utils for YANN library
 #
 libyann_test_la_SOURCES = \
 	test/test_utils.cpp \
 	test/timer.cpp \
-	test/mnist-test.cpp \
+	test/mnist_test.cpp \
 	$(NULL)
 libyann_test_la_CXXFLAGS=$(AM_CXXFLAGS)
 libyann_test_la_LDFLAGS=$(AM_LDFLAGS)
@@ -67,7 +86,10 @@ libyann_test_la_LIBADD= \
 #
 # Functions unit test program
 #
-test_funcs_SOURCES=test/test_functions.cpp
+test_funcs_SOURCES=\
+	test/test_functions.cpp \
+	test/test_types.cpp \
+	$(NULL)
 test_funcs_CXXFLAGS= $(AM_CXXFLAGS) $(AM_CXXFLAGS_TEST)
 test_funcs_LDFLAGS=$(AM_LDFLAGS) $(AM_LDFLAGS_TEST)
 test_funcs_LDADD=$(AM_LDADD_TEST)
@@ -112,11 +134,19 @@ test_custom_LDFLAGS=$(AM_LDFLAGS) $(AM_LDFLAGS_TEST)
 test_custom_LDADD=$(AM_LDADD_TEST)
 
 #
+# Word2Vec tests
+#
+test_word2vec_SOURCES=test/test_word2vec.cpp
+test_word2vec_CXXFLAGS=$(AM_CXXFLAGS) $(AM_CXXFLAGS_TEST)
+test_word2vec_LDFLAGS=$(AM_LDFLAGS) $(AM_LDFLAGS_TEST)
+test_word2vec_LDADD=$(AM_LDADD_TEST)
+
+#
 # Extra rules
 #
 check-%: test-%
 	./$< --log_level=all --show_progress=no
 
-check: check-funcs check-layers check-fcnn check-cnn 
+check: check-funcs check-layers check-fcnn check-cnn check-word2vec
 
 	

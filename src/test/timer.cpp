@@ -2,6 +2,8 @@
  * timer.cpp
  *
  */
+#include <boost/test/unit_test.hpp>
+
 #include <cstdlib>
 #include <ctime>
 
@@ -43,7 +45,7 @@ yann::test::Timer::~Timer()
 {
   if (!is_stopped()) {
     stop();
-    write(std::cout) << std::endl;
+    BOOST_TEST_MESSAGE(*this);
   }
 }
 

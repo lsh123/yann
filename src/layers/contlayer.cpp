@@ -8,7 +8,7 @@
 #include <stdexcept>
 #include <boost/assert.hpp>
 
-#include "utils.h"
+#include "core/utils.h"
 #include "contlayer.h"
 
 using namespace std;
@@ -410,7 +410,11 @@ unique_ptr<Layer::Context> yann::SequentialLayer::create_training_context(const 
   return ctx;
 }
 
-void yann::SequentialLayer::feedforward(const RefConstVectorBatch & input, Layer::Context * context, enum OperationMode mode) const
+template<typename InputType>
+void yann::SequentialLayer::feedforward_internal(
+    const InputType & input,
+    Layer::Context * context,
+    enum OperationMode mode) const
 {
   auto ctx = dynamic_cast<SequentialLayer_Context *>(context);
   YANN_CHECK(ctx);
@@ -426,7 +430,7 @@ void yann::SequentialLayer::feedforward(const RefConstVectorBatch & input, Layer
      auto layer_mode = (ii + 1 < get_layers_num()) ? Operation_Assign : mode; // only the last layer matters
      if(ii > 0) {
        // prev layer output is the input for cur layer
-       auto prev_layer_ctx = ctx->get_context(ii - 1);
+       const auto * prev_layer_ctx = ctx->get_context(ii - 1);
        layer->feedforward(prev_layer_ctx->get_output(), layer_ctx, layer_mode);
      } else {
        // for the first layer, we use external input
@@ -435,10 +439,28 @@ void yann::SequentialLayer::feedforward(const RefConstVectorBatch & input, Layer
   }
 }
 
-void yann::SequentialLayer::backprop(const RefConstVectorBatch & gradient_output,
-                                     const RefConstVectorBatch & input,
-                                     optional<RefVectorBatch> gradient_input,
-                                     Layer::Context * context) const
+void yann::SequentialLayer::feedforward(
+    const RefConstVectorBatch & input,
+    Layer::Context * context,
+    enum OperationMode mode) const
+{
+  feedforward_internal(input, context, mode);
+}
+
+void yann::SequentialLayer::feedforward(
+    const RefConstSparseVectorBatch & input,
+    Layer::Context * context,
+    enum OperationMode mode) const
+{
+  feedforward_internal(input, context, mode);
+}
+
+template<typename InputType>
+void yann::SequentialLayer::backprop_internal(
+    const RefConstVectorBatch & gradient_output,
+    const InputType & input,
+    boost::optional<RefVectorBatch> gradient_input,
+    Context * context) const
 {
   auto ctx = dynamic_cast<SequentialLayer_TrainingContext *>(context);
   YANN_CHECK(ctx);
@@ -463,14 +485,22 @@ void yann::SequentialLayer::backprop(const RefConstVectorBatch & gradient_output
       // prev output gradient  == current gradient input;
       // prev output = current input
       auto & prev_gradient_out= ctx->output_gradient(ii - 2);
-      auto prev_out = ctx->get_context(ii - 2)->get_output();
-      layer->backprop(layer_gradient_out, prev_out, optional<RefVectorBatch>(prev_gradient_out), layer_ctx);
+      const auto * prev_ctx = ctx->get_context(ii - 2);
+      layer->backprop(
+          layer_gradient_out,
+          prev_ctx->get_output(),
+          optional<RefVectorBatch>(prev_gradient_out),
+          layer_ctx);
     } else if(1 < ii && ii == get_layers_num()) {
       // this is the last layer, the output gradient comes from outside,
       // otherwise it is the same
       auto & prev_gradient_out= ctx->output_gradient(ii - 2);
-      auto prev_out = ctx->get_context(ii - 2)->get_output();
-      layer->backprop(gradient_output, prev_out, optional<RefVectorBatch>(prev_gradient_out), layer_ctx);
+      const auto * prev_ctx = ctx->get_context(ii - 2);
+      layer->backprop(
+          gradient_output,
+          prev_ctx->get_output(),
+          optional<RefVectorBatch>(prev_gradient_out),
+          layer_ctx);
     } else if(1 == ii && ii < get_layers_num()) {
       // this is the first layer, the input comes from outside
       layer->backprop(layer_gradient_out, input, gradient_input, layer_ctx);
@@ -481,6 +511,24 @@ void yann::SequentialLayer::backprop(const RefConstVectorBatch & gradient_output
       layer->backprop(gradient_output, input, gradient_input, layer_ctx);
     }
   }
+}
+
+void yann::SequentialLayer::backprop(
+    const RefConstVectorBatch & gradient_output,
+    const RefConstVectorBatch & input,
+    optional<RefVectorBatch> gradient_input,
+    Layer::Context * context) const
+{
+  backprop_internal(gradient_output, input, gradient_input, context);
+}
+
+void yann::SequentialLayer::backprop(
+    const RefConstVectorBatch & gradient_output,
+    const RefConstSparseVectorBatch & input,
+    optional<RefVectorBatch> gradient_input,
+    Layer::Context * context) const
+{
+  backprop_internal(gradient_output, input, gradient_input, context);
 }
 
 void yann::SequentialLayer::update(yann::Layer::Context * context, const size_t & batch_size)
@@ -835,8 +883,9 @@ unique_ptr<Layer::Context> yann::MappingLayer::create_training_context(const Ref
   return ctx;
 }
 
-void yann::MappingLayer::feedforward(
-    const RefConstVectorBatch & input,
+template<typename InputType>
+void yann::MappingLayer::feedforward_internal(
+    const InputType & input,
     Layer::Context * context,
     enum OperationMode mode) const
 {
@@ -862,9 +911,26 @@ void yann::MappingLayer::feedforward(
   }
 }
 
-void yann::MappingLayer::backprop(
-    const RefConstVectorBatch & gradient_output,
+void yann::MappingLayer::feedforward(
     const RefConstVectorBatch & input,
+    Layer::Context * context,
+    enum OperationMode mode) const
+{
+  feedforward_internal(input, context, mode);
+}
+
+void yann::MappingLayer::feedforward(
+    const RefConstSparseVectorBatch & input,
+    Layer::Context * context,
+    enum OperationMode mode) const
+{
+  feedforward_internal(input, context, mode);
+}
+
+template<typename InputType>
+void yann::MappingLayer::backprop_internal(
+    const RefConstVectorBatch & gradient_output,
+    const InputType & input,
     optional<RefVectorBatch> gradient_input,
     Layer::Context * context) const
 {
@@ -909,6 +975,24 @@ void yann::MappingLayer::backprop(
     ++layer_num;
   }
   YANN_CHECK_EQ(gradient_output_pos, get_output_size());
+}
+
+void yann::MappingLayer::backprop(
+    const RefConstVectorBatch & gradient_output,
+    const RefConstVectorBatch & input,
+    optional<RefVectorBatch> gradient_input,
+    Layer::Context * context) const
+{
+  backprop_internal(gradient_output, input, gradient_input, context);
+}
+
+void yann::MappingLayer::backprop(
+    const RefConstVectorBatch & gradient_output,
+    const RefConstSparseVectorBatch & input,
+    optional<RefVectorBatch> gradient_input,
+    Layer::Context * context) const
+{
+  backprop_internal(gradient_output, input, gradient_input, context);
 }
 
 void yann::MappingLayer::update(yann::Layer::Context * context, const size_t & batch_size)

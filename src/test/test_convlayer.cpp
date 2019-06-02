@@ -5,10 +5,10 @@
 
 #include <sstream>
 
-#include "functions.h"
-#include "utils.h"
-#include "random.h"
-#include "training.h"
+#include "core/functions.h"
+#include "core/utils.h"
+#include "core/random.h"
+#include "core/training.h"
 #include "layers/convlayer.h"
 
 #include "test_utils.h"
@@ -39,6 +39,7 @@ struct ConvolutionalLayerTestFixture
     vv.maxCoeff(&pos);
     return pos;
   }
+
 
   void conv_perf_test(const MatrixSize & size, const MatrixSize & filter_size, const size_t & epochs)
   {
@@ -119,21 +120,21 @@ BOOST_AUTO_TEST_CASE(IO_Test)
   const MatrixSize input_cols = 5;
   const MatrixSize input_rows = 3;
   const MatrixSize filter_size = 2;
-  ConvolutionalLayer one(input_cols, input_rows, filter_size);
-  one.init(Layer::InitMode_Random);
+  auto one = make_unique<ConvolutionalLayer>(input_cols, input_rows, filter_size);
+  one->init(Layer::InitMode_Random, boost::none);
 
-  BOOST_TEST_MESSAGE("ConvolutionalLayer before writing to file: " << "\n" << one);
+  BOOST_TEST_MESSAGE("ConvolutionalLayer before writing to file: " << "\n" << *one);
   ostringstream oss;
-  oss << one;
+  oss << *one;
   BOOST_CHECK(!oss.fail());
 
-  ConvolutionalLayer two(input_cols, input_rows, filter_size);
+  auto two = make_unique<ConvolutionalLayer>(input_cols, input_rows, filter_size);
   std::istringstream iss(oss.str());
-  iss >> two;
+  iss >> *two;
   BOOST_CHECK(!iss.fail());
-  BOOST_TEST_MESSAGE("ConvolutionalLayer after loading from file: " << "\n" << two);
+  BOOST_TEST_MESSAGE("ConvolutionalLayer after loading from file: " << "\n" << *two);
 
-  BOOST_CHECK(one.is_equal(two, TEST_TOLERANCE));
+  BOOST_CHECK(one->is_equal(*two, TEST_TOLERANCE));
 }
 
 BOOST_AUTO_TEST_CASE(ConvOp_Test)
@@ -696,64 +697,42 @@ BOOST_AUTO_TEST_CASE(FeedForward_Test)
       image_size, image_size, filter_size);
 
   Matrix ww(filter_size, filter_size);
-  VectorBatch input, expected;
-
-  ww << 1, 0, 1,
-        0, 1, 0,
-        1, 0, 1;
-
+  VectorBatch input, expected_output;
   resize_batch(input, batch_size, input_size);
-  input << 1, 0, 1, 0, 0,
-           0, 1, 0, 0, 0,
-           1, 0, 1, 0, 0,
-           0, 0, 0, 0, 0,
-           0, 0, 0, 0, 1,
-           /////////////
-           0, 0, 1, 0, 1,
-           0, 1, 0, 1, 0,
-           1, 0, 1, 0, 1,
-           0, 1, 0, 1, 0,
-           1, 0, 1, 0, 0;
+  resize_batch(expected_output, batch_size, output_size);
 
-  resize_batch(expected, batch_size, output_size);
-  expected << 5.5, 0.5, 2.5,
-              0.5, 2.5, 0.5,
-              2.5, 0.5, 2.5,
-              /////////////
-              4.5, 0.5, 5.5,
-              0.5, 5.5, 0.5,
-              5.5, 0.5, 4.5;
+  ww <<
+      1, 0, 1,
+      0, 1, 0,
+      1, 0, 1;
 
-  ConvolutionalLayer layer(image_size, image_size, filter_size);
-  layer.set_activation_function(make_unique<IdentityFunction>());
-  layer.set_values(ww, 0.5);
+  input <<
+      1, 0, 1, 0, 0,
+      0, 1, 0, 0, 0,
+      1, 0, 1, 0, 0,
+      0, 0, 0, 0, 0,
+      0, 0, 0, 0, 1,
+      /////////////
+      0, 0, 1, 0, 1,
+      0, 1, 0, 1, 0,
+      1, 0, 1, 0, 1,
+      0, 1, 0, 1, 0,
+      1, 0, 1, 0, 0;
 
-  // Test writing output to the internal buffer
-  {
-    std::unique_ptr<Layer::Context> ctx = layer.create_context(batch_size);
-    YANN_CHECK (ctx);
-    {
-         // ensure we don't do allocations in eigen
-         BlockAllocations block;
-         layer.feedforward(input, ctx.get());
-    }
-    RefConstVectorBatch output = ctx->get_output();
-    BOOST_CHECK(expected.isApprox(output, TEST_TOLERANCE));
-  }
+  expected_output <<
+      5.5, 0.5, 2.5,
+      0.5, 2.5, 0.5,
+      2.5, 0.5, 2.5,
+      /////////////
+      4.5, 0.5, 5.5,
+      0.5, 5.5, 0.5,
+      5.5, 0.5, 4.5;
 
-  // Test writing output to an external buffer
-  {
-    VectorBatch output;
-    resize_batch(output, batch_size, output_size);
-    std::unique_ptr<Layer::Context> ctx = layer.create_context(output);
-    YANN_CHECK (ctx);
-    {
-         // ensure we don't do allocations in eigen
-         BlockAllocations block;
-         layer.feedforward(input, ctx.get());
-    }
-    BOOST_CHECK(expected.isApprox(output, TEST_TOLERANCE));
-  }
+  auto layer = make_unique<ConvolutionalLayer>(image_size, image_size, filter_size);
+  layer->set_activation_function(make_unique<IdentityFunction>());
+  layer->set_values(ww, 0.5);
+
+  test_layer_feedforward(*layer, input, expected_output);
 }
 
 BOOST_AUTO_TEST_CASE(Backprop_Test)
@@ -765,56 +744,48 @@ BOOST_AUTO_TEST_CASE(Backprop_Test)
   const MatrixSize filter_size = 2;
   const MatrixSize output_size = ConvolutionalLayer::get_conv_output_size(
       image_size, image_size, filter_size);
-
+  const double learning_rate = 0.1;
+  const size_t epochs = 100;
   const MatrixSize batch_size = 2;
-  VectorBatch input, expected;
 
   Matrix ww(filter_size, filter_size);
-  ww << 0, 0,
-        0, 1;
-
+  VectorBatch input, expected_output;
   resize_batch(input, batch_size, input_size);
-  input << 0, 0, 0,
-           0, 1, 1,
-           0, 1, 0,
-           ////////
-           0, 0, 0,
-           1, 1, 0,
-           1, 0, 0;
+  resize_batch(expected_output, batch_size, output_size);
 
-  resize_batch(expected, batch_size, output_size);
-  expected << 1, 0,
-              0, 0,
-              ////
-              0, 0,
-              1, 0;
+  ww <<
+      0, 0,
+      0, 1;
 
-  ConvolutionalLayer layer(image_size, image_size, filter_size);
-  layer.set_activation_function(make_unique<IdentityFunction>());
-  layer.set_values(ww, 0.0);
+  input <<
+      0, 0, 0,
+      0, 1, 1,
+      0, 1, 0,
+      ////////
+      0, 0, 0,
+      1, 1, 0,
+      1, 0, 0;
 
-  auto ctx = layer.create_training_context(batch_size, make_unique<Updater_GradientDescent>());
-  ctx->reset_state();
+  expected_output <<
+      1, 0,
+      0, 0,
+      ////
+      0, 0,
+      1, 0;
 
-  VectorBatch gradient_input, gradient_output;
-  resize_batch(gradient_input, batch_size, input_size);
-  resize_batch(gradient_output, batch_size, output_size);
-  {
-      // ensure we don't do allocations in eigen
-      BlockAllocations block;
+  auto layer = make_unique<ConvolutionalLayer>(image_size, image_size, filter_size);
+  layer->set_activation_function(make_unique<IdentityFunction>());
+  layer->set_values(ww, 0.0);
 
-      // feed forward
-      layer.feedforward(input, ctx.get());
-
-      // backprop
-      gradient_output = ctx->get_output() - expected;
-      layer.backprop(gradient_output, input, optional<RefVectorBatch>(gradient_input), ctx.get());
-
-      // update input and feed forward again
-      input -= gradient_input;
-      layer.feedforward(input, ctx.get());
-      BOOST_CHECK(expected.isApprox(ctx->get_output(), TEST_TOLERANCE));
-  }
+  test_layer_backprop(
+      *layer,
+      input,
+      boost::none,
+      expected_output,
+      make_unique<QuadraticCost>(),
+      learning_rate,
+      epochs
+  );
 }
 
 BOOST_AUTO_TEST_CASE(Backprop_OnVector_Test)
@@ -827,60 +798,50 @@ BOOST_AUTO_TEST_CASE(Backprop_OnVector_Test)
   const MatrixSize filter_size = 2;
   const MatrixSize output_size = ConvolutionalLayer::get_conv_output_size(
       image_size, image_size, filter_size);
-
+  const double learning_rate = 0.1;
+  const size_t epochs = 100;
   const MatrixSize batch_size = 2;
-  Vector input_buffer(shift + batch_size * input_size);
-  MapMatrix input(input_buffer.data() + shift, batch_size, input_size); // this assumes RowMajor layout
-  // Vector output_buffer(shift + output_size);
-  VectorBatch expected;
 
   Matrix ww(filter_size, filter_size);
-  ww << 0, 0,
-        0, 1;
+  Vector input_buffer(shift + batch_size * input_size);
+  MapMatrix input(input_buffer.data() + shift, batch_size, input_size); // this assumes RowMajor layout
+  VectorBatch expected_output;
+  resize_batch(expected_output, batch_size, output_size);
+
+  ww <<
+      0, 0,
+      0, 1;
 
   input_buffer <<
-           1, 2, 3, 4, // shift
-           0, 0, 0,
-           0, 1, 1,
-           0, 1, 0,
-           ////////
-           0, 0, 0,
-           1, 1, 0,
-           1, 0, 0;
+      1, 2, 3, 4, // shift
+      0, 0, 0,
+      0, 1, 1,
+      0, 1, 0,
+      ////////
+      0, 0, 0,
+      1, 1, 0,
+      1, 0, 0;
 
-  resize_batch(expected, batch_size, output_size);
-  expected << 1, 0,
-              0, 0,
-              ////
-              0, 0,
-              1, 0;
+  expected_output <<
+      1, 0,
+      0, 0,
+      ////
+      0, 0,
+      1, 0;
 
-  ConvolutionalLayer layer(image_size, image_size, filter_size);
-  layer.set_activation_function(make_unique<IdentityFunction>());
-  layer.set_values(ww, 0.0);
+  auto layer = make_unique<ConvolutionalLayer>(image_size, image_size, filter_size);
+  layer->set_activation_function(make_unique<IdentityFunction>());
+  layer->set_values(ww, 0.0);
 
-  auto ctx = layer.create_training_context(batch_size, make_unique<Updater_GradientDescent>());
-  ctx->reset_state();
-
-  VectorBatch gradient_input, gradient_output;
-  resize_batch(gradient_input, batch_size, input_size);
-  resize_batch(gradient_output, batch_size, output_size);
-  {
-      // ensure we don't do allocations in eigen
-      BlockAllocations block;
-
-      // feed forward
-      layer.feedforward(input, ctx.get());
-
-      // backprop
-      gradient_output = ctx->get_output() - expected;
-      layer.backprop(gradient_output, input, optional<RefVectorBatch>(gradient_input), ctx.get());
-
-      // update input and feed forward again
-      input -= gradient_input;
-      layer.feedforward(input, ctx.get());
-      BOOST_CHECK(expected.isApprox(ctx->get_output(), TEST_TOLERANCE));
-  }
+  test_layer_backprop(
+      *layer,
+      input,
+      boost::none,
+      expected_output,
+      make_unique<QuadraticCost>(),
+      learning_rate,
+      epochs
+  );
 }
 
 BOOST_AUTO_TEST_CASE(Training_WithIdentity_Test)
@@ -919,7 +880,7 @@ BOOST_AUTO_TEST_CASE(Training_WithIdentity_Test)
   auto layer = make_unique<ConvolutionalLayer>(image_rows, image_cols, filter_size);
   BOOST_CHECK(layer);
   layer->set_activation_function(make_unique<IdentityFunction>());
-  layer->init(Layer::InitMode_Zeros);
+  layer->init(Layer::InitMode_Zeros, boost::none);
 
   // test
   test_layer_training(
@@ -969,7 +930,7 @@ BOOST_AUTO_TEST_CASE(Training_WithSigmoid_Test)
   auto layer = make_unique<ConvolutionalLayer>(image_rows, image_cols, filter_size);
   BOOST_CHECK(layer);
   layer->set_activation_function(make_unique<SigmoidFunction>());
-  layer->init(Layer::InitMode_Zeros);
+  layer->init(Layer::InitMode_Zeros, boost::none);
 
   // test
   test_layer_training(
@@ -988,12 +949,21 @@ BOOST_AUTO_TEST_CASE(Training_WithSigmoid_Test)
 //
 BOOST_AUTO_TEST_CASE(PerfConvTest, * disabled())
 {
-  conv_perf_test(1000, 10, 100);
+  conv_perf_test(
+      1000, // size
+      10,   // filter
+      100   // epochs
+  );
 }
 
 BOOST_AUTO_TEST_CASE(PerfBatchConvTest, * disabled())
 {
-  conv_perf_batch_test(10, 1000, 10, 10);
+  conv_perf_batch_test(
+      10,   // batch
+      1000, // size
+      10,   // filter
+      10    // epochs
+   );
 }
 
 BOOST_AUTO_TEST_SUITE_END()

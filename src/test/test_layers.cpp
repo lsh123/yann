@@ -5,9 +5,9 @@
 
 #include <boost/test/unit_test.hpp>
 
-#include "utils.h"
-#include "functions.h"
-#include "training.h"
+#include "core/utils.h"
+#include "core/functions.h"
+#include "core/training.h"
 
 #include "timer.h"
 #include "test_utils.h"
@@ -84,7 +84,10 @@ unique_ptr<Layer::Context> yann::test::AvgLayer::create_training_context(
   return make_unique<Context>(output);
 }
 
-void yann::test::AvgLayer::feedforward(const RefConstVectorBatch & input, Context * context, enum OperationMode mode) const
+void yann::test::AvgLayer::feedforward(
+    const RefConstVectorBatch & input,
+    Context * context,
+    enum OperationMode mode) const
 {
   YANN_CHECK(context);
   YANN_CHECK_EQ(get_batch_item_size(input), _input_size);
@@ -105,8 +108,19 @@ void yann::test::AvgLayer::feedforward(const RefConstVectorBatch & input, Contex
   }
 }
 
-void yann::test::AvgLayer::backprop(const RefConstVectorBatch & gradient_output, const RefConstVectorBatch & input,
-                      boost::optional<RefVectorBatch> gradient_input, Context * /* context */) const
+void yann::test::AvgLayer::feedforward(
+    const RefConstSparseVectorBatch & input,
+    Context * context,
+    enum OperationMode mode) const
+{
+  throw runtime_error("test::AvgLayer::feedforward() is not implemented for sparse vectors");
+}
+
+void yann::test::AvgLayer::backprop(
+    const RefConstVectorBatch & gradient_output,
+    const RefConstVectorBatch & input,
+    boost::optional<RefVectorBatch> gradient_input,
+    Context * context) const
 {
   if(gradient_input) {
     const auto batch_size = get_batch_size(input);
@@ -114,6 +128,15 @@ void yann::test::AvgLayer::backprop(const RefConstVectorBatch & gradient_output,
       get_batch(*gradient_input, ii).array() = get_batch(gradient_output, ii)(0);
     }
   }
+}
+
+void yann::test::AvgLayer::backprop(
+    const RefConstVectorBatch & gradient_output,
+    const RefConstSparseVectorBatch & input,
+    boost::optional<RefVectorBatch> gradient_input,
+    Context * context) const
+{
+  throw runtime_error("test::AvgLayer::backprop() is not implemented for sparse vectors");
 }
 
 void yann::test::AvgLayer::init(enum InitMode mode, boost::optional<InitContext> init_context)
@@ -149,12 +172,104 @@ void yann::test::AvgLayer::write(ostream & os) const
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// Test helpers implementation
+// Helpers for testing layers
 //
+
+void yann::test::test_layer_feedforward(
+    Layer & layer,
+    const RefConstVectorBatch & input,
+    const RefConstVectorBatch & expected_output)
+{
+  YANN_CHECK_EQ(get_batch_size(input), get_batch_size(expected_output));
+
+  // Test writing output to the internal buffer
+  {
+    std::unique_ptr<Layer::Context> ctx = layer.create_context(get_batch_size(input));
+    YANN_CHECK (ctx);
+    {
+      // ensure we don't do allocations in eigen
+      BlockAllocations block;
+
+      layer.feedforward(input, ctx.get());
+      BOOST_CHECK(expected_output.isApprox(ctx->get_output(), TEST_TOLERANCE));
+    }
+  }
+
+  // Test writing output to an external buffer
+  {
+    VectorBatch output;
+    resize_batch(output, get_batch_size(expected_output), get_batch_item_size(expected_output));
+    std::unique_ptr<Layer::Context> ctx = layer.create_context(output);
+    YANN_CHECK (ctx);
+    {
+      // ensure we don't do allocations in eigen
+      BlockAllocations block;
+
+      layer.feedforward(input, ctx.get());
+      BOOST_CHECK(expected_output.isApprox(output, TEST_TOLERANCE));
+    }
+  }
+}
+
+
+// TODO: add backprop tests for all layers
+void yann::test::test_layer_backprop(
+    Layer & layer,
+    const RefConstVectorBatch & input,
+    boost::optional<RefConstVectorBatch> expected_input,
+    const RefConstVectorBatch & expected_output,
+    std::unique_ptr<CostFunction> cost,
+    const double learning_rate,
+    const size_t & epochs)
+{
+  auto ctx = layer.create_training_context(
+      get_batch_size(input),
+      make_unique<Updater_GradientDescent>(0.0, 0.0)); // learning_rate doesn't matter
+  BOOST_CHECK(ctx);
+  ctx->reset_state();
+
+  VectorBatch in, gradient_input, gradient_output;
+  gradient_input.resizeLike(input);
+  gradient_output.resizeLike(expected_output);
+
+  in = input;
+  {
+    // ensure we don't do allocations in eigen
+    BlockAllocations block;
+
+    for(size_t ii = 0; ii < epochs; ++ii) {
+      // feed forward
+      layer.feedforward(in, ctx.get());
+
+      // backprop
+      cost->derivative(ctx->get_output(), expected_output, gradient_output);
+      YANN_CHECK(ii > 0 || gradient_output.squaredNorm() > 0); // we shouldn't have 0 gradient on first try
+      layer.backprop(gradient_output, in, optional<RefVectorBatch>(gradient_input), ctx.get());
+
+      // update input
+      in -= learning_rate * gradient_input;
+    }
+
+    // one more time
+    layer.feedforward(in, ctx.get());
+  }
+
+  BOOST_TEST_MESSAGE("actual_input=" << in);
+  if(expected_input) {
+    BOOST_TEST_MESSAGE("expected_input=" << *expected_input);
+    BOOST_CHECK(expected_input->isApprox(in, TEST_TOLERANCE));
+  }
+
+  BOOST_TEST_MESSAGE("expected_output=" << expected_output);
+  BOOST_TEST_MESSAGE("actual_output=" << ctx->get_output());
+  BOOST_CHECK(expected_output.isApprox(ctx->get_output(), TEST_TOLERANCE));
+
+}
+
 void yann::test::test_layer_training(
     Layer & layer,
-    const VectorBatch & input,
-    const VectorBatch & expected_output,
+    const RefConstVectorBatch & input,
+    const RefConstVectorBatch & expected_output,
     std::unique_ptr<CostFunction> cost,
     const double learning_rate,
     const size_t & epochs)
@@ -180,11 +295,9 @@ void yann::test::test_layer_training(
       // feed forward
       layer.feedforward(input, ctx.get());
 
-      // DBG(ii);
-      // DBG(cost->f(ctx->get_output(), expected_output));
-
       // backprop
       cost->derivative(ctx->get_output(), expected_output, gradient_output);
+      YANN_CHECK(ii > 0 || gradient_output.squaredNorm() > 0); // we shouldn't have 0 gradient on first try
       layer.backprop(gradient_output, input,
                       optional<RefVectorBatch>(gradient_input),
                       ctx.get());
@@ -195,11 +308,11 @@ void yann::test::test_layer_training(
 
     // one more time
     layer.feedforward(input, ctx.get());
-    DBG(expected_output);
-    DBG(ctx->get_output());
-    DBG(cost->f(ctx->get_output(), expected_output));
-    BOOST_CHECK(expected_output.isApprox(ctx->get_output(), TEST_TOLERANCE));
   }
+
+  BOOST_TEST_MESSAGE("expected_output=" << expected_output);
+  BOOST_TEST_MESSAGE("actual_output=" << ctx->get_output());
+  BOOST_CHECK(expected_output.isApprox(ctx->get_output(), TEST_TOLERANCE));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -226,15 +339,15 @@ BOOST_AUTO_TEST_CASE(Layer_IO_Test)
   BOOST_TEST_MESSAGE("*** Layer IO test ...");
 
   const MatrixSize input_size = 2;
-  unique_ptr<AvgLayer> one(new AvgLayer(input_size));
-  one->init(Layer::InitMode_Random);
+  auto one = make_unique<AvgLayer>(input_size);
+  one->init(Layer::InitMode_Random, boost::none);
 
   BOOST_TEST_MESSAGE("AvgLayer before writing to file: " << "\n" << *one);
   ostringstream oss;
   oss << (*one);
   BOOST_CHECK(!oss.fail());
 
-  unique_ptr<AvgLayer> two(new AvgLayer(input_size));
+  auto two = make_unique<AvgLayer>(input_size);
   std::istringstream iss(oss.str());
   iss >> (*two);
   BOOST_CHECK(!iss.fail());

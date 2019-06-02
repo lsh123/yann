@@ -12,18 +12,14 @@
 #include <string>
 #include <vector>
 
-#include <boost/numeric/ublas/assignment.hpp>
-#include <boost/numeric/ublas/io.hpp>
-#include <boost/numeric/ublas/matrix.hpp>
-#include <boost/numeric/ublas/operation.hpp>
+#include "core/types.h"
+#include "core/random.h"
+#include "core/utils.h"
+#include "core/functions.h"
 
-#include "types.h"
-#include "random.h"
-#include "utils.h"
 #include "timer.h"
-#include "nn.h"
 #include "test_utils.h"
-#include "functions.h"
+
 
 using namespace std;
 using namespace boost;
@@ -158,105 +154,6 @@ BOOST_FIXTURE_TEST_SUITE(FunctionsTest, FunctionsTestFixture);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// perf functions tests
-//
-BOOST_AUTO_TEST_CASE(Perf_Test, * disabled())
-{
-  const size_t size = 1000;
-  const size_t data_size = size * size;
-
-  // Eigen::Matrix
-  {
-      Timer timer("Eigen::Matrix total");
-      Matrix aa(size, size), bb(size, size), cc(size, size);
-      {
-        Timer timer("Eigen::Matrix random generation");
-        unique_ptr<RandomGenerator> gen = RandomGenerator::normal_distribution(0, 1);
-        gen->generate(aa);
-        gen->generate(bb);
-      }
-      // ensure we don't do allocations in eigen
-      {
-        BlockAllocations block;
-        {
-          Timer timer("Eigen::Matrix; cc.noalias() = aa.lazyProduct(bb);");
-          cc.noalias() = aa.lazyProduct(bb);
-        }
-      }
-      {
-        Timer timer("Eigen::Matrix; cc.noalias() = aa * bb;");
-        cc.noalias() = aa * bb;
-      }
-  }
-
-  // UBLAS::matrix
-  {
-      Timer timer("UBLAS matrixes total");
-      ublas::matrix<Value> aa(size, size), bb(size, size), cc(size, size);
-      {
-        Timer timer("UBLAS matrixes random generation");
-        unique_ptr<RandomGenerator> gen = RandomGenerator::normal_distribution(0, 1);
-        gen->generate(aa.data().begin(), aa.data().end());
-        gen->generate(bb.data().begin(), bb.data().end());
-      }
-      {
-        Timer timer("UBLAS matrixes noalias(cc) = ublas::prod(aa, bb);");
-        noalias(cc) = ublas::prod(aa, bb);
-      }
-      {
-        Timer timer("UBLAS matrixes ublas::axpy_prod(aa, bb, cc, true);");
-        ublas::axpy_prod(aa, bb, cc, true);
-      }
-  }
-
-  // std::vector
-  {
-      Timer timer("Value[] matrixes total");
-      auto aa = make_unique<Value[]>(data_size);
-      auto bb = make_unique<Value[]>(data_size);
-      auto cc = make_unique<Value[]>(data_size);
-
-      {
-        Timer timer("Value[] matrixes random generation");
-        unique_ptr<RandomGenerator> gen = RandomGenerator::normal_distribution(0, 1);
-        gen->generate(aa.get(), aa.get() + data_size);
-        gen->generate(bb.get(), bb.get() + data_size);
-      }
-      {
-        Timer timer("Value[] matrixes ");
-        auto aa_ptr = aa.get();
-        auto bb_ptr = bb.get();
-        auto cc_ptr = cc.get();
-        memset(cc_ptr, 0, data_size);
-
-        for(size_t ii = 0; ii < size; ++ii) {
-          for(size_t jj = 0; jj < size; ++jj) {
-            for(size_t kk = 0; kk < size; ++kk) {
-              cc_ptr[ii*size + jj] += aa_ptr[ii*size + kk] * bb_ptr[kk*size + jj];
-            }
-          }
-        }
-      }
-      {
-        Timer timer("Value[] matrixes2 ");
-        auto aa_ptr = aa.get();
-        auto bb_ptr = bb.get();
-        auto cc_ptr = cc.get();
-        memset(cc_ptr, 0, data_size);
-
-        for(size_t ii = 0; ii < size; ++ii) {
-          for(size_t kk = 0; kk < size; ++kk) {
-            for(size_t jj = 0; jj < size; ++jj) {
-              cc_ptr[ii*size + jj] += aa_ptr[ii*size + kk] * bb_ptr[kk*size + jj];
-            }
-          }
-        }
-      }
-  }
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////
-//
 // cost functions tests
 //
 BOOST_AUTO_TEST_CASE(QuadraticCost_Test)
@@ -288,8 +185,8 @@ BOOST_AUTO_TEST_CASE(ExponentialCost_Test)
   Vector actual0(size);
   Vector expected(size);
   Value cost0;
-  const double learning_rate = 0.25;
-  size_t epochs = 10;
+  const double learning_rate = 0.001;
+  size_t epochs = 100;
 
   actual0 << 11.0, 1;
   expected << 1.0, 6.0;

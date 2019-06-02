@@ -6,17 +6,18 @@
 
 #include <sstream>
 
-#include "types.h"
-#include "functions.h"
-#include "utils.h"
-#include "random.h"
-#include "training.h"
-#include "cnn.h"
+#include "core/types.h"
+#include "core/functions.h"
+#include "core/utils.h"
+#include "core/random.h"
+#include "core/training.h"
 #include "layers/smaxlayer.h"
+
+#include "networks/cnn.h"
 
 #include "test_utils.h"
 #include "timer.h"
-#include "mnist-test.h"
+#include "mnist_test.h"
 
 using namespace std;
 using namespace boost;
@@ -24,20 +25,11 @@ using namespace boost::unit_test;
 using namespace yann;
 using namespace yann::test;
 
-#define MNIST_TEST_FOLDER   "../mnist/"
+#define MNIST_TEST_FOLDER   "../data/mnist/"
 #define TMP_FOLDER  "/tmp/"
 
 struct CnnTestFixture
 {
-  static void progress_callback(const MatrixSize & cur_pos, const MatrixSize & step, const MatrixSize & total)
-  {
-    // we want to print out progress at 1/10 increment
-    auto progress_delta = total / 10;
-    if(progress_delta == 0 || cur_pos % progress_delta < step) {
-      BOOST_TEST_MESSAGE("  ... at " << cur_pos << " out of " << total);
-    }
-  }
-
   MnistTest _mnist_test;
 
   CnnTestFixture()
@@ -153,7 +145,7 @@ BOOST_AUTO_TEST_CASE(IO_Test)
   BOOST_CHECK(one->is_equal(*two, TEST_TOLERANCE));
 }
 
-BOOST_AUTO_TEST_CASE(Training_BatchGradientDescent_Test)
+BOOST_AUTO_TEST_CASE(Training_GradientDescent_Test)
 {
   BOOST_TEST_MESSAGE("*** ConvolutionalNetwork training test...");
 
@@ -212,16 +204,18 @@ BOOST_AUTO_TEST_CASE(Training_BatchGradientDescent_Test)
   }
 
   // training
-  Trainer_Batch trainer(
-      make_unique<Updater_GradientDescent>(1.0, 0.0),
-      Trainer::Sequential,
+  Trainer trainer(make_unique<Updater_GradientDescent>(1.0, 0.0));
+  DataSource_Stochastic data_source(
+      training_inputs,
+      training_outputs,
+      DataSource_Stochastic::Sequential,
       1);
   BOOST_TEST_MESSAGE("trainer: " << trainer.get_info());
   {
     Timer timer("Training");
     for (size_t epoch = 1; epoch <= epochs; ++epoch) {
       // BOOST_TEST_MESSAGE("Training epoch " << epoch << " out of " << epochs);
-      trainer.train(*cnn, training_inputs, training_outputs);
+      trainer.train(*cnn, data_source);
     }
     BOOST_TEST_MESSAGE(timer);
   }
@@ -265,13 +259,10 @@ BOOST_AUTO_TEST_CASE(Mnist_OneLayer_Two_Labels_Test)
   cnn->init(Layer::InitMode_Random, Layer::InitContext(12345));
 
   // create trainer
-  auto trainer = make_unique<Trainer_Stochastic>(
-      make_unique<Updater_GradientDescent>(1.0, 0.0),
-      Trainer::Sequential, // want consistency for this test
-      10     // batch_size
-  );
+  auto trainer = make_unique<Trainer>(
+      make_unique<Updater_GradientDescent>(1.0, 0.0));
   BOOST_CHECK(trainer);
-  trainer->set_progress_callback(progress_callback);
+  trainer->set_batch_progress_callback(batch_progress_callback);
 
   // print info
   BOOST_TEST_MESSAGE("*** Testing against MNIST dataset with ");
@@ -280,7 +271,14 @@ BOOST_AUTO_TEST_CASE(Mnist_OneLayer_Two_Labels_Test)
   BOOST_TEST_MESSAGE(" epochs: " << epochs);
 
   // test
-  pair<double, Value> res = _mnist_test.train_and_test(*cnn, *trainer, epochs, 100);
+  pair<double, Value> res = _mnist_test.train_and_test(
+      *cnn,
+      *trainer,
+      DataSource_Stochastic::Sequential, // want consistency for this test
+      10,                  // training_batch_size
+      epochs,
+      100                  // testing_batch_size
+  );
   BOOST_TEST_MESSAGE("*** Success rate: " << (res.first * 100) << "% Loss: " << res.second << " after " << epochs << " epochs");
   BOOST_TEST_MESSAGE(" ConvolutionalNetwork: " << cnn->get_info());
   BOOST_TEST_MESSAGE(" trainer: " << trainer->get_info());
@@ -305,13 +303,10 @@ BOOST_AUTO_TEST_CASE(Mnist_OneLayer_Full_Test, * disabled())
   cnn->init(Layer::InitMode_Random);
 
   // trainer
-  auto trainer = make_unique<Trainer_Stochastic>(
-      make_unique<Updater_GradientDescent>(5.0, 0.0),
-      Trainer::Random,
-      20    // batch_size
-  );
+  auto trainer = make_unique<Trainer>(
+      make_unique<Updater_GradientDescent>(5.0, 0.0));
   BOOST_CHECK(trainer);
-  trainer->set_progress_callback(progress_callback);
+  trainer->set_batch_progress_callback(batch_progress_callback);
 
   // print info
   BOOST_TEST_MESSAGE("*** Testing against MNIST dataset with ");
@@ -320,7 +315,14 @@ BOOST_AUTO_TEST_CASE(Mnist_OneLayer_Full_Test, * disabled())
   BOOST_TEST_MESSAGE(" epochs: " << epochs);
 
   // test
-  pair<double, Value> res = _mnist_test.train_and_test(*cnn, *trainer, epochs, 100);
+  pair<double, Value> res = _mnist_test.train_and_test(
+      *cnn,
+      *trainer,
+      DataSource_Stochastic::Random,
+      20, // training_batch_size
+      epochs,
+      100 // testing_batch_size
+  );
   BOOST_TEST_MESSAGE("*** Success rate: " << (res.first * 100) << "% Loss: " << res.second << " after " << epochs << " epochs");
   BOOST_TEST_MESSAGE(" ConvolutionalNetwork: " << cnn->get_info());
   BOOST_TEST_MESSAGE(" trainer: " << trainer->get_info());
@@ -355,13 +357,10 @@ BOOST_AUTO_TEST_CASE(LeNet1_Two_Labels_Test)
   nn->set_cost_function(make_unique<QuadraticCost>());
 
   // Trainer
-  auto trainer = make_unique<Trainer_Stochastic>(
-      make_unique<Updater_GradientDescentWithMomentum>(learning_rate, regularization),
-      Trainer::Sequential, // want consistency for this test
-      training_batch_size  // batch_size
-  );
+  auto trainer = make_unique<Trainer>(
+      make_unique<Updater_GradientDescentWithMomentum>(learning_rate, regularization));
   BOOST_CHECK(trainer);
-  trainer->set_progress_callback(progress_callback);
+  trainer->set_batch_progress_callback(batch_progress_callback);
 
   // print info
   BOOST_TEST_MESSAGE("*** Testing against MNIST dataset with ");
@@ -370,8 +369,17 @@ BOOST_AUTO_TEST_CASE(LeNet1_Two_Labels_Test)
   BOOST_TEST_MESSAGE(" epochs: " << epochs);
 
   // train and test
-  pair<double, Value> res = _mnist_test.train_and_test(*nn, *trainer, epochs, 100);
-  BOOST_TEST_MESSAGE("*** Success rate: " << (res.first * 100) << "% Loss: " << res.second << " after " << epochs << " epochs");
+  pair<double, Value> res = _mnist_test.train_and_test(
+      *nn,
+      *trainer,
+      DataSource_Stochastic::Sequential, // want consistency for this test
+      training_batch_size,
+      epochs,
+      100 // testing_batch_size
+  );
+  BOOST_TEST_MESSAGE("*** Success rate: " << (res.first * 100)
+                     << "% Loss: " << res.second
+                     << " after " << epochs << " epochs");
   BOOST_TEST_MESSAGE(" CustomlNetwork: " << nn->get_info());
   BOOST_TEST_MESSAGE(" trainer: " << trainer->get_info());
   BOOST_TEST_MESSAGE(" epochs: " << epochs);
@@ -401,11 +409,6 @@ BOOST_AUTO_TEST_CASE(LeNet1_Two_Labels_Test)
 //  const MatrixSize training_batch_size = 10;
 //  const size_t epochs = 100;
 //
-//  auto trainer = make_unique<Trainer_Stochastic>(
-//      make_unique<Updater_GradientDescent>(learning_rate, regularization),
-//      Trainer::Random,
-//      training_batch_size  // batch_size
-//  );
 BOOST_AUTO_TEST_CASE(LeNet1_Full_Test, * disabled())
 {
   // reduce the test size to two labels to make it faster
@@ -443,13 +446,10 @@ BOOST_AUTO_TEST_CASE(LeNet1_Full_Test, * disabled())
   nn->init(init_mode);
 
   // Trainer
-  auto trainer = make_unique<Trainer_Stochastic>(
-      make_unique<Updater_GradientDescent>(learning_rate, regularization),
-      Trainer::Random,
-      training_batch_size  // batch_size
-  );
+  auto trainer = make_unique<Trainer>(
+      make_unique<Updater_GradientDescent>(learning_rate, regularization));
   BOOST_CHECK(trainer);
-  trainer->set_progress_callback(progress_callback);
+  trainer->set_batch_progress_callback(batch_progress_callback);
 
   // print info
   BOOST_TEST_MESSAGE("*** Testing against MNIST dataset with ");
@@ -458,13 +458,32 @@ BOOST_AUTO_TEST_CASE(LeNet1_Full_Test, * disabled())
   BOOST_TEST_MESSAGE(" epochs: " << epochs);
 
   // train and test
-  pair<double, Value> res = _mnist_test.train_and_test(*nn, *trainer, epochs, 100);
-  BOOST_TEST_MESSAGE("*** Success rate: " << (res.first * 100) << "% Loss: " << res.second << " after " << epochs << " epochs");
+  pair<double, Value> res = _mnist_test.train_and_test(
+      *nn,
+      *trainer,
+      DataSource_Stochastic::Random,
+      training_batch_size,
+      epochs,
+      100 // testing_batch_size
+  );
+  BOOST_TEST_MESSAGE("*** Success rate: " << (res.first * 100)
+                     << "% Loss: " << res.second
+                     << " after " << epochs << " epochs");
   BOOST_TEST_MESSAGE(" CustomlNetwork: " << nn->get_info());
   BOOST_TEST_MESSAGE(" trainer: " << trainer->get_info());
   BOOST_TEST_MESSAGE(" epochs: " << epochs);
 }
 
+
+// The best result so far:
+//
+// Success rate for epoch 93: against training dataset: 96.4867% against test dataset: 96.14%
+// Cost/loss per test for epoch 93: against training dataset: 0.229392 against test dataset: 0.256736
+//
+// Training time 35861.4 milliseconds
+// Testing against training dataset time 17260.3 milliseconds
+// Testing against test dataset time 2885.71 milliseconds
+//
 BOOST_AUTO_TEST_CASE(BoostedLeNet1_Full_Test, * disabled())
 {
   // reduce the test size to two labels to make it faster
@@ -478,7 +497,7 @@ BOOST_AUTO_TEST_CASE(BoostedLeNet1_Full_Test, * disabled())
   unique_ptr<ActivationFunction> fc_activation_func = make_unique<SigmoidFunction>();
   unique_ptr<CostFunction> cost_func = make_unique<CrossEntropyCost>(1.0e-10);
   const MatrixSize paths_num = 2;
-  const MatrixSize fc_size = 100;
+  const MatrixSize fc_size = 50;
   const auto init_mode = Layer::InitMode_Random;
   const double learning_rate = 0.5;
   const double regularization = 0.0001;
@@ -504,16 +523,14 @@ BOOST_AUTO_TEST_CASE(BoostedLeNet1_Full_Test, * disabled())
   nn->init(init_mode);
 
   // Trainer
-  auto trainer = make_unique<Trainer_Stochastic>(
+  auto trainer = make_unique<Trainer>(
       make_unique<Updater_GradientDescentWithMomentum>(
           learning_rate,
           regularization
-      ),
-      Trainer::Random,
-      training_batch_size  // batch_size
+      )
   );
   BOOST_CHECK(trainer);
-  trainer->set_progress_callback(progress_callback);
+  trainer->set_batch_progress_callback(batch_progress_callback);
 
   // print info
   BOOST_TEST_MESSAGE("*** Testing against MNIST dataset with ");
@@ -522,7 +539,14 @@ BOOST_AUTO_TEST_CASE(BoostedLeNet1_Full_Test, * disabled())
   BOOST_TEST_MESSAGE(" epochs: " << epochs);
 
   // train and test
-  pair<double, Value> res = _mnist_test.train_and_test(*nn, *trainer, epochs, 100);
+  pair<double, Value> res = _mnist_test.train_and_test(
+      *nn,
+      *trainer,
+      DataSource_Stochastic::Random,
+      training_batch_size,
+      epochs,
+      100 // testing_batch_size
+  );
   BOOST_TEST_MESSAGE("*** Success rate: " << (res.first * 100) << "% Loss: " << res.second << " after " << epochs << " epochs");
   BOOST_TEST_MESSAGE(" CustomlNetwork: " << nn->get_info());
   BOOST_TEST_MESSAGE(" trainer: " << trainer->get_info());
@@ -561,13 +585,10 @@ BOOST_AUTO_TEST_CASE(LeNet5_Two_Labels_Test)
   // nn->set_cost_function(make_unique<ExponentialCost>(2.0));
 
   // Trainer
-  auto trainer = make_unique<Trainer_Stochastic>(
-      make_unique<Updater_GradientDescent>(learning_rate, regularization),
-      Trainer::Sequential,
-      training_batch_size  // batch_size
-  );
+  auto trainer = make_unique<Trainer>(
+      make_unique<Updater_GradientDescent>(learning_rate, regularization));
   BOOST_CHECK(trainer);
-  trainer->set_progress_callback(progress_callback);
+  trainer->set_batch_progress_callback(batch_progress_callback);
 
   // print info
   BOOST_TEST_MESSAGE("*** Testing against MNIST dataset with ");
@@ -576,8 +597,17 @@ BOOST_AUTO_TEST_CASE(LeNet5_Two_Labels_Test)
   BOOST_TEST_MESSAGE(" epochs: " << epochs);
 
   // train and test
-  pair<double, Value> res = _mnist_test.train_and_test(*nn, *trainer, epochs, 100);
-  BOOST_TEST_MESSAGE("*** Success rate: " << (res.first * 100) << "% Loss: " << res.second << " after " << epochs << " epochs");
+  pair<double, Value> res = _mnist_test.train_and_test(
+      *nn,
+      *trainer,
+      DataSource_Stochastic::Sequential,
+      training_batch_size,
+      epochs,
+      100  // testing_batch_size
+  );
+  BOOST_TEST_MESSAGE("*** Success rate: " << (res.first * 100)
+                     << "% Loss: " << res.second
+                     << " after " << epochs << " epochs");
   BOOST_TEST_MESSAGE(" CustomlNetwork: " << nn->get_info());
   BOOST_TEST_MESSAGE(" trainer: " << trainer->get_info());
   BOOST_TEST_MESSAGE(" epochs: " << epochs);
@@ -640,13 +670,10 @@ BOOST_AUTO_TEST_CASE(LeNet5_Full_Test, * disabled())
   nn->set_cost_function(cost_func);
 
   // Trainer
-  auto trainer = make_unique<Trainer_Stochastic>(
-      make_unique<Updater_GradientDescentWithMomentum>(learning_rate, regularization),
-      Trainer::Random,
-      training_batch_size  // batch_size
-  );
+  auto trainer = make_unique<Trainer>(
+      make_unique<Updater_GradientDescentWithMomentum>(learning_rate, regularization));
   BOOST_CHECK(trainer);
-  trainer->set_progress_callback(progress_callback);
+  trainer->set_batch_progress_callback(batch_progress_callback);
 
   // print info
   BOOST_TEST_MESSAGE("*** Testing against MNIST dataset with ");
@@ -655,8 +682,17 @@ BOOST_AUTO_TEST_CASE(LeNet5_Full_Test, * disabled())
   BOOST_TEST_MESSAGE(" epochs: " << epochs);
 
   // train and test
-  pair<double, Value> res = _mnist_test.train_and_test(*nn, *trainer, epochs, 100);
-  BOOST_TEST_MESSAGE("*** Success rate: " << (res.first * 100) << "% Loss: " << res.second << " after " << epochs << " epochs");
+  pair<double, Value> res = _mnist_test.train_and_test(
+      *nn,
+      *trainer,
+      DataSource_Stochastic::Random,
+      training_batch_size,
+      epochs,
+      100 // testing_batch_size
+  );
+  BOOST_TEST_MESSAGE("*** Success rate: " << (res.first * 100)
+                     << "% Loss: " << res.second
+                     << " after " << epochs << " epochs");
   BOOST_TEST_MESSAGE(" CustomlNetwork: " << nn->get_info());
   BOOST_TEST_MESSAGE(" trainer: " << trainer->get_info());
   BOOST_TEST_MESSAGE(" epochs: " << epochs);

@@ -8,11 +8,10 @@
 
 #include <boost/assert.hpp>
 
-#include "layer.h"
-#include "nn.h"
+#include "core/layer.h"
+#include "core/nn.h"
 
-namespace yann{
-namespace test {
+namespace yann::test {
 
 // Avgs N inputs into 1 output
 class AvgLayer : public Layer
@@ -37,15 +36,32 @@ public:
   virtual std::unique_ptr<Layer::Context> create_context(const MatrixSize & batch_size) const;
   virtual std::unique_ptr<Layer::Context> create_context(const RefVectorBatch & output) const;
   virtual std::unique_ptr<Layer::Context> create_training_context(
-      const MatrixSize & batch_size, const std::unique_ptr<Layer::Updater> & updater) const;
+      const MatrixSize & batch_size,
+      const std::unique_ptr<Layer::Updater> & updater) const;
   virtual std::unique_ptr<Layer::Context> create_training_context(
-      const RefVectorBatch & output, const std::unique_ptr<Layer::Updater> & updater) const;
+      const RefVectorBatch & output,
+      const std::unique_ptr<Layer::Updater> & updater) const;
 
-  virtual void feedforward(const RefConstVectorBatch & input, Layer::Context * context, enum OperationMode mode) const;
-  virtual void backprop(const RefConstVectorBatch & gradient_output, const RefConstVectorBatch & input,
-                        boost::optional<RefVectorBatch> gradient_input, Layer::Context * context) const;
+  virtual void feedforward(
+      const RefConstVectorBatch & input,
+      Context * context,
+      enum OperationMode mode) const;
+  virtual void feedforward(
+      const RefConstSparseVectorBatch & input,
+      Context * context,
+      enum OperationMode mode) const;
+  virtual void backprop(
+      const RefConstVectorBatch & gradient_output,
+      const RefConstVectorBatch & input,
+      boost::optional<RefVectorBatch> gradient_input,
+      Context * context) const;
+  virtual void backprop(
+      const RefConstVectorBatch & gradient_output,
+      const RefConstSparseVectorBatch & input,
+      boost::optional<RefVectorBatch> gradient_input,
+      Context * context) const;
 
-  virtual void init(enum InitMode mode, boost::optional<InitContext> init_context = boost::none);
+  virtual void init(enum InitMode mode, boost::optional<InitContext> init_context);
   virtual void update(Layer::Context * context, const size_t & batch_size);
 
   virtual void read(std::istream & is);
@@ -58,16 +74,34 @@ private:
   static size_t g_counter;
 }; // class AvgLayer
 
-
-void test_layer_training(
+////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Helpers for testing layers
+//
+void test_layer_feedforward(
     Layer & layer,
-    const VectorBatch & input,
-    const VectorBatch & expected_output,
+    const RefConstVectorBatch & input,
+    const RefConstVectorBatch & expected_output);
+
+// Adjust the input vector
+void test_layer_backprop(
+    Layer & layer,
+    const RefConstVectorBatch & input,
+    boost::optional<RefConstVectorBatch> expected_input,
+    const RefConstVectorBatch & expected_output,
     std::unique_ptr<CostFunction> cost,
     const double learning_rate,
     const size_t & epochs);
 
-}  // namespace test
-}; // namespace yann
+// Adjust layer params
+void test_layer_training(
+    Layer & layer,
+    const RefConstVectorBatch & input,
+    const RefConstVectorBatch & expected_output,
+    std::unique_ptr<CostFunction> cost,
+    const double learning_rate,
+    const size_t & epochs);
+
+}; // namespace yann::test
 
 #endif /* TEST_LAYERS__H_ */

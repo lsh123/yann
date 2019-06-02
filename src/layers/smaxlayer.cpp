@@ -12,8 +12,7 @@
  */
 #include <boost/assert.hpp>
 
-#include "utils.h"
-#include "contlayer.h"
+#include "core/utils.h"
 #include "smaxlayer.h"
 
 using namespace std;
@@ -37,20 +36,22 @@ class SoftmaxLayer_TrainingContext :
 
 public:
   SoftmaxLayer_TrainingContext(const MatrixSize & output_size,
-                               const MatrixSize & batch_size) :
+                               const MatrixSize & batch_size,
+                               const MatrixSize & input_size) :
     Base(output_size, batch_size),
-    _softmax_derivative(output_size, output_size)
+    _tmp(input_size)
   {
   }
 
-  SoftmaxLayer_TrainingContext(const RefVectorBatch & output) :
+  SoftmaxLayer_TrainingContext(const RefVectorBatch & output,
+                               const MatrixSize & input_size) :
     Base(output),
-    _softmax_derivative(get_batch_item_size(output), get_batch_item_size(output))
+    _tmp(input_size)
   {
   }
 
 protected:
-  Matrix _softmax_derivative;
+  Vector _tmp;
 }; // class SoftmaxLayer_TrainingContext
 
 }; // namespace yann
@@ -69,41 +70,39 @@ void yann::SoftmaxLayer::softmax_plus_equal(const RefConstVector & input, RefVec
   output.array() += (exp((input.array() - max) * beta)) / sum;
 }
 
-void yann::SoftmaxLayer::softmax_derivative(const RefConstVector & input, RefMatrix output, const Value & beta)
+
+// gradient_input = softmax_derivative(input) * gradient_output
+//
+// where
+//    softmax_derivative(input, ii, jj) = - softmax(input, ii) * softmax(input, jj) if ii != jj
+//    softmax_derivative(input, ii, jj) = softmax(ii) * (1 - softmax(ii)) if ii == jj
+//
+// gradient_input(ii) = sum(softmax_derivative(input, ii, jj) * gradient_output(jj))
+//
+// gradient_input(ii) = sum(ii != jj, - softmax(input, ii) * softmax(input, jj) * gradient_output(jj)) +
+//                      softmax(ii) * (1 - softmax(ii)) * * gradient_output(ii)
+//
+// gradient_input(ii) = sum(ii != jj, - softmax(input, ii) * softmax(input, jj) * gradient_output(jj)) +
+//                      softmax(ii) * gradient_output(ii) - softmax(ii) * softmax(ii) * gradient_output(ii)
+//
+// gradient_input(ii) = softmax(input, ii) * (sum(-softmax(input, jj) * gradient_output(jj)) + gradient_output(ii))
+//
+void yann::SoftmaxLayer::softmax_gradient(
+    const RefConstVector & input,
+    const RefConstVector & gradient_output,
+    RefVector tmp,
+    RefVector gradient_input,
+    const Value & beta)
 {
-  YANN_CHECK_GT(input.size(), 0);
-  YANN_CHECK_EQ(input.size(), output.rows());
-  YANN_CHECK_EQ(input.size(), output.cols());
+  YANN_CHECK(is_same_size(input, gradient_output));
+  YANN_CHECK(is_same_size(input, tmp));
+  YANN_CHECK(is_same_size(input, gradient_input));
 
-  // We are going to do a trick here by using the first row of the output matrix
-  // as a temporary buffer. This depends on matrix layout (RowMajor) and will
-  // break if it is switched to ColMajor
-  output.row(0).setZero();
-  softmax_plus_equal(input, output.row(0), beta);
+  tmp.setZero();
+  softmax_plus_equal(input, tmp, beta);
 
-  // The softmax derivative:
-  // out(ii, jj) = - softmax(ii) * softmax(jj) if ii != jj
-  // out(ii, jj) = softmax(ii) * (1 - softmax(ii)) if ii == jj
-  MatrixSize size = input.size();
-
-  // Notice that output for row ii uses common out0(ii) factor
-  auto calculate_one_row = [beta, size, output](MatrixSize ii, Value out_0_ii) mutable {
-    for(MatrixSize jj = 0; jj < size; ++jj) {
-      if(ii != jj) {
-        output(ii, jj) = - beta * out_0_ii * output(0, jj);
-      } else {
-        output(ii, jj) = beta *  out_0_ii * (1 - out_0_ii);
-      }
-    }
-  };
-
-  // skip row(0) since this is our temp buffer
-  for(MatrixSize ii = 1; ii < size; ++ii) {
-    calculate_one_row(ii, output(0, ii));
-  }
-
-  // now handle row(0)
-  calculate_one_row(0, output(0, 0));
+  Value sum = (tmp.array() * gradient_output.array()).sum();
+  gradient_input = beta * tmp.array() * (gradient_output.array() - sum);
 }
 
 yann::SoftmaxLayer::SoftmaxLayer(const MatrixSize & size, const Value & beta) :
@@ -158,18 +157,25 @@ unique_ptr<Layer::Context> yann::SoftmaxLayer::create_context(const RefVectorBat
   YANN_CHECK(is_valid());
   return make_unique<SoftmaxLayer_Context>(output);
 }
-unique_ptr<Layer::Context> yann::SoftmaxLayer::create_training_context(const MatrixSize & batch_size, const std::unique_ptr<Layer::Updater> & updater) const
+unique_ptr<Layer::Context> yann::SoftmaxLayer::create_training_context(
+    const MatrixSize & batch_size,
+    const std::unique_ptr<Layer::Updater> & updater) const
 {
   YANN_CHECK(is_valid());
-  return make_unique<SoftmaxLayer_TrainingContext>(get_output_size(), batch_size);
+  return make_unique<SoftmaxLayer_TrainingContext>(get_output_size(), batch_size, get_input_size());
 }
-unique_ptr<Layer::Context> yann::SoftmaxLayer::create_training_context(const RefVectorBatch & output, const std::unique_ptr<Layer::Updater> & updater) const
+unique_ptr<Layer::Context> yann::SoftmaxLayer::create_training_context(
+    const RefVectorBatch & output,
+    const std::unique_ptr<Layer::Updater> & updater) const
 {
   YANN_CHECK(is_valid());
-  return make_unique<SoftmaxLayer_TrainingContext>(output);
+  return make_unique<SoftmaxLayer_TrainingContext>(output, get_input_size());
 }
 
-void yann::SoftmaxLayer::feedforward(const RefConstVectorBatch & input, Context * context, enum OperationMode mode) const
+void yann::SoftmaxLayer::feedforward(
+    const RefConstVectorBatch & input,
+    Context * context,
+    enum OperationMode mode) const
 {
   auto ctx = dynamic_cast<SoftmaxLayer_Context *>(context);
   YANN_CHECK(ctx);
@@ -194,10 +200,19 @@ void yann::SoftmaxLayer::feedforward(const RefConstVectorBatch & input, Context 
   }
 }
 
-void yann::SoftmaxLayer::backprop(const RefConstVectorBatch & gradient_output,
-                                         const RefConstVectorBatch & input,
-                                         optional<RefVectorBatch> gradient_input,
-                                         Context * context) const
+void yann::SoftmaxLayer::feedforward(
+    const RefConstSparseVectorBatch & input,
+    Context * context,
+    enum OperationMode mode) const
+{
+  throw runtime_error("SoftmaxLayer::feedforward() is not implemented for sparse vectors");
+}
+
+void yann::SoftmaxLayer::backprop(
+    const RefConstVectorBatch & gradient_output,
+    const RefConstVectorBatch & input,
+    optional<RefVectorBatch> gradient_input,
+    Context * context) const
 {
   YANN_CHECK(is_valid());
   YANN_CHECK_GT(get_batch_size(gradient_output), 0);
@@ -216,10 +231,23 @@ void yann::SoftmaxLayer::backprop(const RefConstVectorBatch & gradient_output,
   if(gradient_input) {
     const auto batch_size = get_batch_size(input);
     for(MatrixSize ii = 0; ii < batch_size; ++ii) {
-      softmax_derivative(get_batch(input, ii), ctx->_softmax_derivative, _beta);
-      get_batch(*gradient_input, ii).noalias() = YANN_FAST_MATRIX_PRODUCT(get_batch(gradient_output, ii), ctx->_softmax_derivative);
+      softmax_gradient(
+          get_batch(input, ii),
+          get_batch(gradient_output, ii),
+          ctx->_tmp,
+          get_batch(*gradient_input, ii),
+          _beta);
     }
   }
+}
+
+void yann::SoftmaxLayer::backprop(
+    const RefConstVectorBatch & gradient_output,
+    const RefConstSparseVectorBatch & input,
+    optional<RefVectorBatch> gradient_input,
+    Context * context) const
+{
+  throw runtime_error("SoftmaxLayer::backprop() is not implemented for sparse vectors");
 }
 
 void yann::SoftmaxLayer::init(enum InitMode mode, boost::optional<InitContext> init_context)

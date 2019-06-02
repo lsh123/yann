@@ -6,12 +6,12 @@
 
 #include <sstream>
 
-#include "types.h"
-#include "functions.h"
-#include "utils.h"
-#include "random.h"
-#include "training.h"
-#include "nn.h"
+#include "core/types.h"
+#include "core/functions.h"
+#include "core/utils.h"
+#include "core/random.h"
+#include "core/training.h"
+#include "core/nn.h"
 #include "layers/contlayer.h"
 #include "layers/convlayer.h"
 #include "layers/fclayer.h"
@@ -20,7 +20,7 @@
 
 #include "test_utils.h"
 #include "timer.h"
-#include "mnist-test.h"
+#include "mnist_test.h"
 
 using namespace std;
 using namespace boost;
@@ -28,7 +28,7 @@ using namespace boost::unit_test;
 using namespace yann;
 using namespace yann::test;
 
-#define MNIST_TEST_FOLDER   "../mnist/"
+#define MNIST_TEST_FOLDER   "../data/mnist/"
 #define TMP_FOLDER  "/tmp/"
 
 struct CustomNNTestFixture
@@ -45,14 +45,6 @@ struct CustomNNTestFixture
   {
   }
 
-  static void progress_callback(const MatrixSize & cur_pos, const MatrixSize & step, const MatrixSize & total)
-  {
-    // we want to print out progress at 1/10 increment
-    auto progress_delta = total / 10;
-    if(progress_delta == 0 || cur_pos % progress_delta < step) {
-      BOOST_TEST_MESSAGE("  ... at " << cur_pos << " out of " << total);
-    }
-  }
 }; // struct CustomNNTestFixture
 
 BOOST_FIXTURE_TEST_SUITE(CustomNNTest, CustomNNTestFixture);
@@ -123,13 +115,10 @@ BOOST_AUTO_TEST_CASE(Test, * disabled())
   nn->init(Layer::InitMode_Random);
 
   // Trainer
-  auto trainer = make_unique<Trainer_Stochastic>(
-      make_unique<Updater_GradientDescent>(learning_rate, regularization),
-      Trainer::Random,
-      training_batch_size  // batch_size
-  );
+  auto trainer = make_unique<Trainer>(
+      make_unique<Updater_GradientDescent>(learning_rate, regularization));
   BOOST_CHECK(trainer);
-  trainer->set_progress_callback(progress_callback);
+  trainer->set_batch_progress_callback(batch_progress_callback);
 
   // print info
   BOOST_TEST_MESSAGE("*** Testing against MNIST dataset with ");
@@ -138,7 +127,13 @@ BOOST_AUTO_TEST_CASE(Test, * disabled())
   BOOST_TEST_MESSAGE(" Epochs: " << epochs);
 
   // train and test
-  pair<double, Value> res = _mnist_test.train_and_test(*nn, *trainer,epochs, testing_batch_size);
+  pair<double, Value> res = _mnist_test.train_and_test(
+      *nn,
+      *trainer,
+      DataSource_Stochastic::Random,
+      training_batch_size,
+      epochs,
+      testing_batch_size);
   BOOST_TEST_MESSAGE("*** Success rate: " << (res.first * 100) << "% Loss: " << res.second << " after " << epochs << " epochs");
   BOOST_TEST_MESSAGE(" Network: " << nn->get_info());
   BOOST_TEST_MESSAGE(" Trainer: " << trainer->get_info());

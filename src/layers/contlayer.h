@@ -10,7 +10,7 @@
 #include <memory>
 #include <vector>
 
-#include "layer.h"
+#include "core/layer.h"
 
 namespace yann {
 
@@ -83,11 +83,40 @@ public:
       const RefVectorBatch & output,
       const std::unique_ptr<Updater> & updater) const;
 
-  virtual void feedforward(const RefConstVectorBatch & input, Context * context, enum OperationMode mode = Operation_Assign) const;
-  virtual void backprop(const RefConstVectorBatch & gradient_output, const RefConstVectorBatch & input,
-                        boost::optional<RefVectorBatch> gradient_input, Context * context) const;
+  virtual void feedforward(
+      const RefConstVectorBatch & input,
+      Context * context,
+      enum OperationMode mode) const;
+  virtual void feedforward(
+      const RefConstSparseVectorBatch & input,
+      Context * context,
+      enum OperationMode mode) const;
+  virtual void backprop(
+      const RefConstVectorBatch & gradient_output,
+      const RefConstVectorBatch & input,
+      boost::optional<RefVectorBatch> gradient_input,
+      Context * context) const;
+  virtual void backprop(
+      const RefConstVectorBatch & gradient_output,
+      const RefConstSparseVectorBatch & input,
+      boost::optional<RefVectorBatch> gradient_input,
+      Context * context) const;
 
   virtual void update(Context * context, const size_t & batch_size);
+
+private:
+  template<typename InputType>
+  void feedforward_internal(
+      const InputType & input,
+      Context * context,
+      enum OperationMode mode) const;
+
+  template<typename InputType>
+  void backprop_internal(
+      const RefConstVectorBatch & gradient_output,
+      const InputType & input,
+      boost::optional<RefVectorBatch> gradient_input,
+      Context * context) const;
 }; // class SequentialLayer
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -128,9 +157,25 @@ public:
       const RefVectorBatch & output,
       const std::unique_ptr<Updater> & updater) const;
 
-  virtual void feedforward(const RefConstVectorBatch & input, Context * context, enum OperationMode mode = Operation_Assign) const;
-  virtual void backprop(const RefConstVectorBatch & gradient_output, const RefConstVectorBatch & input,
-                        boost::optional<RefVectorBatch> gradient_input, Context * context) const;
+  virtual void feedforward(
+      const RefConstVectorBatch & input,
+      Context * context,
+      enum OperationMode mode) const;
+  virtual void feedforward(
+      const RefConstSparseVectorBatch & input,
+      Context * context,
+      enum OperationMode mode) const;
+  virtual void backprop(
+      const RefConstVectorBatch & gradient_output,
+      const RefConstVectorBatch & input,
+      boost::optional<RefVectorBatch> gradient_input,
+      Context * context) const;
+  virtual void backprop(
+      const RefConstVectorBatch & gradient_output,
+      const RefConstSparseVectorBatch & input,
+      boost::optional<RefVectorBatch> gradient_input,
+      Context * context) const;
+
   virtual void update(Context * context, const size_t & batch_size);
 
 private:
@@ -138,6 +183,18 @@ private:
   InputType get_input_block(InputType input, const size_t & input_frame, const MatrixSize & input_size) const;
   template<typename OutputType>
   OutputType get_output_block(OutputType output, MatrixSize & output_pos, const MatrixSize & output_size) const;
+
+  template<typename InputType>
+  void feedforward_internal(
+      const InputType & input,
+      Context * context,
+      enum OperationMode mode) const;
+  template<typename InputType>
+  void backprop_internal(
+      const RefConstVectorBatch & gradient_output,
+      const InputType & input,
+      boost::optional<RefVectorBatch> gradient_input,
+      Context * context) const;
 
 private:
   size_t _input_frames;

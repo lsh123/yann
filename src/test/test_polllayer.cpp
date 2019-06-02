@@ -6,9 +6,9 @@
 #include <sstream>
 
 #include "layers/polllayer.h"
-#include "functions.h"
-#include "training.h"
-#include "utils.h"
+#include "core/functions.h"
+#include "core/training.h"
+#include "core/utils.h"
 
 #include "timer.h"
 #include "test_utils.h"
@@ -72,47 +72,6 @@ struct PollingLayerTestFixture
       BOOST_CHECK(input_expected.isApprox(input2, TEST_TOLERANCE));
     }
   }
-
-  void test_feedforward(
-      const VectorBatch & input, const VectorBatch & expected,
-      const Value & ww, const Value & bb,
-      const MatrixSize & input_rows, const MatrixSize & input_cols,
-      const MatrixSize & filter_size, enum PollingLayer::Mode mode)
-  {
-    auto layer = make_unique<PollingLayer>(input_rows, input_cols, filter_size, mode);
-    BOOST_CHECK(layer);
-    layer->set_activation_function(make_unique<IdentityFunction>());
-    layer->set_values(ww, bb);
-
-    // Test writing output to the internal buffer
-    {
-      std::unique_ptr<Layer::Context> ctx = layer->create_context(get_batch_size(input));
-      BOOST_CHECK(ctx);
-      {
-        // ensure we don't do allocations in eigen
-        BlockAllocations block;
-
-        layer->feedforward(input, ctx.get());
-        BOOST_CHECK(expected.isApprox(ctx->get_output(), TEST_TOLERANCE));
-      }
-    }
-
-    // Test writing output to an external buffer
-    {
-      VectorBatch output;
-      output.resizeLike(expected);
-
-      std::unique_ptr<Layer::Context> ctx = layer->create_context(output);
-      YANN_CHECK (ctx);
-      {
-        // ensure we don't do allocations in eigen
-        BlockAllocations block;
-
-        layer->feedforward(input, ctx.get());
-        BOOST_CHECK(expected.isApprox(output, TEST_TOLERANCE));
-      }
-    }
-  }
 };
 // struct PollingLayerTestFixture
 
@@ -126,7 +85,7 @@ BOOST_AUTO_TEST_CASE(IO_Test)
   const MatrixSize input_cols = 7;
   const MatrixSize filter_size = 2;
   PollingLayer one(input_cols, input_rows, filter_size, PollingLayer::PollMode_Max);
-  one.init(Layer::InitMode_Random);
+  one.init(Layer::InitMode_Random, boost::none);
 
   BOOST_TEST_MESSAGE("PollingLayer before writing to file: " << "\n" << one);
   ostringstream oss;
@@ -238,9 +197,9 @@ BOOST_AUTO_TEST_CASE(Max_FeedForward_Test)
   const Value ww = 2;
   const Value bb = 0.5;
 
-  VectorBatch input, expected;
+  VectorBatch input, expected_output;
   resize_batch(input, batch_size, input_size);
-  resize_batch(expected, batch_size, output_size);
+  resize_batch(expected_output, batch_size, output_size);
 
   input <<
       1, 2, 11, 10, 13, 18,
@@ -251,14 +210,21 @@ BOOST_AUTO_TEST_CASE(Max_FeedForward_Test)
       3, 2,  7,  9, 16, 15,
       4, 5, 13, 11, 16, 18;
 
-  expected <<
+  expected_output <<
       8.5,  24.5, 36.5,
       //////////////
       12.5, 20.5, 32.5;
 
-  test_feedforward(
-      input, expected, ww, bb, input_rows, input_cols,
-      filter_size, PollingLayer::PollMode_Max);
+  auto layer = make_unique<PollingLayer>(
+      input_rows,
+      input_cols,
+      filter_size,
+      PollingLayer::PollMode_Max);
+  BOOST_CHECK(layer);
+  layer->set_activation_function(make_unique<IdentityFunction>());
+  layer->set_values(ww, bb);
+
+  test_layer_feedforward(*layer, input, expected_output);
 }
 
 BOOST_AUTO_TEST_CASE(Max_Training_WithIdentity_Test)
@@ -456,9 +422,9 @@ BOOST_AUTO_TEST_CASE(Avg_FeedForward_Test)
   const Value ww = 2;
   const Value bb = 0.5;
 
-  VectorBatch input, expected;
+  VectorBatch input, expected_output;
   resize_batch(input, batch_size, input_size);
-  resize_batch(expected, batch_size, output_size);
+  resize_batch(expected_output, batch_size, output_size);
 
   input <<
       1, 2, 11, 10, 13, 18,
@@ -469,14 +435,21 @@ BOOST_AUTO_TEST_CASE(Avg_FeedForward_Test)
       3, 2,  7,  9, 16, 15,
       4, 5, 13, 11, 16, 18;
 
-  expected <<
+  expected_output <<
       5.5, 21.5, 31.5,
       /////////////////
       7.0, 17.5, 29.5;
 
-  test_feedforward(
-      input, expected, ww, bb, input_rows, input_cols,
-      filter_size, PollingLayer::PollMode_Avg);
+  auto layer = make_unique<PollingLayer>(
+      input_rows,
+      input_cols,
+      filter_size,
+      PollingLayer::PollMode_Avg);
+  BOOST_CHECK(layer);
+  layer->set_activation_function(make_unique<IdentityFunction>());
+  layer->set_values(ww, bb);
+
+  test_layer_feedforward(*layer, input, expected_output);
 }
 
 BOOST_AUTO_TEST_CASE(Avg_Training_WithIdentity_Test)

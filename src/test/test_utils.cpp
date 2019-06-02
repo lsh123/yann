@@ -4,7 +4,7 @@
  */
 #include <boost/test/unit_test.hpp>
 
-#include "types.h"
+#include "core/types.h"
 #include "test_utils.h"
 
 using namespace std;
@@ -68,3 +68,17 @@ void yann::test::BlockAllocations::unblock() {
 #endif /* EIGEN_RUNTIME_NO_MALLOC */
 }
 
+// Progress callback
+void yann::test::batch_progress_callback(const MatrixSize & cur_pos, const MatrixSize & total)
+{
+  // we want to print out progress at 1/10 increment
+  auto progress_delta = total / 10;
+  if(cur_pos % progress_delta == 0) {
+    BOOST_TEST_MESSAGE("  ... at " << cur_pos << " out of " << total);
+  }
+}
+
+void yann::test::ecpoch_progress_callback(const MatrixSize & cur_pos, const MatrixSize & total)
+{
+  BOOST_TEST_MESSAGE("*** Epoch " << cur_pos << " out of " << total);
+}

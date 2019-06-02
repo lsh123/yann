@@ -53,6 +53,10 @@ private:
   size_t _min, _max, _step;
 }; // class Range
 
+// Progress callback for Trainer::ProgressCallback
+void batch_progress_callback(const MatrixSize & cur_pos, const MatrixSize & total);
+void ecpoch_progress_callback(const MatrixSize & cur_pos, const MatrixSize & total);
+
 }; // namespace yann::test
 
 #endif /* TEST_UTILS_H_ */

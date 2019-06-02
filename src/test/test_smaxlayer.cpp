@@ -6,11 +6,12 @@
 #include <sstream>
 
 #include "layers/smaxlayer.h"
-#include "training.h"
-#include "utils.h"
+#include "core/functions.h"
+#include "core/utils.h"
 
 #include "timer.h"
 #include "test_utils.h"
+#include "test_layers.h"
 
 using namespace std;
 using namespace boost;
@@ -39,7 +40,7 @@ BOOST_AUTO_TEST_CASE(SoftmaxLayer_IO_Test)
 
   const MatrixSize size = 7;
   SoftmaxLayer one(size);
-  one.init(Layer::InitMode_Random);
+  one.init(Layer::InitMode_Random, boost::none);
 
   BOOST_TEST_MESSAGE("SoftmaxLayer before writing to file: " << "\n" << one);
   ostringstream oss;
@@ -62,46 +63,21 @@ BOOST_AUTO_TEST_CASE(SoftmaxLayer_FeedForward_Test)
   const MatrixSize size = 3;
   const MatrixSize batch_size = 2;
 
-  VectorBatch input, expected;
+  VectorBatch input, expected_output;
   resize_batch(input, batch_size, size);
-  resize_batch(expected, batch_size, size);
+  resize_batch(expected_output, batch_size, size);
 
-  input << 10, 10, 10,
-           //////////
-           10, 2,  6;
-  expected << 0.33333, 0.33333, 0.33333,
-              /////////////////////////
-              0.98169, 0.00033, 0.01798;
+  input <<
+      10, 10, 10,
+      //////////
+      10, 2,  6;
+  expected_output <<
+      0.33333, 0.33333, 0.33333,
+      /////////////////////////
+      0.98169, 0.00033, 0.01798;
 
-  SoftmaxLayer layer(size);
-
-  // Test writing output to the internal buffer
-  {
-    std::unique_ptr<Layer::Context> ctx = layer.create_context(batch_size);
-    YANN_CHECK (ctx);
-    {
-      // ensure we don't do allocations in eigen
-      BlockAllocations block;
-
-      layer.feedforward(input, ctx.get());
-      BOOST_CHECK(expected.isApprox(ctx->get_output(), TEST_TOLERANCE));
-    }
-  }
-
-  // Test writing output to an external buffer
-  {
-    VectorBatch output;
-    resize_batch(output, batch_size, size);
-    std::unique_ptr<Layer::Context> ctx = layer.create_context(output);
-    YANN_CHECK (ctx);
-    {
-      // ensure we don't do allocations in eigen
-      BlockAllocations block;
-
-      layer.feedforward(input, ctx.get());
-      BOOST_CHECK(expected.isApprox(output, TEST_TOLERANCE));
-    }
-  }
+  auto layer = make_unique<SoftmaxLayer>(size);
+  test_layer_feedforward(*layer, input, expected_output);
 }
 
 BOOST_AUTO_TEST_CASE(SoftmaxLayer_Backprop_Test)
@@ -110,48 +86,33 @@ BOOST_AUTO_TEST_CASE(SoftmaxLayer_Backprop_Test)
 
   const MatrixSize size = 3;
   const MatrixSize batch_size = 2;
-  const double learning_rate = 10.0;
-  const size_t epochs = 150;
+  const double learning_rate = 1.0;
+  const size_t epochs = 1000;
 
-  VectorBatch input, expected;
+  VectorBatch input, expected_output;
   resize_batch(input, batch_size, size);
-  resize_batch(expected, batch_size, size);
+  resize_batch(expected_output, batch_size, size);
 
-  input << 10, 10, 10,
-           //////////
-           10, 2,  6;
+  input <<
+      10, 10, 10,
+      //////////
+      10, 2,  6;
 
-  expected << 0.8, 0.1, 0.1,
-              /////////////
-              0.2, 0.3, 0.5;
+  expected_output <<
+      0.8, 0.1, 0.1,
+      /////////////
+      0.2, 0.3, 0.5;
 
-
-  SoftmaxLayer layer(size);
-
-  auto ctx = layer.create_training_context(batch_size, make_unique<Updater_GradientDescent>());
-  ctx->reset_state();
-
-  VectorBatch gradient_input, gradient_output;
-  resize_batch(gradient_input, batch_size, size);
-  resize_batch(gradient_output, batch_size, size);
-
-  {
-    // ensure we don't do allocations in eigen
-    BlockAllocations block;
-
-    for(size_t ii = 0; ii < epochs; ++ii) {
-      // feed forward
-      layer.feedforward(input, ctx.get());
-
-      // backprop
-      gradient_output = ctx->get_output() - expected;
-      layer.backprop(gradient_output, input, optional<RefVectorBatch>(gradient_input), ctx.get());
-
-      // update input
-      input -= learning_rate * gradient_input;
-    }
-    BOOST_CHECK(expected.isApprox(ctx->get_output(), TEST_TOLERANCE));
-  }
+  auto layer = make_unique<SoftmaxLayer>(size);
+  test_layer_backprop(
+      *layer,
+      input,
+      boost::none,
+      expected_output,
+      make_unique<QuadraticCost>(),
+      learning_rate,
+      epochs
+  );
 }
 BOOST_AUTO_TEST_SUITE_END()
 

@@ -28,9 +28,9 @@
  */
 #include <boost/assert.hpp>
 
-#include "utils.h"
-#include "random.h"
-#include "functions.h"
+#include "core/utils.h"
+#include "core/random.h"
+#include "core/functions.h"
 #include "contlayer.h"
 #include "polllayer.h"
 
@@ -476,6 +476,14 @@ void yann::PollingLayer::feedforward(
   _activation_function->f(ctx->_zz, ctx->get_output(), mode);
 }
 
+void yann::PollingLayer::feedforward(
+    const RefConstSparseVectorBatch & input,
+    Context * context,
+    enum OperationMode mode) const
+{
+  throw runtime_error("PollingLayer::feedforward() is not implemented for sparse vectors");
+}
+
 void yann::PollingLayer::backprop(
     const RefConstVectorBatch & gradient_output,
     const RefConstVectorBatch & input,
@@ -518,6 +526,15 @@ void yann::PollingLayer::backprop(
         gradient_output, input, _input_rows, _input_cols,
         _filter_size, _mode, *gradient_input);
   }
+}
+
+void yann::PollingLayer::backprop(
+    const RefConstVectorBatch & gradient_output,
+    const RefConstSparseVectorBatch & input,
+    optional<RefVectorBatch> gradient_input,
+    Context * context) const
+{
+  throw runtime_error("PollingLayer::backprop() is not implemented for sparse vectors");
 }
 
 void yann::PollingLayer::init(enum InitMode mode, boost::optional<InitContext> init_context)

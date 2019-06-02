@@ -14,9 +14,9 @@
  */
 #include <boost/assert.hpp>
 
-#include "utils.h"
-#include "random.h"
-#include "functions.h"
+#include "core/utils.h"
+#include "core/random.h"
+#include "core/functions.h"
 #include "contlayer.h"
 #include "convlayer.h"
 
@@ -213,10 +213,10 @@ void yann::ConvolutionalLayer::plus_conv(
     RefMatrix output,
     bool clear_output)
 {
-  YANN_CHECK_GT(filter.rows(), 0);
-  YANN_CHECK_GT(filter.cols(), 0);
-  YANN_CHECK_LE(filter.rows(), input.rows());
-  YANN_CHECK_LE(filter.cols(), input.cols());
+  YANN_SLOW_CHECK_GT(filter.rows(), 0);
+  YANN_SLOW_CHECK_GT(filter.cols(), 0);
+  YANN_SLOW_CHECK_LE(filter.rows(), input.rows());
+  YANN_SLOW_CHECK_LE(filter.cols(), input.cols());
 
   const auto input_rows = input.rows();
   const auto filter_rows = filter.rows();
@@ -228,13 +228,27 @@ void yann::ConvolutionalLayer::plus_conv(
     output.setZero();
   }
 
-  YANN_CHECK_EQ(output.rows(), output_rows);
-  YANN_CHECK_EQ(output.cols(), output_cols);
+  YANN_SLOW_CHECK_EQ(output.rows(), output_rows);
+  YANN_SLOW_CHECK_EQ(output.cols(), output_cols);
+  YANN_SLOW_CHECK_LE(filter_rows, input_rows);
+  YANN_SLOW_CHECK_LE(output_rows, input_rows);
+
+  auto apply_to_row = [&](const auto & ii, const auto & filter_start_row, const auto & filter_max_rows) mutable {
+    const auto in_row = input.row(ii);
+    // then through the filter by rows, account for "cutoff" at bottom rows
+    for(MatrixSize kk = filter_start_row, ll = ii - filter_start_row; kk < filter_max_rows; ++kk, --ll) {
+      const auto filter_row = filter.row(kk);
+      auto out_row = output.row(ll);
+      for(MatrixSize jj = 0; jj < output_cols; ++jj) {
+          const auto in_block = in_row.segment(jj, filter_cols);
+          out_row(jj) += (in_block.array() * filter_row.array()).sum();
+      }
+    }
+  };
 
   // iterate through the input by rows
   MatrixSize filter_start_row = 0, filter_max_rows = 0;
   for(MatrixSize ii = 0; ii < input_rows; ++ii) {
-    const auto in_row = input.row(ii);
     if(ii < filter_rows) {
       // filter at the top of the input; bottom filter rows
       // don't contribute to the output
@@ -246,15 +260,8 @@ void yann::ConvolutionalLayer::plus_conv(
       ++filter_start_row;
     }
 
-    // and now through each row
-    for(MatrixSize jj = 0; jj < output_cols; ++jj) {
-      const auto in_block = in_row.segment(jj, filter_cols);
-
-      // then through the filter by rows, account for "cutoff" at bottom rows
-      for(MatrixSize kk = filter_start_row; kk < filter_max_rows; ++kk) {
-        output(ii - kk, jj) += (in_block.array() * filter.row(kk).array()).sum();
-      }
-    }
+    // and now through each col and then filter row
+    apply_to_row(ii, filter_start_row, filter_max_rows);
   }
 }
 
@@ -266,20 +273,20 @@ void yann::ConvolutionalLayer::plus_conv(
     RefVectorBatch output,
     bool clear_output)
 {
-  YANN_CHECK_GT(filter.rows(), 0);
-  YANN_CHECK_GT(filter.cols(), 0);
-  YANN_CHECK_LE(filter.rows(), input_rows);
-  YANN_CHECK_LE(filter.cols(), input_cols);
-  YANN_CHECK_GT(get_batch_size(input), 0);
-  YANN_CHECK_EQ(get_batch_item_size(input), input_rows * input_cols);
-  YANN_CHECK_EQ(get_batch_size(output), get_batch_size(input));
+  YANN_SLOW_CHECK_GT(filter.rows(), 0);
+  YANN_SLOW_CHECK_GT(filter.cols(), 0);
+  YANN_SLOW_CHECK_LE(filter.rows(), input_rows);
+  YANN_SLOW_CHECK_LE(filter.cols(), input_cols);
+  YANN_SLOW_CHECK_GT(get_batch_size(input), 0);
+  YANN_SLOW_CHECK_EQ(get_batch_item_size(input), input_rows * input_cols);
+  YANN_SLOW_CHECK_EQ(get_batch_size(output), get_batch_size(input));
 
   const auto filter_rows = filter.rows();
   const auto filter_cols = filter.cols();
   const auto output_rows = get_conv_output_rows(input_rows, filter_rows);
   const auto output_cols = get_conv_output_cols(input_cols, filter_cols);
   const auto batch_size = get_batch_size(input);
-  YANN_CHECK_EQ(get_batch_item_size(output), output_rows * output_cols);
+  YANN_SLOW_CHECK_EQ(get_batch_item_size(output), output_rows * output_cols);
 
   if(clear_output) {
     output.setZero();
@@ -301,20 +308,19 @@ void yann::ConvolutionalLayer::full_conv(
     const RefConstMatrix & filter,
     RefMatrix output)
 {
-  YANN_CHECK_GT(filter.rows(), 0);
-  YANN_CHECK_GT(filter.cols(), 0);
-  YANN_CHECK_LE(filter.rows(), input.rows());
-  YANN_CHECK_LE(filter.cols(), input.cols());
+  YANN_SLOW_CHECK_GT(filter.rows(), 0);
+  YANN_SLOW_CHECK_GT(filter.cols(), 0);
+  YANN_SLOW_CHECK_LE(filter.rows(), input.rows());
+  YANN_SLOW_CHECK_LE(filter.cols(), input.cols());
 
   const auto input_rows = input.rows();
   const auto input_cols = input.cols();
   const auto filter_rows = filter.rows();
   const auto filter_cols = filter.cols();
-  const auto output_rows = get_full_conv_output_rows(input_rows, filter_rows);
   const auto output_cols = get_full_conv_output_cols(input_cols, filter_cols);
 
-  YANN_CHECK_EQ(output.rows(), output_rows);
-  YANN_CHECK_EQ(output.cols(), output_cols);
+  YANN_SLOW_CHECK_EQ(output.rows(), get_full_conv_output_rows(input_rows, filter_rows));
+  YANN_SLOW_CHECK_EQ(output.cols(), output_cols);
 
   // clear output
   output.setZero();
@@ -377,20 +383,20 @@ void yann::ConvolutionalLayer::full_conv(
     const RefConstMatrix & filter,
     RefVectorBatch output)
 {
-  YANN_CHECK_GT(filter.rows(), 0);
-  YANN_CHECK_GT(filter.cols(), 0);
-  YANN_CHECK_LE(filter.rows(), input_rows);
-  YANN_CHECK_LE(filter.cols(), input_cols);
-  YANN_CHECK_GT(get_batch_size(input), 0);
-  YANN_CHECK_EQ(get_batch_item_size(input), input_rows * input_cols);
-  YANN_CHECK_EQ(get_batch_size(output), get_batch_size(input));
+  YANN_SLOW_CHECK_GT(filter.rows(), 0);
+  YANN_SLOW_CHECK_GT(filter.cols(), 0);
+  YANN_SLOW_CHECK_LE(filter.rows(), input_rows);
+  YANN_SLOW_CHECK_LE(filter.cols(), input_cols);
+  YANN_SLOW_CHECK_GT(get_batch_size(input), 0);
+  YANN_SLOW_CHECK_EQ(get_batch_item_size(input), input_rows * input_cols);
+  YANN_SLOW_CHECK_EQ(get_batch_size(output), get_batch_size(input));
 
   const auto filter_rows = filter.rows();
   const auto filter_cols = filter.cols();
   const auto output_rows = get_full_conv_output_rows(input_rows, filter_rows);
   const auto output_cols = get_full_conv_output_cols(input_cols, filter_cols);
   const auto batch_size = get_batch_size(input);
-  YANN_CHECK_EQ(get_batch_item_size(output), output_rows * output_cols);
+  YANN_SLOW_CHECK_EQ(get_batch_item_size(output), output_rows * output_cols);
 
   // ATTENTION: this code operates on raw Matrix.data() and might be broken
   // if Matrix.data() layout changes
@@ -598,6 +604,14 @@ void yann::ConvolutionalLayer::feedforward(
   _activation_function->f(ctx->_zz, ctx->get_output(), mode);
 }
 
+void yann::ConvolutionalLayer::feedforward(
+    const RefConstSparseVectorBatch & input,
+    Context * context,
+    enum OperationMode mode) const
+{
+  throw runtime_error("ConvolutionalLayer::feedforward() is not implemented for sparse vectors");
+}
+
 void yann::ConvolutionalLayer::backprop(
     const RefConstVectorBatch & gradient_output,
     const RefConstVectorBatch & input,
@@ -646,6 +660,15 @@ void yann::ConvolutionalLayer::backprop(
     rotate180(_ww, ctx->_ww_rotated); // TODO: we can cache the rotation if _ww doesn't change
     full_conv(delta, get_output_rows(), get_output_cols(), ctx->_ww_rotated, *gradient_input);
   }
+}
+
+void yann::ConvolutionalLayer::backprop(
+    const RefConstVectorBatch & gradient_output,
+    const RefConstSparseVectorBatch & input,
+    optional<RefVectorBatch> gradient_input,
+    Context * context) const
+{
+  throw runtime_error("ConvolutionalLayer::backprop() is not implemented for sparse vectors");
 }
 
 void yann::ConvolutionalLayer::init(enum InitMode mode, optional<InitContext> init_context)

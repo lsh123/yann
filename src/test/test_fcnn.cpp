@@ -7,15 +7,16 @@
 
 #include <sstream>
 
-#include "fcnn.h"
-#include "training.h"
-#include "utils.h"
-#include "functions.h"
+#include "core/training.h"
+#include "core/utils.h"
+#include "core/functions.h"
+#include "layers/fclayer.h"
 #include "layers/smaxlayer.h"
+#include "networks/fcnn.h"
 
 #include "timer.h"
 #include "test_utils.h"
-#include "mnist-test.h"
+#include "mnist_test.h"
 
 using namespace std;
 using namespace boost;
@@ -23,7 +24,7 @@ using namespace boost::unit_test;
 using namespace yann;
 using namespace yann::test;
 
-#define MNIST_TEST_FOLDER   "../mnist/"
+#define MNIST_TEST_FOLDER   "../data/mnist/"
 
 // TODO: remove this
 // Enums to simplify tests
@@ -47,15 +48,6 @@ struct FcnnTestFixture
   ~FcnnTestFixture()
   {
 
-  }
-
-  static void progress_callback(const MatrixSize & cur_pos, const MatrixSize & step, const MatrixSize & total)
-  {
-    // we want to print out progress at 1/10 increment
-    auto progress_delta = total / 10;
-    if(progress_delta == 0 || cur_pos % progress_delta < step) {
-      BOOST_TEST_MESSAGE("  ... at " << cur_pos << " out of " << total);
-    }
   }
 
   unique_ptr<Network> create_fcnn_for_mnist(
@@ -103,28 +95,40 @@ struct FcnnTestFixture
   }
 
   pair<double, Value> test_fcnn_mnist(
-      const Trainer & trainer,
+      const std::unique_ptr<Layer::Updater> & updater,
+      DataSource_Stochastic::Mode mode,
+      const MatrixSize & training_batch_size,
       const vector<MatrixSize> & hidden_layer_sizes,
       const unique_ptr<CostFunction> & cost,
       enum ActivationMode activ_mode,
-      size_t epochs)
+      size_t epochs,
+      const MatrixSize & test_batch_size = 100)
   {
     // setup
     auto fcnn = create_fcnn_for_mnist(hidden_layer_sizes, cost, activ_mode);
     YANN_CHECK(fcnn);
     fcnn->init(Layer::InitMode_Random, Layer::InitContext(12345));
 
+    // create trainer
+    Trainer trainer(updater->copy());
+    trainer.set_batch_progress_callback(batch_progress_callback);
+
     BOOST_TEST_MESSAGE("*** Testing against MNIST dataset with ");
     BOOST_TEST_MESSAGE(" fcnn: " << fcnn->get_info());
     BOOST_TEST_MESSAGE(" trainer: " << trainer.get_info());
     BOOST_TEST_MESSAGE(" epochs: " << epochs);
 
-    pair<double, Value> res = _mnist_test.train_and_test(*fcnn, trainer, epochs, 100);
-    BOOST_TEST_MESSAGE("*** Success rate: " << (res.first * 100) << "% Loss: " << res.second << " after " << epochs << " epochs");
+    auto res = _mnist_test.train_and_test(
+        *fcnn, trainer, mode, training_batch_size, epochs, test_batch_size);
+    BOOST_TEST_MESSAGE("*** Success rate: " << (res.first * 100)
+                       << "% Loss: " << res.second
+                       << " after " << epochs << " epochs");
     return res;
   }
 
-  double test_fcnn_mnist_find_best(const Trainer & trainer,
+  double test_fcnn_mnist_find_best(const std::unique_ptr<Layer::Updater> & updater,
+                                   DataSource_Stochastic::Mode mode,
+                                   const MatrixSize & training_batch_size,
                                    const Range& hidden_layers_num_range,
                                    const Range& hidden_layer_size_range,
                                    const unique_ptr<CostFunction> & cost,
@@ -149,7 +153,8 @@ struct FcnnTestFixture
         hidden_layer_sizes.insert(hidden_layer_sizes.end(), hidden_layers_num,
                                   hidden_layer_size);
 
-        pair<double, Value> res = test_fcnn_mnist(trainer, hidden_layer_sizes, cost, activ_mode, epochs);
+        auto res = test_fcnn_mnist(
+            updater, mode, training_batch_size, hidden_layer_sizes, cost, activ_mode, epochs);
 
         // update best
         if (res.first > best_success_rate) {
@@ -231,9 +236,11 @@ BOOST_AUTO_TEST_CASE(Training_StochasticGD_Test)
   auto fcnn = FullyConnectedNetwork::create( { 4, 2 });
   YANN_CHECK(fcnn);
 
-  Trainer_Stochastic trainer(
-      make_unique<Updater_GradientDescent>(3.0, 0.0),
-      Trainer::Sequential,
+  Trainer trainer(make_unique<Updater_GradientDescent>(3.0, 0.0));
+  DataSource_Stochastic data_source(
+      training_inputs,
+      training_outputs,
+      DataSource_Stochastic::Sequential,
       4);
   BOOST_TEST_MESSAGE("trainer: " << trainer.get_info());
   {
@@ -246,7 +253,7 @@ BOOST_AUTO_TEST_CASE(Training_StochasticGD_Test)
     Timer timer("Training");
     for (size_t epoch = 1; epoch <= epochs; ++epoch) {
       // BOOST_TEST_MESSAGE("Training epoch " << epoch << " out of " << epochs);
-      trainer.train(*fcnn, training_inputs, training_outputs);
+      trainer.train(*fcnn, data_source);
     }
     BOOST_TEST_MESSAGE(timer);
   }
@@ -271,64 +278,51 @@ BOOST_AUTO_TEST_CASE(Training_StochasticGD_Test)
   }
 }
 
-BOOST_AUTO_TEST_CASE(Mnist_BatchGradientDescent_Sigmoid_CrossEntropy_Test)
+BOOST_AUTO_TEST_CASE(Mnist_Sigmoid_CrossEntropy_Test)
 {
   // reduce the test size to two labels to make it faster
   BOOST_TEST_MESSAGE("*** Filtering test set...");
   _mnist_test.filter(1, 2000, 1000); // only allow 0,1 images; 1000 count
   BOOST_TEST_MESSAGE("*** Filtered test set: " << "\n" << _mnist_test);
 
-  Trainer_Batch trainer(
+  auto res = test_fcnn_mnist(
       make_unique<Updater_GradientDescent>(2.0, 0.0),
-      Trainer::Sequential, // reduce test variability
-      10   // batch size
-  );
-  trainer.set_progress_callback(progress_callback);
-
-  pair<double, Value> res = test_fcnn_mnist(
-      trainer,
+      DataSource_Stochastic::Sequential, // reduce test variability
+      10,   // batch size
       {20},
       make_unique<CrossEntropyCost>(1.0e-100),
       Sigmoid,
-      5);
-  BOOST_CHECK_GE(res.first, 0.98);  // > 98%
-  BOOST_CHECK_LE(res.second, 0.40); // < 0.4 per test
+      3);
+  BOOST_CHECK_GE(res.first, 0.995);  // > 99.5%
+  BOOST_CHECK_LE(res.second, 0.05); // < 0.4 per test
 }
 
 BOOST_AUTO_TEST_CASE(Mnist_StochasticGD_Quadratic_Sigmoid_Test)
 {
-  Trainer_Stochastic trainer(
+  auto res = test_fcnn_mnist(
       make_unique<Updater_GradientDescent>(3.0, 0.0),
-      Trainer::Sequential,
-      10);
-  trainer.set_progress_callback(progress_callback);
-
-  pair<double, Value> res = test_fcnn_mnist(
-      trainer,
+      DataSource_Stochastic::Sequential,
+      10, // batch size
       {20},
       make_unique<QuadraticCost>(),
       Sigmoid,
-      3);
+      3 // epochs
+  );
   BOOST_CHECK_GE(res.first, 0.90); // > 90%
   BOOST_CHECK_LE(res.second, 0.20);// < 0.2 per test
 }
 
-BOOST_AUTO_TEST_CASE(Mnist_BatchGradientDescent_HellingerDistance_Softmax_Test)
+BOOST_AUTO_TEST_CASE(Mnist_HellingerDistance_Softmax_Test)
 {
   // reduce the test size to two labels to make it faster
   BOOST_TEST_MESSAGE("*** Filtering test set...");
   _mnist_test.filter(1, 2000, 1000); // only allow 0,1 images; 1000 count
   BOOST_TEST_MESSAGE("*** Filtered test set: " << "\n" << _mnist_test);
 
-  Trainer_Batch trainer(
+  auto res = test_fcnn_mnist(
       make_unique<Updater_GradientDescent>(5.0, 0.0),
-      Trainer::Sequential, // reduce tests variability
-      10 // batch size
-  );
-  trainer.set_progress_callback(progress_callback);
-
-  pair<double, Value> res = test_fcnn_mnist(
-      trainer,
+      DataSource_Stochastic::Sequential, // reduce tests variability
+      10, // batch size
       {20},
       make_unique<HellingerDistanceCost>(0.0001),
       Softmax,
@@ -340,14 +334,10 @@ BOOST_AUTO_TEST_CASE(Mnist_BatchGradientDescent_HellingerDistance_Softmax_Test)
 
 BOOST_AUTO_TEST_CASE(Mnist_StochasticGD_Quadratic_Sigmoid_Regularization_Test)
 {
-  Trainer_Stochastic trainer(
+  auto res = test_fcnn_mnist(
       make_unique<Updater_GradientDescent>(3.0, 0.0005),
-      Trainer::Sequential,
-      10);
-  trainer.set_progress_callback(progress_callback);
-
-  pair<double, Value> res = test_fcnn_mnist(
-      trainer,
+      DataSource_Stochastic::Sequential, // reduce tests variability
+      10, // batch size
       {20},
       make_unique<QuadraticCost>(),
       Sigmoid,
@@ -358,32 +348,24 @@ BOOST_AUTO_TEST_CASE(Mnist_StochasticGD_Quadratic_Sigmoid_Regularization_Test)
 
 BOOST_AUTO_TEST_CASE(Mnist_StochasticGD_CrossEntropy_Sigmoid_Test)
 {
-  Trainer_Stochastic trainer(
+  auto res = test_fcnn_mnist(
       make_unique<Updater_GradientDescentWithMomentum>(0.75, 0.5),
-      Trainer::Sequential,
-      10);
-  trainer.set_progress_callback(progress_callback);
-
-  pair<double, Value> res = test_fcnn_mnist(
-      trainer,
-      {50},
+      DataSource_Stochastic::Sequential, // reduce tests variability
+      10, // batch size
+      {20},
       make_unique<CrossEntropyCost>(),
       Sigmoid,
       3);
-  BOOST_CHECK_GE(res.first, 0.80);// > 80%
-  BOOST_CHECK_LE(res.second, 0.80);// < 0.8 per test
+  BOOST_CHECK_GE(res.first, 0.90);// > 90%
+  BOOST_CHECK_LE(res.second, 0.50);// < 0.5 per test
 }
 
 BOOST_AUTO_TEST_CASE(Mnist_FindBest_StochasticGD_Quadratic_Sigmoid_Test, * disabled())
 {
-  Trainer_Batch trainer(
-      make_unique<Updater_GradientDescent>(3.0, 0.0),
-      Trainer::Sequential,
-      10);
-  trainer.set_progress_callback(progress_callback);
-
   double res = test_fcnn_mnist_find_best(
-      trainer,
+      make_unique<Updater_GradientDescent>(3.0, 0.0),
+      DataSource_Stochastic::Sequential, // reduce tests variability
+      10, // batch size
       {0, 2, 1}, {10, 20, 5},
       make_unique<QuadraticCost>(),
       Sigmoid,
@@ -393,14 +375,10 @@ BOOST_AUTO_TEST_CASE(Mnist_FindBest_StochasticGD_Quadratic_Sigmoid_Test, * disab
 
 BOOST_AUTO_TEST_CASE(Mnist_FindBest_StochasticGD_CrossEntropy_Sigmoid_Test, * disabled())
 {
-  Trainer_Batch trainer(
-      make_unique<Updater_GradientDescent>(3.0, 0.0),
-      Trainer::Sequential,
-      10);
-  trainer.set_progress_callback(progress_callback);
-
   double res = test_fcnn_mnist_find_best(
-      trainer,
+      make_unique<Updater_GradientDescent>(3.0, 0.0),
+      DataSource_Stochastic::Sequential, // reduce tests variability
+      10, // batch size
       {0, 2, 1}, {10, 20, 5},
       make_unique<CrossEntropyCost>(),
       Sigmoid,
@@ -425,18 +403,18 @@ BOOST_AUTO_TEST_CASE(Mnist_FindBest_StochasticGD_CrossEntropy_Sigmoid_Test, * di
 // const double regularization = 0.05;
 // const size_t training_batch_size = 10;
 // const size_t testing_batch_size = 100;
-// Trainer_Stochastic trainer(make_unique<Updater_GradientDescentWithMomentum>(....)...)
+// Trainer trainer(make_unique<Updater_GradientDescentWithMomentum>(....)...)
 //
 BOOST_AUTO_TEST_CASE(Mnist_LargeFCNN_Test, * disabled())
 {
-  const vector<MatrixSize> hidden_layers = { 300, 100 };
+  const vector<MatrixSize> hidden_layers = { 1000 };
   enum ActivationMode activ_mode = Sigmoid;
   unique_ptr<CostFunction> cost_func = make_unique<CrossEntropyCost>(1.0e-10);
   const double learning_rate = 0.90;
   const double regularization = 0.05;
   const size_t training_batch_size = 10;
   const size_t testing_batch_size = 100;
-  const size_t epochs = 100;
+  const size_t epochs = 10;
 
   // Network
   auto fcnn = create_fcnn_for_mnist(
@@ -444,26 +422,32 @@ BOOST_AUTO_TEST_CASE(Mnist_LargeFCNN_Test, * disabled())
       cost_func,
       activ_mode);
   YANN_CHECK(fcnn);
+
+  // auto layer = dynamic_cast<FullyConnectedLayer*>(fcnn->get_layer(0));
+  // YANN_CHECK(layer);
+  // layer->set_sampling_rate(0.01); // 1%
   fcnn->init(Layer::InitMode_Random, Layer::InitContext(12345));
 
   // Trainer
-  Trainer_Stochastic trainer(
-      make_unique<Updater_GradientDescentWithMomentum>(
+  Trainer trainer(
+      make_unique<Updater_GradientDescent>(
           learning_rate,
           regularization
-      ),
-      Trainer::Random,
-      training_batch_size // batch size
+      )
     );
-  trainer.set_progress_callback(progress_callback);
+  trainer.set_batch_progress_callback(batch_progress_callback);
 
   // Run test
   BOOST_TEST_MESSAGE("*** Testing against MNIST dataset with ");
   BOOST_TEST_MESSAGE(" fcnn: " << fcnn->get_info());
   BOOST_TEST_MESSAGE(" trainer: " << trainer.get_info());
   BOOST_TEST_MESSAGE(" epochs: " << epochs);
-  pair<double, Value> res = _mnist_test.train_and_test(*fcnn, trainer, epochs, testing_batch_size);
-  BOOST_TEST_MESSAGE("*** Success rate: " << (res.first * 100) << "% Loss: " << res.second << " after " << epochs << " epochs");
+  auto res = _mnist_test.train_and_test(
+      *fcnn, trainer, DataSource_Stochastic::Random,
+      training_batch_size, epochs, testing_batch_size);
+  BOOST_TEST_MESSAGE("*** Success rate: " << (res.first * 100)
+                     << "% Loss: " << res.second
+                     << " after " << epochs << " epochs");
 }
 
 
