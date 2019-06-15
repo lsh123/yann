@@ -54,10 +54,33 @@ public:
   virtual void derivative(const RefConstVectorBatch & input, RefVectorBatch output);
   virtual std::unique_ptr<ActivationFunction> copy() const;
 
-private:
+public:
   static Value sigmoid_scalar(const Value & x);
   static Value sigmoid_derivative_scalar(const Value & x);
 }; // class SigmoidFunction
+
+
+// fast sigmoid function:
+//  f(x) = 1 / (1 + exp(-x))
+// Approximation is done through a pre-calculated table
+class FastSigmoidFunction: public ActivationFunction {
+  typedef std::vector<Value> SigmoidTable;
+
+public:
+  FastSigmoidFunction(const size_t & table_size = 1000, const Value & max_value = 6);
+
+  virtual std::string get_info() const;
+  virtual void f(const RefConstVectorBatch & input, RefVectorBatch output, enum OperationMode mode = Operation_Assign);
+  virtual void derivative(const RefConstVectorBatch & input, RefVectorBatch output);
+  virtual std::unique_ptr<ActivationFunction> copy() const;
+
+private:
+  FastSigmoidFunction(const SigmoidTable & table, const Value & max_value);
+
+private:
+  SigmoidTable _table;
+  const Value  _max_value;
+}; // class FastSigmoidFunction
 
 // tanh function:
 //  f(x) = A*tanh(S*x)
@@ -113,7 +136,7 @@ private:
 //  d f(actual, expected) / d (actual) = (actual - expected) / ((1 - actual) * actual)
 class CrossEntropyCost: public CostFunction {
 public:
-  CrossEntropyCost(const Value & epsilon = 1.0e-100) : _epsilon(epsilon) { }
+  CrossEntropyCost(const Value & epsilon = 1.0e-10) : _epsilon(epsilon) { }
   virtual std::string get_info() const;
   virtual Value f(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected);
   virtual void derivative(const RefConstVectorBatch & actual, const RefConstVectorBatch & expected, RefVectorBatch output);

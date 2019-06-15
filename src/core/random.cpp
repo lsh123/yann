@@ -17,6 +17,9 @@ using namespace yann;
 
 
 namespace yann {
+
+typedef mt19937 DefaultGenerator;
+
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //
 // yann::RandomGenerator_NormalDistribution implementation
@@ -25,7 +28,7 @@ class RandomGenerator_NormalDistribution : public RandomGenerator {
   friend class RandomGenerator;
 
 public:
-  RandomGenerator_NormalDistribution(const Value & mean, const Value & stddev, boost::optional<Value> seed) :
+  RandomGenerator_NormalDistribution(const Value & mean, const Value & stddev, optional<Value> seed) :
     _gen(seed ? (unsigned)(*seed) : _rd()),
     _dist(mean, stddev)
   {
@@ -39,10 +42,38 @@ private:
   RandomGenerator_NormalDistribution& operator=(const RandomGenerator_NormalDistribution &) = delete;
 
 private:
-  std::random_device _rd;
-  std::mt19937 _gen;
+  random_device _rd;
+  DefaultGenerator _gen;
   std::normal_distribution<Value> _dist;
 }; // class RandomGenerator_NormalDistribution
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// yann::RandomGenerator_UniformDistribution implementation
+//
+class RandomGenerator_UniformDistribution : public RandomGenerator {
+  friend class RandomGenerator;
+
+public:
+  RandomGenerator_UniformDistribution(const Value & aa, const Value & bb, optional<Value> seed) :
+    _gen(seed ? (unsigned)(*seed) : _rd()),
+    _dist(aa, bb)
+  {
+  }
+
+  // RandomGenerator overwrites
+  Value next() { return _dist(_gen); }
+
+private:
+  RandomGenerator_UniformDistribution(const RandomGenerator_UniformDistribution &) = delete;
+  RandomGenerator_UniformDistribution& operator=(const RandomGenerator_UniformDistribution &) = delete;
+
+private:
+  random_device _rd;
+  DefaultGenerator _gen;
+  uniform_real_distribution<Value> _dist;
+}; // class RandomGenerator_NormalDistribution
+
 
 }; // RandomGenerator
 
@@ -50,10 +81,16 @@ private:
 //
 // yann::RandomGenerator implementation
 //
-std::unique_ptr<RandomGenerator> yann::RandomGenerator::normal_distribution(
-    const Value & mean, const Value & stddev, boost::optional<Value> seed)
+unique_ptr<RandomGenerator> yann::RandomGenerator::normal_distribution(
+    const Value & mean, const Value & stddev, optional<Value> seed)
 {
   return make_unique<RandomGenerator_NormalDistribution>(mean, stddev, seed);
+}
+
+unique_ptr<RandomGenerator> yann::RandomGenerator::uniform_distribution(
+    const Value & aa, const Value & bb, optional<Value> seed)
+{
+  return make_unique<RandomGenerator_UniformDistribution>(aa, bb, seed);
 }
 
 void yann::RandomGenerator::generate(Value & val)

@@ -44,6 +44,8 @@ public:
   public:
    MatrixSize  _window_size;
    MatrixSize  _dimensions;
+   boost::optional<Layer::InitContext> _training_init_context;
+   double      _training_sampling_rate;
    double      _learning_rate;
    double      _regularization;
    MatrixSize  _training_batch_size;
@@ -57,6 +59,7 @@ public:
   virtual ~Word2Vec();
 
   static std::unique_ptr<Word2Vec> train_skip_gram(const Text & text, const TrainingParams & params);
+  static std::unique_ptr<Word2Vec> train_cbow(const Text & text, const TrainingParams & params);
 
   bool is_equal(const Word2Vec& other, double tolerance) const;
 
@@ -70,12 +73,22 @@ public:
   boost::optional<RefConstVector> find_vector(const std::string & word) const;
   boost::optional<RefConstVector> find_vector(const MatrixSize & word_num) const;
 
+  void save(const std::string & filename) const;
+  void load(const std::string & filename);
 
-  std::vector<std::pair<const std::string &, Value>> find_closest(const std::string & word, const size_t & num = 1) const;
+  Value distance(const MatrixSize & word_num1, const MatrixSize & word_num2) const;
+  Value distance(const std::string word1, const std::string & word2) const;
+
+  std::vector<std::pair<const std::string &, Value>> find_closest(const std::string & word, const size_t & num = 5) const;
+  std::vector<std::pair<const std::string &, Value>> find_farthest(const std::string & word, const size_t & num = 5) const;
 
 
   // cos alpha = A * B / (|A| * |B|)
   static Value cosine(const RefConstVector & v1, const RefConstVector & v2);
+
+private:
+  template<typename DataSourceType>
+  static std::unique_ptr<Word2Vec> train(const Text & text, const TrainingParams & params, DataSourceType & data_source);
 
 private:
   Dictionary _dictionary;

@@ -3,12 +3,12 @@
  *
  */
 #include <numeric>
-#include <random>
 #include <string>
 #include <utility>
 
 #include <boost/assert.hpp>
 
+#include "core/random.h"
 #include "core/utils.h"
 #include "core/functions.h"
 #include "layers/contlayer.h"
@@ -112,6 +112,12 @@ bool yann::word2vec::Dictionary::operator==(const Dictionary & other) const
   return _n2w == other._n2w && _w2n == other._w2n;
 }
 
+bool yann::word2vec::Dictionary::empty() const
+{
+  YANN_CHECK_EQ(_n2w.empty(), _w2n.empty());
+  return _n2w.empty();
+}
+
 size_t yann::word2vec::Dictionary::get_size() const
 {
   YANN_CHECK_EQ(_n2w.size(), _w2n.size());
@@ -143,6 +149,12 @@ MatrixSize yann::word2vec::Dictionary::add_word(const std::string & word, const 
 MatrixSize yann::word2vec::Dictionary::add_word(const std::string & word, bool fail_if_duplicate)
 {
   return add_word(word, get_size(), fail_if_duplicate);
+}
+
+bool yann::word2vec::Dictionary::has_word(const MatrixSize & num) const
+{
+  auto it = _n2w.find(num);
+  return it != _n2w.end();
 }
 
 boost::optional<MatrixSize> yann::word2vec::Dictionary::find_word(const std::string & word) const
@@ -181,13 +193,18 @@ const std::string & yann::word2vec::Dictionary::get_word(const MatrixSize & num)
   return *res;
 }
 
+void yann::word2vec::Dictionary::erase(const MatrixSize & deleted)
+{
+  auto it = _n2w.find(deleted);
+  YANN_CHECK_NE(it, _n2w.end());
+  _w2n.erase(it->second); // should be first
+  _n2w.erase(it);
+}
+
 void yann::word2vec::Dictionary::erase(const unordered_set<MatrixSize> & deleted)
 {
   for(const auto & word_num: deleted) {
-    auto it = _n2w.find(word_num);
-    YANN_CHECK_NE(it, _n2w.end());
-    _w2n.erase(it->second); // should be first
-    _n2w.erase(it);
+    erase(word_num);
   }
 }
 
@@ -399,8 +416,18 @@ std::string yann::word2vec::Text::get_info() const
   oss << "yann::word2vec::Text"
       << " dictionay size: " << get_dictionary_size()
       << ", sentences size: " << get_sentences_size()
+      << ", words size: " << get_words_size()
   ;
   return oss.str();
+}
+
+size_t yann::word2vec::Text::get_words_size() const
+{
+  return std::accumulate(_sentences.begin(), _sentences.end(), 0,
+      [](const size_t & a, const auto & b) -> size_t {
+        return a + b.size();
+      }
+  );
 }
 
 bool yann::word2vec::Text::operator==(const Text & other) const
@@ -512,56 +539,8 @@ unordered_map<MatrixSize, size_t> yann::word2vec::Text::get_word_frequencies() c
   return res;
 }
 
-//
-void yann::word2vec::Text::subsample(const double & sample)
+void yann::word2vec::Text::compact()
 {
-  YANN_CHECK_GT(sample, 0);
-
-  // get frequencies
-  auto frequencies = get_word_frequencies();
-  size_t total = std::accumulate(
-      frequencies.begin(), frequencies.end(), 0,
-      [](const size_t & a, const auto & b) {
-        return a + b.second;
-      }
-  );
-  if(total <= 0) {
-    return;
-  }
-
-  // get list of words we want to delete
-  std::default_random_engine generator;
-  std::uniform_real_distribution<double> distribution(0.0,1.0);
-  unordered_set<MatrixSize> deleted;
-  for(const auto & word_freq : frequencies) {
-    auto freq_by_sample = word_freq.second / ((double) total * sample);
-    auto val = distribution(generator);
-
-    if(val >= ((sqrt(freq_by_sample) + 1) / freq_by_sample)) {
-      deleted.insert(word_freq.first);
-    }
-  }
-
-  // now delete it!
-  _dictionary.erase(deleted);
-  for(auto & sentence: _sentences) {
-    auto remove_it = std::remove_if(
-        sentence.begin(), sentence.end(),
-        [deleted](const auto & word_num) {
-          return deleted.find(word_num) != deleted.end();
-        }
-    );
-    sentence.erase(remove_it, sentence.end());
-  }
-  // remove any empty sentences
-  auto remove_it = std::remove_if(
-      _sentences.begin(), _sentences.end(),
-     [](const auto & sentence) {
-       return sentence.empty();
-     }
- );
-  _sentences.erase(remove_it, _sentences.end());
-
   // compact the dictionary and then re-map words in the sentences
   auto num_mapping = _dictionary.compact();
   for(auto & sentence: _sentences) {
@@ -570,4 +549,83 @@ void yann::word2vec::Text::subsample(const double & sample)
       *it = num_mapping[*it];
     }
   }
+
+  // remove any empty sentences
+  auto remove_it = std::remove_if(_sentences.begin(), _sentences.end(),
+     [](const auto & sentence) {
+       return sentence.empty();
+     }
+  );
+  _sentences.erase(remove_it, _sentences.end());
+}
+
+std::pair<size_t, size_t> yann::word2vec::Text::subsample(
+    const size_t & min_count,
+    const double & sample_rate,
+    boost::optional<Value> rand_seed)
+{
+  YANN_CHECK_GE(min_count, 0);
+  YANN_CHECK_GT(sample_rate, 0);
+
+ // get frequencies and remove all rare words
+  auto frequencies = get_word_frequencies();
+  for(auto it = frequencies.begin(); it != frequencies.end();) {
+    if(it->second < min_count) {
+      _dictionary.erase(it->first);
+      it = frequencies.erase(it);
+    } else {
+      ++it;
+    }
+  }
+
+  // calculate total
+  auto total = std::accumulate(frequencies.begin(), frequencies.end(), 0,
+      [](const size_t & a, const auto & b) -> size_t {
+        return a + b.second;
+      }
+  );
+  if(total <= 0) {
+    YANN_CHECK(_dictionary.empty());
+    size_t total = get_words_size();
+    _sentences.clear();
+    return make_pair(total, 0);
+  }
+
+  // sample the frequent words
+  size_t filtered_count = 0;
+  size_t sampled_count = 0;
+  auto rand = yann::RandomGenerator::uniform_distribution(0.0, 1.0, rand_seed);
+  YANN_CHECK(rand);
+  for(auto & sentence: _sentences) {
+    auto remove_it = std::remove_if(
+        sentence.begin(), sentence.end(),
+        [&](const auto & word_num) -> bool {
+          // first check if we already deleted this word
+          if(!_dictionary.has_word(word_num)) {
+            ++filtered_count;
+            return true;
+          }
+          YANN_SLOW_CHECK_NE(frequencies.find(word_num), frequencies.end());
+
+          // calculated ranking for this word
+          const auto freq_by_sample = frequencies[word_num] / ((double) total * sample_rate);
+          const auto ranking = (sqrt(freq_by_sample) + 1) / freq_by_sample;
+
+          // and remove it
+          if(ranking < rand->next()) {
+            ++sampled_count;
+            return true;
+          }
+
+          return false;
+        }
+    );
+    sentence.erase(remove_it, sentence.end());
+  }
+
+  // finally cleanup and compact
+  compact();
+
+  // done
+  return make_pair(filtered_count, sampled_count);
 }

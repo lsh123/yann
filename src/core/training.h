@@ -70,7 +70,7 @@ private:
 class Trainer
 {
 public:
-  typedef void (*ProgressCallback)(const MatrixSize & cur, const MatrixSize & total);
+  typedef void (*ProgressCallback)(const MatrixSize & cur, const MatrixSize & total, const std::string & message);
 
   class DataSource {
   public:

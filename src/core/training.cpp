@@ -183,7 +183,7 @@ Value yann::Trainer::train(Network & nn, DataSource & data_source) const
       break;
     }
     if(_batch_progress_callback != nullptr) {
-      _batch_progress_callback(ii, num_batches);
+      _batch_progress_callback(ii, num_batches, "");
     }
 
     ctx->reset_state();

@@ -401,7 +401,7 @@ BOOST_AUTO_TEST_CASE(LeNet1_Two_Labels_Test)
 //
 //  auto polling_mode = PollingLayer::PollMode_Avg;
 //  unique_ptr<ActivationFunction> activation_func = make_unique<SigmoidFunction>();
-//  unique_ptr<CostFunction> cost_func = make_unique<CrossEntropyCost>(1.0e-10);
+//  unique_ptr<CostFunction> cost_func = make_unique<CrossEntropyCost>();
 //  const MatrixSize fc_size = 100;
 //  auto init_mode = Layer::InitMode_Random;
 //  const double learning_rate = 0.01;
@@ -420,7 +420,7 @@ BOOST_AUTO_TEST_CASE(LeNet1_Full_Test, * disabled())
   unique_ptr<ActivationFunction> conv_activation_func = make_unique<SigmoidFunction>();
   unique_ptr<ActivationFunction> poll_activation_func = make_unique<SigmoidFunction>();
   unique_ptr<ActivationFunction> fc_activation_func = make_unique<SigmoidFunction>();
-  unique_ptr<CostFunction> cost_func = make_unique<CrossEntropyCost>(1.0e-10);
+  unique_ptr<CostFunction> cost_func = make_unique<CrossEntropyCost>();
   const MatrixSize fc_size = 120;
   auto init_mode = Layer::InitMode_Random;
   const double learning_rate = 0.05;
@@ -495,7 +495,7 @@ BOOST_AUTO_TEST_CASE(BoostedLeNet1_Full_Test, * disabled())
   unique_ptr<ActivationFunction> conv_activation_func = make_unique<SigmoidFunction>();
   unique_ptr<ActivationFunction> poll_activation_func = make_unique<SigmoidFunction>();
   unique_ptr<ActivationFunction> fc_activation_func = make_unique<SigmoidFunction>();
-  unique_ptr<CostFunction> cost_func = make_unique<CrossEntropyCost>(1.0e-10);
+  unique_ptr<CostFunction> cost_func = make_unique<CrossEntropyCost>();
   const MatrixSize paths_num = 2;
   const MatrixSize fc_size = 50;
   const auto init_mode = Layer::InitMode_Random;
@@ -581,7 +581,7 @@ BOOST_AUTO_TEST_CASE(LeNet5_Two_Labels_Test)
   auto nn = make_unique<Network>(std::move(layers));
   YANN_CHECK(nn);
   nn->init(Layer::InitMode_Random, Layer::InitContext(12345));
-  nn->set_cost_function(make_unique<CrossEntropyCost>(1.0e-300));
+  nn->set_cost_function(make_unique<CrossEntropyCost>());
   // nn->set_cost_function(make_unique<ExponentialCost>(2.0));
 
   // Trainer
@@ -627,7 +627,7 @@ BOOST_AUTO_TEST_CASE(LeNet5_Two_Labels_Test)
 // Testing against test dataset time 2835.35 milliseconds
 //
 // unique_ptr<ActivationFunction> activation_func = make_unique<SigmoidFunction>();
-// unique_ptr<CostFunction> cost_func = make_unique<CrossEntropyCost>(1.0e-10);
+// unique_ptr<CostFunction> cost_func = make_unique<CrossEntropyCost>();
 // auto polling_mode = PollingLayer::PollMode_Max;
 // const MatrixSize fc1_size = 120;
 // const MatrixSize fc2_size = 84;
@@ -641,7 +641,7 @@ BOOST_AUTO_TEST_CASE(LeNet5_Full_Test, * disabled())
   unique_ptr<ActivationFunction> conv_activation_func = make_unique<SigmoidFunction>();
   unique_ptr<ActivationFunction> poll_activation_func = make_unique<SigmoidFunction>();
   unique_ptr<ActivationFunction> fc_activation_func = make_unique<SigmoidFunction>();
-  unique_ptr<CostFunction> cost_func = make_unique<CrossEntropyCost>(1.0e-10);
+  unique_ptr<CostFunction> cost_func = make_unique<CrossEntropyCost>();
   auto polling_mode = PollingLayer::PollMode_Max;
   const MatrixSize fc1_size = 120;
   const MatrixSize fc2_size = 84;

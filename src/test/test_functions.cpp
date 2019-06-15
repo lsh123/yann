@@ -328,6 +328,33 @@ BOOST_AUTO_TEST_CASE(SigmoidFunction_Test)
   BOOST_CHECK(expected.isApprox(res.second, TEST_TOLERANCE));
 }
 
+
+BOOST_AUTO_TEST_CASE(FastSigmoidFunction_Test)
+{
+  const size_t size = 2;
+  Vector input0(size);
+  Vector output0(size);
+  Vector input_expected(size);
+  Vector expected(size);
+  const double learning_rate = 0.75;
+  size_t epochs = 1000;
+
+  input0 << 10, 10;
+  output0 << 1.0, 1.0;
+  expected << 0.8, 0.1;
+  input_expected << 1.3862943611, -2.1972245773; // x = -ln(1/y - 1)
+  pair<Vector, Vector> res = test_activation_function(
+      make_unique<FastSigmoidFunction>(10000), // increase internal table size to improve accuracy
+      make_unique<QuadraticCost>(),
+      input0, output0, expected,
+      learning_rate, epochs);
+
+  BOOST_TEST_MESSAGE("intput expected=" << input_expected << " actual=" << res.first);
+  BOOST_TEST_MESSAGE("output expected=" << expected << " actual=" << res.second);
+  BOOST_CHECK(input_expected.isApprox(res.first, TEST_TOLERANCE));
+  BOOST_CHECK(expected.isApprox(res.second, TEST_TOLERANCE));
+}
+
 BOOST_AUTO_TEST_CASE(ReluFunction_Test)
 {
   const size_t size = 2;

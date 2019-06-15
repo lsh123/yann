@@ -49,12 +49,15 @@ public:
 
   bool operator==(const Dictionary & other) const;
 
+  bool empty() const;
   size_t get_size() const;
   MatrixSize add_word(const std::string & word, bool fail_if_duplicate = false);
 
+  bool has_word(const MatrixSize & num) const;
   boost::optional<MatrixSize> find_word(const std::string & word) const;
   boost::optional<const std::string &> find_word(const MatrixSize & num) const;
 
+  void erase(const MatrixSize & deleted);
   void erase(const std::unordered_set<MatrixSize> & deleted);
   std::unordered_map<MatrixSize, MatrixSize> compact();
 
@@ -129,6 +132,7 @@ public:
 
   inline size_t get_dictionary_size() const { return _dictionary.get_size(); }
   inline size_t get_sentences_size() const { return _sentences.size(); }
+  size_t get_words_size() const;
 
   boost::optional<MatrixSize> find_word(const std::string & word) const;
   boost::optional<const std::string &> find_word(const MatrixSize & num) const;
@@ -141,7 +145,9 @@ public:
   void add_text(std::istream & is, TextParser & parser);
 
   std::unordered_map<MatrixSize, size_t> get_word_frequencies() const;
-  void subsample(const double & sample = 0.0001);
+  std::pair<size_t, size_t> subsample(const size_t & min_count = 5, const double & sample = 0.0001,
+                 boost::optional<Value> rand_seed = boost::none);
+  void compact();
 
   const std::vector<Sentence> & sentences() const { return _sentences; }
   const Dictionary & dictionary() const { return _dictionary; }

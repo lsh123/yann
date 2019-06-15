@@ -290,7 +290,7 @@ BOOST_AUTO_TEST_CASE(Mnist_Sigmoid_CrossEntropy_Test)
       DataSource_Stochastic::Sequential, // reduce test variability
       10,   // batch size
       {20},
-      make_unique<CrossEntropyCost>(1.0e-100),
+      make_unique<CrossEntropyCost>(),
       Sigmoid,
       3);
   BOOST_CHECK_GE(res.first, 0.995);  // > 99.5%
@@ -398,7 +398,7 @@ BOOST_AUTO_TEST_CASE(Mnist_FindBest_StochasticGD_CrossEntropy_Sigmoid_Test, * di
 // With:
 // const vector<MatrixSize> hidden_layers = { 300, 100 };
 // enum ActivationMode activ_mode = Sigmoid;
-// unique_ptr<CostFunction> cost_func = make_unique<CrossEntropyCost>(1.0e-10);
+// unique_ptr<CostFunction> cost_func = make_unique<CrossEntropyCost>();
 // const double learning_rate = 0.90;
 // const double regularization = 0.05;
 // const size_t training_batch_size = 10;
@@ -409,7 +409,7 @@ BOOST_AUTO_TEST_CASE(Mnist_LargeFCNN_Test, * disabled())
 {
   const vector<MatrixSize> hidden_layers = { 1000 };
   enum ActivationMode activ_mode = Sigmoid;
-  unique_ptr<CostFunction> cost_func = make_unique<CrossEntropyCost>(1.0e-10);
+  unique_ptr<CostFunction> cost_func = make_unique<CrossEntropyCost>();
   const double learning_rate = 0.90;
   const double regularization = 0.05;
   const size_t training_batch_size = 10;
