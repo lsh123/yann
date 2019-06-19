@@ -1,32 +1,38 @@
 /*
- * fclayer.h
+ * reclayer.h
  *
+ *  Forward propagation:
+ *    hh(t) = state_activation_function(ww_hh * hh(t-1) + ww_xh*x(t) + b_h)  // state
+ *    a(t) = output_activation_function(ww_ha * hh(t) + b_a) // output
  */
 
-#ifndef FCLAYER_H_
-#define FCLAYER_H_
+#ifndef RECLAYER_H_
+#define RECLAYER_H_
 
 #include "core/layer.h"
 
 namespace yann {
 
-class FullyConnectedLayer : public Layer
+class RecurrentLayer : public Layer
 {
   typedef Layer Base;
 
 public:
-  FullyConnectedLayer(const MatrixSize & input_size, const MatrixSize & output_size);
-  virtual ~FullyConnectedLayer();
+  RecurrentLayer(
+      const MatrixSize & input_size,
+      const MatrixSize & state_size,
+      const MatrixSize & output_size);
+  virtual ~RecurrentLayer();
 
-  void set_activation_function(const std::unique_ptr<ActivationFunction> & activation_function);
-  void set_values(const Matrix & ww, const Vector & bb);
-  void set_fixed_bias(const Value & val);
+  MatrixSize get_state_size() const;
 
-  void set_sampling_rate(const double & sampling_rate);
-  bool is_sampled() const;
+  void set_activation_functions(
+      const std::unique_ptr<ActivationFunction> & state_activation_function,
+      const std::unique_ptr<ActivationFunction> & output_activation_function);
 
-  const Matrix & get_weights() const { return _ww; }
-  const Vector & get_bias() const { return _bb; }
+  void set_values(
+      const Matrix & ww_hh, const Matrix & ww_xh, const Vector & bb_h,
+      const Matrix & ww_ha, const Vector & bb_a);
 
 public:
   // Layer overwrites
@@ -77,7 +83,6 @@ private:
         const InputType & input,
         Context * context,
         enum OperationMode mode) const;
-
   template<typename InputType>
   void backprop_internal(
       const RefConstVectorBatch & gradient_output,
@@ -85,21 +90,24 @@ private:
       boost::optional<RefVectorBatch> gradient_input,
       Context * context) const;
 
-  template<typename InputType>
-  void backprop_with_sampling_internal(
-      const RefConstVectorBatch & gradient_output,
-      const InputType & input,
-      boost::optional<RefVectorBatch> gradient_input,
-      Context * context) const;
+private:
+  template<typename OutputType>
+  bool read(std::istream & is, const char ch1, const char ch2, OutputType & out);
 
 private:
-  Matrix _ww;
-  Vector _bb;
-  bool   _fixed_bias;
-  double _sampling_rate;
-  std::unique_ptr<ActivationFunction> _activation_function;
-}; // class FullyConnectedLayer
+  // state: hh(t) = state_activation_function(ww_hh * hh(t-1) + ww_xh*x(t) + b_h)
+  Matrix _ww_hh;
+  Matrix _ww_xh;
+  Vector _bb_h;
+
+  // output: a(t) = output_activation_function(ww_ha * hh(t) + b_a)
+  Matrix _ww_ha;
+  Vector _bb_a;
+
+  std::unique_ptr<ActivationFunction> _state_activation_function;
+  std::unique_ptr<ActivationFunction> _output_activation_function;
+}; // class RecurrentLayer
 
 }; // namespace yann
 
-#endif /* FCLAYER_H_ */
+#endif /* RECLAYER_H_ */

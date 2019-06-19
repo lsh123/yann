@@ -47,6 +47,9 @@ public:
     resize_batch(_inputs_batch, _batch_size, _text.get_dictionary_size());
     resize_batch(_outputs_batch, _batch_size, _text.get_dictionary_size());
   }
+  virtual ~DataSource_SkipGram()
+  {
+  }
 
   // Trainer::DataSource overwrites
   virtual std::string get_info() const
@@ -70,7 +73,10 @@ public:
     YANN_CHECK(_batch_size > 0);
     return _tests.size() / _batch_size;
   }
-
+  virtual MatrixSize get_tests_num() const
+  {
+    return get_num_batches() * get_batch_size();
+  }
   virtual void start_epoch()
   {
     _cur_pos = 0;
@@ -201,6 +207,9 @@ public:
     resize_batch(_inputs_batch, _batch_size, _text.get_dictionary_size());
     resize_batch(_outputs_batch, _batch_size, _text.get_dictionary_size());
   }
+  virtual ~DataSource_CBOW()
+  {
+  }
 
   // Trainer::DataSource overwrites
   virtual std::string get_info() const
@@ -224,7 +233,10 @@ public:
     YANN_CHECK(_batch_size > 0);
     return _tests.size() / _batch_size;
   }
-
+  virtual MatrixSize get_tests_num() const
+  {
+    return get_num_batches() * get_batch_size();
+  }
   virtual void start_epoch()
   {
     _cur_pos = 0;
@@ -598,24 +610,16 @@ std::unique_ptr<Word2Vec> yann::word2vec::Word2Vec::train(
     fc_layer2->set_sampling_rate(params._training_sampling_rate);
   }
   nn->append_layer(std::move(fc_layer2));
+  nn->init(Layer::InitMode_Random, params._training_init_context);
 
   // train the network
-  nn->init(Layer::InitMode_Random, params._training_init_context);
   Trainer trainer(make_unique<Updater_GradientDescent>(
       params._learning_rate,
       params._regularization
   ));
   trainer.set_batch_progress_callback(params._batch_callback);
-
-  auto total_tests = (data_source.get_num_batches() * data_source.get_batch_size());
-  for(size_t ii = 0; ii < params._epochs; ++ii) {
-    Value cost = trainer.train(*nn, data_source);
-    if(params._epochs_callback != nullptr) {
-      ostringstream oss;
-      oss << "cost per test: " << cost / total_tests;
-      params._epochs_callback(ii + 1, params._epochs, oss.str());
-    }
-  }
+  trainer.set_epochs_progress_callback(params._epochs_callback);
+  trainer.train(*nn, data_source, params._epochs);
 
   // extract the weights
   auto fc_layer = dynamic_cast<const FullyConnectedLayer*>(nn->get_layer(0));

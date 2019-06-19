@@ -15,6 +15,7 @@ AM_EXTRA_RECURSIVE_TARGETS([
   check-layers
   check-fcnn
   check-cnn
+  check-rnn
   check-custom
   check-word2vec
 ])

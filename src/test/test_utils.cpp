@@ -73,7 +73,7 @@ void yann::test::batch_progress_callback(const MatrixSize & cur_pos, const Matri
 {
   // we want to print out progress at 1/10 increment
   auto progress_delta = total / 10;
-  if(cur_pos % progress_delta == 0) {
+  if(progress_delta > 0 && cur_pos % progress_delta == 0) {
     if(!message.empty()) {
       BOOST_TEST_MESSAGE("  ... at " << cur_pos << " out of " << total << " (" << message << ")");
     } else {

@@ -230,10 +230,16 @@ public:
     return _output_gradients;
   }
 
-  inline VectorBatch & output_gradient(size_t pos)
+  inline void resize_output_gradient(const size_t & pos, const MatrixSize & batch_size,  const MatrixSize & output_size)
   {
     YANN_CHECK_LT(pos, _output_gradients.size());
-    return _output_gradients[pos];
+    resize_batch(_output_gradients[pos], batch_size, output_size);
+  }
+
+  inline RefVectorBatch output_gradient(const size_t & pos, const MatrixSize & batch_size)
+  {
+    YANN_CHECK_LT(pos, _output_gradients.size());
+    return _output_gradients[pos].topRows(batch_size); // RowMajor
   }
 
 private:
@@ -375,7 +381,7 @@ unique_ptr<Layer::Context> yann::SequentialLayer::create_training_context(const 
     }
 
     // setup output gradients buffers
-    resize_batch(ctx->output_gradient(ii), batch_size, layer->get_output_size());
+    ctx->resize_output_gradient(ii, batch_size, layer->get_output_size());
   }
   return ctx;
 }
@@ -405,7 +411,7 @@ unique_ptr<Layer::Context> yann::SequentialLayer::create_training_context(const 
     }
 
     // setup output gradients buffers
-    resize_batch(ctx->output_gradient(ii), batch_size, layer->get_output_size());
+    ctx->resize_output_gradient(ii, batch_size, layer->get_output_size());
   }
   return ctx;
 }
@@ -420,7 +426,6 @@ void yann::SequentialLayer::feedforward_internal(
   YANN_CHECK(ctx);
   YANN_CHECK(is_valid());
   YANN_CHECK_EQ(get_layers_num(), ctx->get_contexts_num());
-  YANN_CHECK_EQ(get_batch_size(input), ctx->get_batch_size());
 
   ////////////////////////////////////////////////////////////////////
   // Forward propagation, save intermediate state
@@ -465,40 +470,43 @@ void yann::SequentialLayer::backprop_internal(
   auto ctx = dynamic_cast<SequentialLayer_TrainingContext *>(context);
   YANN_CHECK(ctx);
   YANN_CHECK(is_valid());
-  YANN_CHECK_EQ(get_layers_num(), ctx->get_contexts_num());
-  YANN_CHECK_EQ(get_batch_size(input), ctx->get_batch_size());
-  YANN_CHECK_EQ(get_batch_size(input), get_batch_size(gradient_output));
-  YANN_CHECK_EQ(get_batch_item_size(gradient_output), get_output_size());
-  YANN_CHECK(!gradient_input || is_same_size(input, *gradient_input));
-  YANN_CHECK_EQ(get_layers_num(),ctx->get_contexts_num());
-  YANN_CHECK_GT(get_layers_num(), 0);
+  YANN_SLOW_CHECK_EQ(get_layers_num(), ctx->get_contexts_num());
+  YANN_SLOW_CHECK_EQ(get_batch_item_size(gradient_output), get_output_size());
+  YANN_SLOW_CHECK(!gradient_input || get_batch_item_size(input) == get_batch_item_size(*gradient_input));
+  YANN_SLOW_CHECK_EQ(get_layers_num(),ctx->get_contexts_num());
+  YANN_SLOW_CHECK_GT(get_layers_num(), 0);
+
+  YANN_SLOW_CHECK_EQ(get_batch_size(input), get_batch_size(gradient_output));
+  YANN_SLOW_CHECK(!gradient_input || get_batch_size(input) == get_batch_size(*gradient_input));
+  YANN_SLOW_CHECK_LE(get_batch_size(input), context->get_batch_size());
+  auto batch_size = get_batch_size(input);
 
   ////////////////////////////////////////////////////////////////////
   // Back propagation: push "gradient" from outputs to inputs
   for(size_t ii = get_layers_num(); ii > 0; --ii) {
     auto layer = get_layer(ii - 1);
     auto layer_ctx = ctx->get_context(ii - 1);
-    auto & layer_gradient_out = ctx->output_gradient(ii - 1);
+    auto layer_gradient_out = ctx->output_gradient(ii - 1, batch_size);
 
     // the last and first layer require special handling
     if(1 < ii && ii < get_layers_num()) {
       // prev output gradient  == current gradient input;
       // prev output = current input
-      auto & prev_gradient_out= ctx->output_gradient(ii - 2);
+      auto prev_gradient_out= ctx->output_gradient(ii - 2, batch_size);
       const auto * prev_ctx = ctx->get_context(ii - 2);
       layer->backprop(
           layer_gradient_out,
-          prev_ctx->get_output(),
+          prev_ctx->get_output(batch_size),
           optional<RefVectorBatch>(prev_gradient_out),
           layer_ctx);
     } else if(1 < ii && ii == get_layers_num()) {
       // this is the last layer, the output gradient comes from outside,
       // otherwise it is the same
-      auto & prev_gradient_out= ctx->output_gradient(ii - 2);
+      auto prev_gradient_out= ctx->output_gradient(ii - 2, batch_size);
       const auto * prev_ctx = ctx->get_context(ii - 2);
       layer->backprop(
           gradient_output,
-          prev_ctx->get_output(),
+          prev_ctx->get_output(batch_size),
           optional<RefVectorBatch>(prev_gradient_out),
           layer_ctx);
     } else if(1 == ii && ii < get_layers_num()) {

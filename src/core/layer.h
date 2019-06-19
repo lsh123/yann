@@ -61,14 +61,18 @@ public:
     Context(const MatrixSize & output_size, const MatrixSize & batch_size);
     Context(const RefVectorBatch & output);
 
-    inline MatrixSize get_batch_size() const      { return yann::get_batch_size(*_output);  }
-    inline MatrixSize get_output_size() const     { return yann::get_batch_item_size(*_output);  }
+    inline MatrixSize get_batch_size() const       { return yann::get_batch_size(*_output);  }
+    inline MatrixSize get_output_size() const      { return yann::get_batch_item_size(*_output);  }
+
     inline RefConstVectorBatch get_output() const { return *_output; }
     inline RefVectorBatch get_output()            { return *_output; }
+    inline RefConstVectorBatch get_output(const MatrixSize & pos) const { return _output->topRows(pos); } // RowMajor
+    inline RefVectorBatch get_output(const MatrixSize & pos)            { return _output->topRows(pos); } // RowMajor
+
 
     virtual void reset_state() { }
 
-  private:
+  protected:
     boost::optional<RefVectorBatch> _output;
     VectorBatch                     _output_buffer;
   }; // class Context

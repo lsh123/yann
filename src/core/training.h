@@ -77,15 +77,15 @@ public:
     class Batch {
     public:
       Batch(
-          const VectorBatch & inputs,
-          const VectorBatch & outputs) :
+          const RefConstVectorBatch inputs,
+          const RefConstVectorBatch outputs) :
         _inputs(inputs),
         _outputs(outputs)
       {
       }
       Batch(
-          const SparseVectorBatch & sparse_inputs,
-          const VectorBatch & outputs) :
+          const RefConstSparseVectorBatch sparse_inputs,
+          const RefConstVectorBatch outputs) :
         _sparse_inputs(sparse_inputs),
         _outputs(outputs)
       {
@@ -102,6 +102,7 @@ public:
 
   public:
     virtual std::string get_info() const = 0;
+    virtual MatrixSize get_tests_num() const = 0;
     virtual MatrixSize get_batch_size() const = 0;
     virtual MatrixSize get_num_batches() const = 0;
     virtual void start_epoch() = 0;
@@ -115,11 +116,15 @@ public:
 
   std::string get_info() const;
   Value train(Network & nn, DataSource & data_source) const;
+  Value train(Network & nn, DataSource & data_source, const size_t & epochs) const;
+
   void set_batch_progress_callback(ProgressCallback callback) {  _batch_progress_callback = callback; }
+  void set_epochs_progress_callback(ProgressCallback callback) {  _epochs_progress_callback = callback; }
 
 protected:
   std::unique_ptr<Layer::Updater> _updater;
   ProgressCallback _batch_progress_callback;
+  ProgressCallback _epochs_progress_callback;
 }; // class Trainer
 
 // After each batch of training data, apply deltas to the network.
@@ -138,11 +143,13 @@ public:
       const RefConstVectorBatch & outputs,
       enum  Mode mode,
       const MatrixSize & batch_size);
+  virtual ~DataSource_Stochastic();
 
   // Trainer::DataSource overwrites
   virtual std::string get_info() const;
   virtual MatrixSize get_batch_size() const;
   virtual MatrixSize get_num_batches() const;
+  virtual MatrixSize get_tests_num() const;
   virtual void start_epoch();
   virtual boost::optional<Batch> get_next_batch();
   virtual void end_epoch();

@@ -235,7 +235,6 @@ void yann::Network::feedforward(
   YANN_CHECK(is_valid());
   YANN_CHECK(ctx);
   YANN_CHECK(ctx->is_valid());
-  YANN_CHECK_EQ(get_batch_size(input), ctx->get_batch_size());
 
   _container->feedforward(
       input,
@@ -251,8 +250,6 @@ void yann::Network::backprop(
 {
   YANN_CHECK(is_valid());
   YANN_CHECK(ctx);
-  YANN_CHECK_EQ(get_batch_size(input), get_batch_size(output));
-  YANN_CHECK_EQ(get_batch_size(input), ctx->get_batch_size());
 
   ////////////////////////////////////////////////////////////////////
   // Back propagation: push "gradient" from outputs to inputs
@@ -261,14 +258,21 @@ void yann::Network::backprop(
   //
 
   // The initial delta is the cost function derivative for the output
-  YANN_CHECK(is_same_size(output, ctx->_output_gradient));
-  YANN_CHECK(is_same_size(output, ctx->get_output()));
-  _cost_function->derivative(ctx->get_output(), output, ctx->_output_gradient);
+  YANN_CHECK_EQ(get_batch_size(input), get_batch_size(output));
+  auto batch_size = get_batch_size(input);
+
+  YANN_CHECK_LE(batch_size, get_batch_size(ctx->get_output()));
+  YANN_CHECK_EQ(get_batch_item_size(output), get_batch_item_size(ctx->get_output()));
+  YANN_CHECK_LE(batch_size, get_batch_size(ctx->_output_gradient));
+  YANN_CHECK_EQ(get_batch_item_size(output), get_batch_item_size(ctx->_output_gradient));
+
+  RefVectorBatch output_gradient = ctx->_output_gradient.topRows(batch_size); // RowMajor
+  _cost_function->derivative(ctx->get_output(batch_size), output, output_gradient);
 
   // we don't want to calculate the last delta thus no matrix for the input
   // gradient
   _container->backprop(
-      ctx->_output_gradient,
+      output_gradient,
       input,
       optional<RefVectorBatch>(),
       ctx->_container_ctx.get());
@@ -301,7 +305,6 @@ void yann::Network::calculate(const RefConstVectorBatch & input, Context * ctx) 
 {
   YANN_CHECK(is_valid());
   YANN_CHECK(ctx);
-  YANN_CHECK_EQ(get_batch_size(input), ctx->get_batch_size());
   feedforward(input, ctx);
 }
 
@@ -309,7 +312,6 @@ void yann::Network::calculate(const RefConstSparseVectorBatch & input, Context *
 {
   YANN_CHECK(is_valid());
   YANN_CHECK(ctx);
-  YANN_CHECK_EQ(get_batch_size(input), ctx->get_batch_size());
   feedforward(input, ctx);
 }
 
@@ -328,10 +330,10 @@ Value yann::Network::train_internal(
   YANN_CHECK(is_valid());
   YANN_CHECK(ctx);
   YANN_CHECK_EQ(get_batch_size(input), get_batch_size(output));
-  YANN_CHECK_EQ(get_batch_size(input), ctx->get_batch_size());
+  YANN_CHECK_LE(get_batch_size(input), ctx->get_batch_size());
 
   feedforward(input, ctx);
-  Value result_cost = cost(ctx->get_output(), output);
+  Value result_cost = cost(ctx->get_output(get_batch_size(input)), output);
   backprop(input, output, ctx);
   return result_cost;
 }
@@ -400,7 +402,15 @@ RefConstVectorBatch yann::Context::get_output() const
   YANN_CHECK(is_valid());
   auto ctx = dynamic_cast<const SequentialLayer::Context*>(_container_ctx.get());
   YANN_CHECK(ctx);
- return ctx->get_output();
+  return ctx->get_output();
+}
+
+RefConstVectorBatch yann::Context::get_output(const MatrixSize & pos) const
+{
+  YANN_CHECK(is_valid());
+  auto ctx = dynamic_cast<const SequentialLayer::Context*>(_container_ctx.get());
+  YANN_CHECK(ctx);
+  return ctx->get_output(pos);
 }
 
 void yann::Context::reset_state()

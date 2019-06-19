@@ -150,7 +150,8 @@ void yann::Updater_GradientDescentWithMomentum::update(const Value & delta, cons
 //
 yann::Trainer::Trainer(const unique_ptr<Layer::Updater> & updater) :
   _updater(updater->copy()),
-  _batch_progress_callback(nullptr)
+  _batch_progress_callback(nullptr),
+  _epochs_progress_callback(nullptr)
 {
   YANN_CHECK(_updater);
 }
@@ -190,15 +191,15 @@ Value yann::Trainer::train(Network & nn, DataSource & data_source) const
     if(batch->_inputs) {
       const auto inputs = *(batch->_inputs);
       const auto outputs = batch->_outputs;
-      YANN_CHECK_EQ(get_batch_size(inputs), batch_size);
-      YANN_CHECK_EQ(get_batch_size(outputs), batch_size);
+      YANN_CHECK_LE(get_batch_size(inputs), batch_size);
+      YANN_CHECK_LE(get_batch_size(outputs), batch_size);
 
       total_cost += nn.train(inputs, outputs, ctx.get());
     } else if(batch->_sparse_inputs) {
       const auto inputs = *(batch->_sparse_inputs);
       const auto outputs = batch->_outputs;
-      YANN_CHECK_EQ(get_batch_size(inputs), batch_size);
-      YANN_CHECK_EQ(get_batch_size(outputs), batch_size);
+      YANN_CHECK_LE(get_batch_size(inputs), batch_size);
+      YANN_CHECK_LE(get_batch_size(outputs), batch_size);
 
       total_cost += nn.train(inputs, outputs, ctx.get());
     } else {
@@ -210,6 +211,21 @@ Value yann::Trainer::train(Network & nn, DataSource & data_source) const
   data_source.end_epoch();
 
   return total_cost;
+}
+
+Value yann::Trainer::train(Network & nn, DataSource & data_source, const size_t & epochs) const
+{
+  auto tests_num = data_source.get_tests_num();
+  Value cost = 0;
+  for(size_t ii = 0; ii < epochs; ++ii) {
+    cost = train(nn, data_source);
+    if(_epochs_progress_callback != nullptr) {
+      ostringstream oss;
+      oss << "cost per test: " << cost / tests_num;
+      _epochs_progress_callback(ii + 1, epochs, oss.str());
+    }
+  }
+  return cost / tests_num;
 }
 
 
@@ -237,6 +253,10 @@ yann::DataSource_Stochastic::DataSource_Stochastic(
   resize_batch(_outputs_batch, _batch_size, get_batch_item_size(_outputs));
 }
 
+yann::DataSource_Stochastic::~DataSource_Stochastic()
+{
+}
+
 // Trainer::DataSource overwrites
 string yann::DataSource_Stochastic::get_info() const
 {
@@ -260,6 +280,11 @@ MatrixSize yann::DataSource_Stochastic::get_num_batches() const
   YANN_CHECK_EQ(yann::get_batch_size(_inputs), yann::get_batch_size(_outputs));
   YANN_CHECK_LE(_batch_size, yann::get_batch_size(_inputs));
   return yann::get_batch_size(_inputs) / _batch_size;
+}
+
+MatrixSize yann::DataSource_Stochastic::get_tests_num() const
+{
+  return get_num_batches() * get_batch_size();
 }
 
 void yann::DataSource_Stochastic::start_epoch()

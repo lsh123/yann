@@ -121,6 +121,8 @@ public:
 
   MatrixSize get_batch_size() const;
   RefConstVectorBatch get_output() const;
+  RefConstVectorBatch get_output(const MatrixSize & pos) const;
+
   void reset_state();
   inline bool is_valid() const {  return _container_ctx.get() != nullptr; }
 

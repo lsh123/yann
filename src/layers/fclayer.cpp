@@ -2,14 +2,14 @@
  * fclayer.cpp
  *
  * Feed-forward:
- *    z(l) = a(l-1) * w(l) + b(l) // where * (vector, matrix) multiplication
+ *    z(l) = a(l-1) * w + b // where * (vector, matrix) multiplication
  *    a(l) = activation(z(l))
  *
  * Back propagation:
- *    gradient(C, a(l)) = transp(w(l+1)) * gradient(C, a(l+1))
  *    delta(l) = elem_prod(gradient(C, a(l)), activation_derivative(z(l)))
  *    dC/db(l) = delta(l)
  *    dC/dw(l) = a(l-1) * delta(l)
+ *    gradient(C, a(l - 1)) = transp(w) * delta(l)
  */
 #include <boost/assert.hpp>
 
@@ -75,9 +75,9 @@ class FullyConnectedLayer_TrainingContext :
 
 public:
   FullyConnectedLayer_TrainingContext(
+      const MatrixSize & input_size,
       const MatrixSize & output_size,
       const MatrixSize & batch_size,
-      const MatrixSize & input_size,
       const unique_ptr<Layer::Updater> & updater,
       bool is_sampled) :
     Base(output_size, batch_size),
@@ -103,8 +103,8 @@ public:
   }
 
   FullyConnectedLayer_TrainingContext(
-      const RefVectorBatch & output,
       const MatrixSize & input_size,
+      const RefVectorBatch & output,
       const unique_ptr<Layer::Updater> & updater,
       bool is_sampled) :
     Base(output),
@@ -219,6 +219,9 @@ bool yann::FullyConnectedLayer::is_valid() const
   if(!_activation_function) {
     return false;
   }
+  if(_ww.cols() != _bb.size()) {
+    return false;
+  }
   return true;
 }
 
@@ -289,7 +292,7 @@ unique_ptr<Layer::Context> yann::FullyConnectedLayer::create_training_context(
   YANN_CHECK(is_valid());
   YANN_CHECK(updater);
   return make_unique<FullyConnectedLayer_TrainingContext>(
-      get_output_size(), batch_size, get_input_size(), updater, is_sampled());
+      get_input_size(), get_output_size(), batch_size, updater, is_sampled());
 }
 unique_ptr<Layer::Context> yann::FullyConnectedLayer::create_training_context(
     const RefVectorBatch & output, const std::unique_ptr<Layer::Updater> & updater) const
@@ -297,7 +300,7 @@ unique_ptr<Layer::Context> yann::FullyConnectedLayer::create_training_context(
   YANN_CHECK(is_valid());
   YANN_CHECK(updater);
   return make_unique<FullyConnectedLayer_TrainingContext>(
-      output, get_input_size(), updater, is_sampled());
+      get_input_size(), output, updater, is_sampled());
 }
 
 template<typename InputType>
@@ -312,7 +315,7 @@ void yann::FullyConnectedLayer::feedforward_internal(
   YANN_CHECK_EQ(get_batch_size(input), ctx->get_batch_size());
   YANN_CHECK_EQ(get_batch_item_size(input), get_input_size());
 
-  // z(l) = a(l-1)*w(l) + b(l)
+  // z(l) = a(l-1)*w + b
   ctx->_zz.noalias() = MatrixFunctions<InputType>::product(input, _ww);
   plus_batches(ctx->_zz, _bb);
 
@@ -383,7 +386,7 @@ void yann::FullyConnectedLayer::backprop_internal(
   }
 
   // we don't need to calculate the gradient(C, a(l)) for the "first" layer (actual inputs)
-  // gradient(C, a(l)) = transp(w(l+1)) * gradient(C, a(l+1))
+  // gradient(C, a(l - 1)) = transp(w) * delta(l)
   if(gradient_input) {
     (*gradient_input).noalias() = MatrixFunctions<InputType>::product(delta, _ww.transpose());
   }
@@ -458,6 +461,7 @@ void yann::FullyConnectedLayer::backprop_with_sampling_internal(
       ++sampling_counter[out_pos];
 
       // delta(l) = elem_prod(gradient(C, a(l)), activation_derivative(z(l)))
+      // TODO: shouldn't this be elem_prod (i.e. .array())?
       const auto delta = gradient_out(out_pos) * sigma_derivative_zz(out_pos);
 
       // update deltas
@@ -468,7 +472,7 @@ void yann::FullyConnectedLayer::backprop_with_sampling_internal(
         delta_bb(out_pos) += delta;
       }
       // we don't need to calculate the gradient(C, a(l)) for the "first" layer (actual inputs)
-      // gradient(C, a(l)) = transp(w(l+1)) * gradient(C, a(l+1))
+      // // gradient(C, a(l - 1)) = transp(w) * delta(l)
       if(gradient_input) {
         auto gradient_in = get_batch(*gradient_input, batch_pos);
         gradient_in.noalias() += delta * _ww.col(out_pos);

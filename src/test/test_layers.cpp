@@ -190,7 +190,10 @@ void yann::test::test_layer_feedforward(
       // ensure we don't do allocations in eigen
       BlockAllocations block;
 
+      ctx->reset_state();
       layer.feedforward(input, ctx.get());
+      BOOST_TEST_MESSAGE("expected_output=" << expected_output);
+      BOOST_TEST_MESSAGE("actual_output=" << ctx->get_output());
       BOOST_CHECK(expected_output.isApprox(ctx->get_output(), TEST_TOLERANCE));
     }
   }
@@ -205,7 +208,10 @@ void yann::test::test_layer_feedforward(
       // ensure we don't do allocations in eigen
       BlockAllocations block;
 
+      ctx->reset_state();
       layer.feedforward(input, ctx.get());
+      BOOST_TEST_MESSAGE("expected_output=" << expected_output);
+      BOOST_TEST_MESSAGE("actual_output=" << output);
       BOOST_CHECK(expected_output.isApprox(output, TEST_TOLERANCE));
     }
   }
@@ -218,7 +224,7 @@ void yann::test::test_layer_backprop(
     const RefConstVectorBatch & input,
     boost::optional<RefConstVectorBatch> expected_input,
     const RefConstVectorBatch & expected_output,
-    std::unique_ptr<CostFunction> cost,
+    std::unique_ptr<CostFunction> cost_func,
     const double learning_rate,
     const size_t & epochs)
 {
@@ -237,12 +243,21 @@ void yann::test::test_layer_backprop(
     // ensure we don't do allocations in eigen
     BlockAllocations block;
 
+    auto tenth = epochs / 10;
+    if(tenth <= 0) tenth = 1;
     for(size_t ii = 0; ii < epochs; ++ii) {
       // feed forward
+      ctx->reset_state();
       layer.feedforward(in, ctx.get());
 
+      // calculate cost
+      auto cost = cost_func->f(ctx->get_output(), expected_output);
+      if(ii % tenth == 0) {
+        BOOST_TEST_MESSAGE("cost at " << ii << " = " << cost);
+      }
+
       // backprop
-      cost->derivative(ctx->get_output(), expected_output, gradient_output);
+      cost_func->derivative(ctx->get_output(), expected_output, gradient_output);
       YANN_CHECK(ii > 0 || gradient_output.squaredNorm() > 0); // we shouldn't have 0 gradient on first try
       layer.backprop(gradient_output, in, optional<RefVectorBatch>(gradient_input), ctx.get());
 
@@ -251,6 +266,7 @@ void yann::test::test_layer_backprop(
     }
 
     // one more time
+    ctx->reset_state();
     layer.feedforward(in, ctx.get());
   }
 
@@ -270,7 +286,7 @@ void yann::test::test_layer_training(
     Layer & layer,
     const RefConstVectorBatch & input,
     const RefConstVectorBatch & expected_output,
-    std::unique_ptr<CostFunction> cost,
+    std::unique_ptr<CostFunction> cost_func,
     const double learning_rate,
     const size_t & epochs)
 {
@@ -288,15 +304,21 @@ void yann::test::test_layer_training(
     // ensure we don't do allocations in eigen
     BlockAllocations block;
 
-    for(auto ii = epochs; ii > 0; --ii) {
-      // reset
-      ctx->reset_state();
-
+    auto tenth = epochs / 10;
+    if(tenth <= 0) tenth = 1;
+    for(size_t ii = 0; ii < epochs; ++ii) {
       // feed forward
+      ctx->reset_state();
       layer.feedforward(input, ctx.get());
 
+      // calculate cost
+      auto cost = cost_func->f(ctx->get_output(), expected_output);
+      if(ii % tenth == 0) {
+        BOOST_TEST_MESSAGE("cost at " << ii << " = " << cost);
+      }
+
       // backprop
-      cost->derivative(ctx->get_output(), expected_output, gradient_output);
+      cost_func->derivative(ctx->get_output(), expected_output, gradient_output);
       YANN_CHECK(ii > 0 || gradient_output.squaredNorm() > 0); // we shouldn't have 0 gradient on first try
       layer.backprop(gradient_output, input,
                       optional<RefVectorBatch>(gradient_input),
@@ -307,6 +329,7 @@ void yann::test::test_layer_training(
     }
 
     // one more time
+    ctx->reset_state();
     layer.feedforward(input, ctx.get());
   }
 

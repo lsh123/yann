@@ -182,7 +182,7 @@ void yann::SoftmaxLayer::feedforward(
   YANN_CHECK(is_valid());
   YANN_CHECK_GT(get_batch_size(input), 0);
   YANN_CHECK_EQ(get_batch_item_size(input), get_input_size());
-  YANN_CHECK_EQ(get_batch_size(ctx->get_output()), get_batch_size(input));
+  YANN_CHECK_LE(get_batch_size(input), get_batch_size(ctx->get_output()));
   YANN_CHECK_EQ(get_batch_item_size(ctx->get_output()), get_output_size());
 
   RefVectorBatch output = ctx->get_output();
@@ -215,12 +215,10 @@ void yann::SoftmaxLayer::backprop(
     Context * context) const
 {
   YANN_CHECK(is_valid());
-  YANN_CHECK_GT(get_batch_size(gradient_output), 0);
-  YANN_CHECK_EQ(get_batch_item_size(gradient_output), get_output_size());
-  YANN_CHECK_EQ(get_batch_size(input), get_batch_size(gradient_output));
-  YANN_CHECK_EQ(get_batch_item_size(input), get_input_size());
-  YANN_CHECK_EQ(get_batch_item_size(input), get_input_size());
-  YANN_CHECK(!gradient_input || is_same_size(input, *gradient_input));
+  YANN_SLOW_CHECK_GT(get_batch_size(gradient_output), 0);
+  YANN_SLOW_CHECK_EQ(get_batch_item_size(gradient_output), get_output_size());
+  YANN_SLOW_CHECK_EQ(get_batch_size(input), get_batch_size(gradient_output));
+  YANN_SLOW_CHECK_EQ(get_batch_item_size(input), get_input_size());
 
   auto ctx = static_cast<SoftmaxLayer_TrainingContext*>(context);
   YANN_CHECK(ctx);
@@ -229,6 +227,9 @@ void yann::SoftmaxLayer::backprop(
 
   // we don't need to calculate the gradient(C, a(l)) for the "first" layer (actual inputs)
   if(gradient_input) {
+    YANN_SLOW_CHECK_EQ(get_batch_item_size(input), get_batch_item_size(*gradient_input));
+    YANN_SLOW_CHECK_EQ(get_batch_size(input), get_batch_size(*gradient_input));
+
     const auto batch_size = get_batch_size(input);
     for(MatrixSize ii = 0; ii < batch_size; ++ii) {
       softmax_gradient(
