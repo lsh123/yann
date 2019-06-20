@@ -179,8 +179,10 @@ yann::FullyConnectedLayer::~FullyConnectedLayer()
 {
 }
 
-void yann::FullyConnectedLayer::set_activation_function(const unique_ptr<ActivationFunction> & activation_function)
+void yann::FullyConnectedLayer::set_activation_function(
+    const unique_ptr<ActivationFunction> & activation_function)
 {
+  YANN_CHECK(activation_function);
   _activation_function = activation_function->copy();
 }
 
@@ -461,7 +463,6 @@ void yann::FullyConnectedLayer::backprop_with_sampling_internal(
       ++sampling_counter[out_pos];
 
       // delta(l) = elem_prod(gradient(C, a(l)), activation_derivative(z(l)))
-      // TODO: shouldn't this be elem_prod (i.e. .array())?
       const auto delta = gradient_out(out_pos) * sigma_derivative_zz(out_pos);
 
       // update deltas
@@ -572,56 +573,22 @@ void yann::FullyConnectedLayer::read(std::istream & is)
 {
   Base::read(is);
 
-  char ch;
-  if(is >> ch && ch != '(') {
-    is.putback(ch);
-    is.setstate(std::ios_base::failbit);
-    return;
-  }
-  if(is >> ch && ch != 'w') {
-    is.putback(ch);
-    is.setstate(std::ios_base::failbit);
-    return;
-  }
-  if(is >> ch && ch != ':') {
-    is.putback(ch);
-    is.setstate(std::ios_base::failbit);
-    return;
-  }
-  is >> _ww;
-  if(is.fail()) {
-    return;
-  }
-  if(is >> ch && ch != ',') {
-    is.putback(ch);
-    is.setstate(std::ios_base::failbit);
-    return;
-  }
-  if(is >> ch && ch != 'b') {
-    is.putback(ch);
-    is.setstate(std::ios_base::failbit);
-    return;
-  }
-  if(is >> ch && ch != ':') {
-    is.putback(ch);
-    is.setstate(std::ios_base::failbit);
-    return;
-  }
-  is >> _bb;
-  if(is.fail()) {
-    return;
-  }
-  if(is >> ch && ch != ')') {
-    is.putback(ch);
-    is.setstate(std::ios_base::failbit);
-    return;
-  }
+  read_char(is, '(');
+  read_object(is, "w", _ww);
+  read_char(is, ',');
+  read_object(is, "b", _bb);
+  read_char(is, ')');
 }
 
 // the format is (w:<weights>,b:<biases>)
 void yann::FullyConnectedLayer::write(std::ostream & os) const
 {
   Base::write(os);
-  os << "(w:" << _ww << ",b:" << _bb << ")";
+
+  os << "(";
+  write_object(os, "w", _ww);
+  os << ",";
+  write_object(os, "b", _bb);
+  os << ")";
 }
 

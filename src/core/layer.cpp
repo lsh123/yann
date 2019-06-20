@@ -64,18 +64,15 @@ string yann::Layer::get_info() const
 void yann::Layer::read(istream & is)
 {
   string name;
-  char ch;
 
-  if(is >> ch && ch != '[') {
-    is.putback(ch);
-    is.setstate(std::ios_base::failbit);
-    return;
-  }
+  read_char(is, '[');
+
   while(!is.fail()) {
+    char ch;
     if(!(is >> ch)) {
       is.putback(ch);
       is.setstate(std::ios_base::failbit);
-      return;
+      throw runtime_error("can't read char");
     }
 
     if(ch == ']') {
@@ -85,9 +82,9 @@ void yann::Layer::read(istream & is)
   }
 
   if(get_name().compare(name) != 0) {
-    throw invalid_argument(
-        "invalid file format: expected name: " + get_name()
-        + " actual name: " + name);
+    throw runtime_error(
+        "invalid file format: expected name: \"" + get_name()
+        + "\" actual name: \"" + name + "\"");
   }
 }
 

@@ -6,6 +6,7 @@
 #include <boost/test/unit_test.hpp>
 
 #include "core/utils.h"
+#include "core/random.h"
 #include "core/functions.h"
 #include "core/training.h"
 
@@ -152,22 +153,18 @@ void yann::test::AvgLayer::read(istream & is)
 {
   Base::read(is);
 
-  char ch;
-  if(is >> ch && ch != '(') {
-    is.putback(ch);
-    is.setstate(ios_base::failbit);
-    return;
-  }
-  if(is >> _value >> ch && ch != ')') {
-    is.putback(ch);
-    is.setstate(ios_base::failbit);
-    return;
-  }
+  read_char(is, '(');
+  read_object(is, "v", _value);
+  read_char(is, ')');
 }
+
 void yann::test::AvgLayer::write(ostream & os) const
 {
   Base::write(os);
-  os << "(" << _value << ")";
+
+  os << "(";
+  write_object(os, "v", _value);
+  os << ")";
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -217,14 +214,13 @@ void yann::test::test_layer_feedforward(
   }
 }
 
-
 // TODO: add backprop tests for all layers
 void yann::test::test_layer_backprop(
     Layer & layer,
     const RefConstVectorBatch & input,
     boost::optional<RefConstVectorBatch> expected_input,
     const RefConstVectorBatch & expected_output,
-    std::unique_ptr<CostFunction> cost_func,
+    const std::unique_ptr<CostFunction> & cost_func,
     const double learning_rate,
     const size_t & epochs)
 {
@@ -279,14 +275,47 @@ void yann::test::test_layer_backprop(
   BOOST_TEST_MESSAGE("expected_output=" << expected_output);
   BOOST_TEST_MESSAGE("actual_output=" << ctx->get_output());
   BOOST_CHECK(expected_output.isApprox(ctx->get_output(), TEST_TOLERANCE));
+}
 
+// TODO: add test for all layers
+void yann::test::test_layer_backprop_from_random(
+    Layer & layer,
+    const MatrixSize & batch_size,
+    const std::unique_ptr<CostFunction> & cost_func,
+    const double learning_rate,
+    const size_t & epochs)
+{
+  unique_ptr<RandomGenerator> gen01 = RandomGenerator::normal_distribution(0, 1, 12345); // with seed
+  VectorBatch input, expected_input;
+
+  resize_batch(input, batch_size, layer.get_input_size());
+  resize_batch(expected_input, batch_size, layer.get_input_size());
+
+  gen01->generate(input);
+  gen01->generate(expected_input);
+
+  // feed forward to get expected output
+  auto ctx = layer.create_context(batch_size);
+  BOOST_CHECK(ctx);
+  ctx->reset_state();
+  layer.feedforward(expected_input, ctx.get());
+
+  test_layer_backprop(
+      layer,
+      input,
+      boost::none, // don't try to match expected_input since there are many options
+      ctx->get_output(),
+      cost_func,
+      learning_rate,
+      epochs
+  );
 }
 
 void yann::test::test_layer_training(
     Layer & layer,
     const RefConstVectorBatch & input,
     const RefConstVectorBatch & expected_output,
-    std::unique_ptr<CostFunction> cost_func,
+    const std::unique_ptr<CostFunction> & cost_func,
     const double learning_rate,
     const size_t & epochs)
 {
@@ -336,6 +365,36 @@ void yann::test::test_layer_training(
   BOOST_TEST_MESSAGE("expected_output=" << expected_output);
   BOOST_TEST_MESSAGE("actual_output=" << ctx->get_output());
   BOOST_CHECK(expected_output.isApprox(ctx->get_output(), TEST_TOLERANCE));
+}
+
+// TODO: add test for all layers
+void yann::test::test_layer_training_from_random(
+    Layer & layer,
+    const MatrixSize & batch_size,
+    const std::unique_ptr<CostFunction> & cost_func,
+    const double learning_rate,
+    const size_t & epochs)
+{
+  unique_ptr<RandomGenerator> gen01 = RandomGenerator::normal_distribution(0, 1, 12345); // with seed
+  VectorBatch input;
+  resize_batch(input, batch_size, layer.get_input_size());
+  gen01->generate(input);
+
+  // feed forward to get expected output
+  layer.init(Layer::InitMode_Random, Layer::InitContext(123));
+  auto ctx = layer.create_context(batch_size);
+  BOOST_CHECK(ctx);
+  ctx->reset_state();
+  layer.feedforward(input, ctx.get());
+
+  layer.init(Layer::InitMode_Random, Layer::InitContext(123456)); // DIFFERENT SEED!
+  test_layer_training(
+      layer,
+      input,
+      ctx->get_output(),
+      cost_func,
+      learning_rate,
+      epochs);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////

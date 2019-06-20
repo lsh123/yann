@@ -1,38 +1,63 @@
 /*
- * reclayer.h
+ * lstmlayer.h
  *
  *  Forward propagation:
- *    hh(t) = state_activation_function(ww_hh * hh(t-1) + ww_xh*x(t) + b_h)  // state
- *    a(t) = output_activation_function(ww_ha * hh(t) + b_a) // output
+ *    x(t) -- inputs
+ *    h(t-1) -- hidden state, aka outputs on prev timestep
+ *    c(t) -- cell state
+ *
+ *    Phase 1: I/O gates
+ *      zz_a(t) = ww_xa*x(t) + ww_ha * h(t-1) + bb_a  -- input
+ *      zz_i(t) = ww_xi*x(t) + ww_hi * h(t-1) + bb_i  -- input gate
+ *      zz_f(t) = ww_xf*x(t) + ww_hf * h(t-1) + bb_g  -- forget gate
+ *      zz_o(t) = ww_xo*x(t) + ww_ho * h(t-1) + bb_o  -- output gate
+ *
+ *      a(t) = activ1 (zz_a(t))
+ *      i(t) = activ2 (zz_i(t))
+ *      f(t) = activ2 (zz_f(t))
+ *      o(t) = activ2 (zz_o(t))
+ *
+ *    Phase 2: State
+ *      c(t) = elem_prod(i(t), a(t)) + elem_prod(f(t), c(t-1))
+ *
+ *    Phase 3: Output
+ *      h(t) = elem_prod(o(t), activ1(c(t))
  */
-
-#ifndef RECLAYER_H_
-#define RECLAYER_H_
+#ifndef LSTMLAYER_H_
+#define LSTMLAYER_H_
 
 #include "core/layer.h"
 
 namespace yann {
 
-class RecurrentLayer : public Layer
+class LstmLayer : public Layer
 {
   typedef Layer Base;
 
 public:
-  RecurrentLayer(
-      const MatrixSize & input_size,
-      const MatrixSize & state_size,
-      const MatrixSize & output_size);
-  virtual ~RecurrentLayer();
+  // use this enum to access gate's data in the arrays
+  enum IOGates {
+    Gate_A = 0,
+    Gate_I = 1,
+    Gate_F = 2,
+    Gate_O = 3,
+    Gate_Max = 4, // last value for arrays size
+  }; // enum IOGates
 
-  MatrixSize get_state_size() const;
+public:
+  LstmLayer(
+      const MatrixSize & input_size,
+      const MatrixSize & output_size);
+  virtual ~LstmLayer();
 
   void set_activation_functions(
-      const std::unique_ptr<ActivationFunction> & state_activation_function,
-      const std::unique_ptr<ActivationFunction> & output_activation_function);
+      const std::unique_ptr<ActivationFunction> & io_activation_function,
+      const std::unique_ptr<ActivationFunction> & gate_activation_function);
 
   void set_values(
-      const Matrix & ww_hh, const Matrix & ww_xh, const Vector & bb_h,
-      const Matrix & ww_ha, const Vector & bb_a);
+      const Matrix (& ww_x)[Gate_Max],
+      const Matrix (& ww_h)[Gate_Max],
+      const Vector (& bb)[Gate_Max]);
 
 public:
   // Layer overwrites
@@ -78,6 +103,19 @@ public:
   virtual void write(std::ostream & os) const;
 
 private:
+  template<
+    typename MainInputType,
+    typename InputType,
+    typename GradientInputType,
+    typename ContextType>
+  void backprop_gate(
+      enum IOGates gate,
+      const std::unique_ptr<ActivationFunction> & activation_function,
+      const RefConstVector & gradient_gate,
+      const InputType & input,
+      boost::optional<GradientInputType> gradient_input,
+      ContextType * ctx) const;
+
   template<typename InputType>
   void feedforward_internal(
         const InputType & input,
@@ -91,19 +129,14 @@ private:
       Context * context) const;
 
 private:
-  // state: hh(t) = state_activation_function(ww_hh * hh(t-1) + ww_xh*x(t) + b_h)
-  Matrix _ww_hh;
-  Matrix _ww_xh;
-  Vector _bb_h;
+  Matrix _ww_x[Gate_Max] ;
+  Matrix _ww_h[Gate_Max];
+  Vector _bb[Gate_Max];
 
-  // output: a(t) = output_activation_function(ww_ha * hh(t) + b_a)
-  Matrix _ww_ha;
-  Vector _bb_a;
-
-  std::unique_ptr<ActivationFunction> _state_activation_function;
-  std::unique_ptr<ActivationFunction> _output_activation_function;
-}; // class RecurrentLayer
+  std::unique_ptr<ActivationFunction> _io_activation_function;
+  std::unique_ptr<ActivationFunction> _gate_activation_function;
+}; // class LstmLayer
 
 }; // namespace yann
 
-#endif /* RECLAYER_H_ */
+#endif /* LSTMLAYER_H_ */

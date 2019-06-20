@@ -224,8 +224,8 @@ unique_ptr<ActivationFunction> yann::FastSigmoidFunction::copy() const
 }
 
 // tanh function:
-//  f(x) = A*tanh(S*x)
-//  df/dx = A* S* (1−(tanh(S*x))^2)
+//  f(x) = A * tanh(S*x)
+//  df/dx = A * S * (1−(tanh(S*x))^2)
 string yann::TanhFunction::get_info() const
 {
   ostringstream oss;

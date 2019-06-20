@@ -51,6 +51,7 @@ libyann_la_SOURCES = \
 	layers/convlayer.cpp \
 	layers/smaxlayer.cpp \
 	layers/reclayer.cpp \
+	layers/lstmlayer.cpp \
 	networks/fcnn.cpp \
 	networks/cnn.cpp \
 	$(NULL)
@@ -106,6 +107,7 @@ test_layers_SOURCES= \
 	test/test_convlayer.cpp \
 	test/test_smaxlayer.cpp \
 	test/test_reclayer.cpp \
+	test/test_lstmlayer.cpp \
 	$(NULL)	
 test_layers_CXXFLAGS= $(AM_CXXFLAGS) $(AM_CXXFLAGS_TEST)
 test_layers_LDFLAGS=$(AM_LDFLAGS) $(AM_LDFLAGS_TEST)

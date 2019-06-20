@@ -89,7 +89,15 @@ void test_layer_backprop(
     const RefConstVectorBatch & input,
     boost::optional<RefConstVectorBatch> expected_input,
     const RefConstVectorBatch & expected_output,
-    std::unique_ptr<CostFunction> cost,
+    const std::unique_ptr<CostFunction> & cost_func,
+    const double learning_rate,
+    const size_t & epochs);
+
+// Adjust the input vector from random input
+void test_layer_backprop_from_random(
+    Layer & layer,
+    const MatrixSize & batch_size,
+    const std::unique_ptr<CostFunction> & cost_func,
     const double learning_rate,
     const size_t & epochs);
 
@@ -98,7 +106,15 @@ void test_layer_training(
     Layer & layer,
     const RefConstVectorBatch & input,
     const RefConstVectorBatch & expected_output,
-    std::unique_ptr<CostFunction> cost,
+    const std::unique_ptr<CostFunction> & cost_func,
+    const double learning_rate,
+    const size_t & epochs);
+
+// Adjust layer params from random input
+void test_layer_training_from_random(
+    Layer & layer,
+    const MatrixSize & batch_size,
+    const std::unique_ptr<CostFunction> & cost_func,
     const double learning_rate,
     const size_t & epochs);
 

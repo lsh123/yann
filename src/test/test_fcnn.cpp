@@ -26,7 +26,6 @@ using namespace yann::test;
 
 #define MNIST_TEST_FOLDER   "../data/mnist/"
 
-// TODO: remove this
 // Enums to simplify tests
 enum ActivationMode
 {

@@ -706,56 +706,22 @@ void yann::ConvolutionalLayer::read(std::istream & is)
 {
   Base::read(is);
 
-  char ch;
-  if(is >> ch && ch != '(') {
-    is.putback(ch);
-    is.setstate(std::ios_base::failbit);
-    return;
-  }
-  if(is >> ch && ch != 'w') {
-    is.putback(ch);
-    is.setstate(std::ios_base::failbit);
-    return;
-  }
-  if(is >> ch && ch != ':') {
-    is.putback(ch);
-    is.setstate(std::ios_base::failbit);
-    return;
-  }
-  is >> _ww;
-  if(is.fail()) {
-    return;
-  }
-  if(is >> ch && ch != ',') {
-    is.putback(ch);
-    is.setstate(std::ios_base::failbit);
-    return;
-  }
-  if(is >> ch && ch != 'b') {
-    is.putback(ch);
-    is.setstate(std::ios_base::failbit);
-    return;
-  }
-  if(is >> ch && ch != ':') {
-    is.putback(ch);
-    is.setstate(std::ios_base::failbit);
-    return;
-  }
-  is >> _bb;
-  if(is.fail()) {
-    return;
-  }
-  if(is >> ch && ch != ')') {
-    is.putback(ch);
-    is.setstate(std::ios_base::failbit);
-    return;
-  }
+  read_char(is, '(');
+  read_object(is, "w", _ww);
+  read_char(is, ',');
+  read_object(is, "b", _bb);
+  read_char(is, ')');
 }
 
 // the format is (w:<weights>,b:<bias>)
 void yann::ConvolutionalLayer::write(std::ostream & os) const
 {
   Base::write(os);
-  os << "(w:" << _ww << ",b:" << _bb << ")";
+
+  os << "(";
+  write_object(os, "w", _ww);
+  os << ",";
+  write_object(os, "b", _bb);
+  os << ")";
 }
 

@@ -97,7 +97,7 @@ struct RnnTestFixture
       _words(words),
       _cur_word(0)
     {
-      auto max_batch_size = max_word_length(words) + 2; // SEPARATOR_CHAR on both ends
+      auto max_batch_size = max_word_length(words) + 1; // SEPARATOR_CHAR at the end
       YANN_CHECK_GT(max_batch_size, 0);
 
       resize_batch(_inputs_batch, max_batch_size, MAX_CHAR);
@@ -160,9 +160,9 @@ struct RnnTestFixture
         inputs.insert(ii++, from_char(ch)) = 1.0; // RowMajor
         outputs(jj++, from_char(ch)) = 1.0; // RowMajor
       }
-      inputs.insert(ii++, SEPARATOR_CHAR) = 1.0; // RowMajor
       outputs(jj++, SEPARATOR_CHAR) = 1.0; // RowMajor
 
+      YANN_SLOW_CHECK_EQ(ii, jj);
       return ii;
     }
 
@@ -189,19 +189,14 @@ struct RnnTestFixture
     layer->set_activation_functions(state_activation_function, output_activation_function);
     nn->append_layer(std::move(layer));
 
-    /*
-    auto smax_layer = make_unique<SoftmaxLayer>(nn->get_output_size());
-    nn->append_layer(std::move(smax_layer));
-    */
-
     return nn;
   }
 
-  string get_word(Network & nn, const char & start_ch = 0)
+  string get_word(Network & nn, const string & prefix = "")
   {
     ostringstream oss;
 
-    const MatrixSize batch_size = 10;
+    const MatrixSize batch_size = 32;
 
     SparseVectorBatch input;
     resize_batch(input, 1, DataSource_Words::MAX_CHAR); // one char at a time
@@ -213,14 +208,16 @@ struct RnnTestFixture
     MatrixSize cur_ch = DataSource_Words::SEPARATOR_CHAR;
     for(int ii = 0; ii < batch_size; ++ii) {
       input.setZero();
-      input.insert(0, cur_ch);
+      input.insert(0, cur_ch) = 1.0; // RowMajor
       nn.calculate(input, ctx.get());
-      cur_ch = DataSource_Words::get_char(get_batch(ctx->get_output(), 0));
-      if(cur_ch == DataSource_Words::SEPARATOR_CHAR) {
-        break;
-      }
-      if(start_ch != 0 && ii == 0) {
-        cur_ch = DataSource_Words::from_char(start_ch);
+
+      if(ii >= (MatrixSize)prefix.size()) {
+        cur_ch = DataSource_Words::get_char(get_batch(ctx->get_output(), 0));
+        if(cur_ch == DataSource_Words::SEPARATOR_CHAR) {
+          break;
+        }
+      } else {
+        cur_ch = DataSource_Words::from_char(prefix[ii]);
       }
       oss << DataSource_Words::to_char(cur_ch);
     }
@@ -234,28 +231,27 @@ struct RnnTestFixture
 BOOST_FIXTURE_TEST_SUITE(RnnTest, RnnTestFixture);
 
 
-BOOST_AUTO_TEST_CASE(Training_Test)
+BOOST_AUTO_TEST_CASE(Training_TwoFruits_Test)
 {
   BOOST_TEST_MESSAGE("*** RecurrentNeuralNetwork training test ...");
   const MatrixSize state_size = 50;
-  const double learning_rate = 0.01;
+  const double learning_rate = 0.9;
   const double regularization = 0.0;
-  const size_t epochs = 10000;
-  const size_t epochs_breaks = 10;
+  const size_t epochs = 50;
 
-  DataSource_Words data_source(SMALL_FRUITS);
+  DataSource_Words data_source({"lemon", "apple"});
 
   auto nn = create_one_layer_rnn(
       DataSource_Words::MAX_CHAR, // input_size
       state_size,
       DataSource_Words::MAX_CHAR, // output_size
       make_unique<SigmoidFunction>(),
-      make_unique<SigmoidFunction>() // make_unique<IdentityFunction>()
+      make_unique<SigmoidFunction>()
   );
   YANN_CHECK(nn);
 
   nn->set_cost_function(make_unique<CrossEntropyCost>());
-  nn->init(Layer::InitMode_Random, Layer::InitContext(12345));
+  nn->init(Layer::InitMode_Random, Layer::InitContext(123456));
 
   // train the network
   Trainer trainer(make_unique<Updater_GradientDescent>(
@@ -263,21 +259,100 @@ BOOST_AUTO_TEST_CASE(Training_Test)
   // trainer.set_batch_progress_callback(batch_progress_callback);
   // trainer.set_epochs_progress_callback(ecpoch_progress_callback);
 
-  for(size_t ii = 0; ii < epochs_breaks; ++ii) {
-    Value cost = trainer.train(*nn, data_source, epochs / epochs_breaks);
-    DBG(cost);
-
-    DBG(get_word(*nn));
-    DBG(get_word(*nn, 'a'));
-    DBG(get_word(*nn, 'f'));
-    DBG(get_word(*nn, 'g'));
-    DBG(get_word(*nn, 'l'));
-    DBG(get_word(*nn, 'm'));
-    DBG(get_word(*nn, 'p'));
-  }
-  // DBG(*nn);
+  Value cost = trainer.train(*nn, data_source, epochs);
+  BOOST_CHECK_LE(cost, 10.0);
+  BOOST_CHECK_EQUAL(get_word(*nn), "apple");
+  BOOST_CHECK_EQUAL(get_word(*nn, "a"), "apple");
+  BOOST_CHECK_EQUAL(get_word(*nn, "l"), "lemon");
 }
 
+
+BOOST_AUTO_TEST_CASE(Training_AllFruits_Test)
+{
+  BOOST_TEST_MESSAGE("*** RecurrentNeuralNetwork training test ...");
+  const MatrixSize state_size = 50;
+  const double learning_rate = 0.5;
+  const double regularization = 0.0;
+  const size_t epochs = 200;
+
+  DataSource_Words data_source(FRUITS);
+
+  auto nn = create_one_layer_rnn(
+      DataSource_Words::MAX_CHAR, // input_size
+      state_size,
+      DataSource_Words::MAX_CHAR, // output_size
+      make_unique<SigmoidFunction>(),
+      make_unique<SigmoidFunction>()
+  );
+  YANN_CHECK(nn);
+
+  // auto smax_layer = make_unique<SoftmaxLayer>(nn->get_output_size());
+  // nn->append_layer(std::move(smax_layer));
+
+  nn->set_cost_function(make_unique<CrossEntropyCost>());
+  nn->init(Layer::InitMode_Random, Layer::InitContext(123456));
+
+  // train the network
+  Trainer trainer(make_unique<Updater_GradientDescent>(
+      learning_rate, regularization));
+  // trainer.set_batch_progress_callback(batch_progress_callback);
+  // trainer.set_epochs_progress_callback(ecpoch_progress_callback);
+
+  Value cost = trainer.train(*nn, data_source, epochs);
+  BOOST_CHECK_LE(cost, 10.0);
+  BOOST_CHECK_EQUAL(get_word(*nn),        "raspberry");
+  BOOST_CHECK_EQUAL(get_word(*nn, "a"),   "apricot");
+  BOOST_CHECK_EQUAL(get_word(*nn, "b"),   "blueberry");
+  BOOST_CHECK_EQUAL(get_word(*nn, "ba"),  "banana");
+  BOOST_CHECK_EQUAL(get_word(*nn, "l"),   "loquat");
+  BOOST_CHECK_EQUAL(get_word(*nn, "le"),  "lemon");
+  BOOST_CHECK_EQUAL(get_word(*nn, "o"),   "orange");
+  BOOST_CHECK_EQUAL(get_word(*nn, "to"),  "tomato");
+}
+
+BOOST_AUTO_TEST_CASE(Training_AllFruits_Tanh_Test, * disabled())
+{
+  BOOST_TEST_MESSAGE("*** RecurrentNeuralNetwork training test ...");
+  const MatrixSize state_size = 100;
+  const double learning_rate = 0.0001;
+  const double regularization = 0.0;
+  const size_t epochs = 5000;
+
+  DataSource_Words data_source({"apple", "lemon"});
+
+  auto nn = create_one_layer_rnn(
+      DataSource_Words::MAX_CHAR, // input_size
+      state_size,
+      DataSource_Words::MAX_CHAR, // output_size
+      make_unique<TanhFunction>(),
+      make_unique<IdentityFunction>() // make_unique<SigmoidFunction>()
+  );
+  YANN_CHECK(nn);
+
+  auto smax_layer = make_unique<SoftmaxLayer>(nn->get_output_size());
+  nn->append_layer(std::move(smax_layer));
+
+  nn->set_cost_function(make_unique<CrossEntropyCost>());
+  nn->init(Layer::InitMode_Random, Layer::InitContext(123456));
+
+  // train the network
+  Trainer trainer(make_unique<Updater_GradientDescent>(
+      learning_rate, regularization));
+  // trainer.set_batch_progress_callback(batch_progress_callback);
+  // trainer.set_epochs_progress_callback(ecpoch_progress_callback);
+
+  for(int ii = 0; ii < 10; ++ ii) {
+    DBG(ii);
+    Value cost = trainer.train(*nn, data_source, epochs);
+    DBG(cost);
+    DBG(get_word(*nn, ""));
+    DBG(get_word(*nn, "a"));
+    DBG(get_word(*nn, "l"));
+    DBG(get_word(*nn, "b"));
+    DBG(get_word(*nn, "o"));
+    DBG(get_word(*nn, "w"));
+  }
+}
 
 BOOST_AUTO_TEST_SUITE_END()
 

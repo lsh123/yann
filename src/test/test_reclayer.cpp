@@ -188,6 +188,31 @@ BOOST_AUTO_TEST_CASE(Backprop_Test)
   );
 }
 
+BOOST_AUTO_TEST_CASE(RandomBackprop_Test)
+{
+  BOOST_TEST_MESSAGE("*** RecurrentLayer backprop with random inputs and weights ...");
+
+  const MatrixSize input_size  = 5;
+  const MatrixSize state_size  = 4;
+  const MatrixSize output_size = 3;
+  const MatrixSize batch_size  = 3;
+  const double learning_rate = 5.0;
+  const size_t epochs = 10000;
+
+  auto layer = make_unique<RecurrentLayer>(input_size, state_size, output_size);
+  layer->set_activation_functions(
+      make_unique<SigmoidFunction>(),
+      make_unique<TanhFunction>());
+  layer->init(Layer::InitMode_Random, Layer::InitContext(123));
+
+  test_layer_backprop_from_random(
+      *layer,
+      batch_size,
+      make_unique<QuadraticCost>(),
+      learning_rate,
+      epochs
+  );
+}
 
 BOOST_AUTO_TEST_CASE(Training_WithIdentity_Test)
 {

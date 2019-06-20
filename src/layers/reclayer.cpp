@@ -91,7 +91,7 @@ private:
 
 protected:
   MatrixSize _pos;
-  VectorBatch  _hh;
+  VectorBatch  _hh;       // state (save it for each step)
   VectorBatch  _zz_h;
   VectorBatch  _zz_a;
 }; // class RecurrentLayer_Context
@@ -254,6 +254,8 @@ void yann::RecurrentLayer::set_activation_functions(
     const std::unique_ptr<ActivationFunction> & state_activation_function,
     const std::unique_ptr<ActivationFunction> & output_activation_function)
 {
+  YANN_CHECK(state_activation_function);
+  YANN_CHECK(output_activation_function);
   _state_activation_function = state_activation_function->copy();
   _output_activation_function = output_activation_function->copy();
 }
@@ -518,9 +520,9 @@ void yann::RecurrentLayer::backprop_internal(
 
     // dC/d ww_hh(t) = hh(t-1) * delta_h(t)
     if(ctx->_pos > 0) {
-      auto hh_prev = get_batch(ctx->_hh, ctx->_pos - 1);
+      auto prev_hh = get_batch(ctx->_hh, ctx->_pos - 1);
       YANN_SLOW_CHECK(is_same_size(delta_ww_hh, _ww_hh));
-      delta_ww_hh.noalias() += MatrixFunctions<InputType>::product(hh_prev.transpose(), delta_h);
+      delta_ww_hh.noalias() += MatrixFunctions<InputType>::product(prev_hh.transpose(), delta_h);
     }
 
     // gradient(C, hh(t-1)) = transp(ww_hh) * delta_h(t)
@@ -594,40 +596,12 @@ void yann::RecurrentLayer::update(Context * context, const size_t & batch_size)
   YANN_SLOW_CHECK(is_same_size(_ww_ha, ctx->_delta_ww_ha));
   YANN_SLOW_CHECK(is_same_size(_bb_a, ctx->_delta_bb_a));
 
-  ctx->_ww_hh_updater->update(ctx->_delta_ww_hh, batch_size, _ww_hh);
-  ctx->_ww_xh_updater->update(ctx->_delta_ww_xh, batch_size, _ww_xh);
-  ctx->_bb_h_updater->update(ctx->_delta_bb_h, batch_size, _bb_h);
-  ctx->_ww_ha_updater->update(ctx->_delta_ww_ha, batch_size, _ww_ha);
-  ctx->_bb_a_updater->update(ctx->_delta_bb_a, batch_size, _bb_a);
-}
-
-template<typename OutputType>
-bool yann::RecurrentLayer::read(std::istream & is, const char ch1, const char ch2, OutputType & out)
-{
-  char ch;
-
-  if(is >> ch && ch != ch1) {
-    is.putback(ch);
-    is.setstate(std::ios_base::failbit);
-    return false;
-  }
-  if(is >> ch && ch != ch2) {
-    is.putback(ch);
-    is.setstate(std::ios_base::failbit);
-    return false;
-  }
-  if(is >> ch && ch != ':') {
-    is.putback(ch);
-    is.setstate(std::ios_base::failbit);
-    return false;
-  }
-  is >> out;
-  if(is.fail()) {
-    return false;
-  }
-
-  // done!
-  return true;
+  // set batch_size to 1 since we don't really operate on batches
+  ctx->_ww_hh_updater->update(ctx->_delta_ww_hh, 1, _ww_hh);
+  ctx->_ww_xh_updater->update(ctx->_delta_ww_xh, 1, _ww_xh);
+  ctx->_bb_h_updater->update(ctx->_delta_bb_h, 1, _bb_h);
+  ctx->_ww_ha_updater->update(ctx->_delta_ww_ha, 1, _ww_ha);
+  ctx->_bb_a_updater->update(ctx->_delta_bb_a, 1, _bb_a);
 }
 
 // the format is (wh:<_ww_hh>,wx:<_ww_xh>,bh:<_bb_h>,wa:<_ww_ha>,ba:<_bb_a>)
@@ -635,63 +609,34 @@ void yann::RecurrentLayer::read(std::istream & is)
 {
   Base::read(is);
 
-  char ch;
-  if(is >> ch && ch != '(') {
-    is.putback(ch);
-    is.setstate(std::ios_base::failbit);
-    return;
-  }
-  if(!read(is, 'w', 'h', _ww_hh)) {
-    return;
-  }
-  if(is >> ch && ch != ',') {
-    is.putback(ch);
-    is.setstate(std::ios_base::failbit);
-    return;
-  }
-  if(!read(is, 'w', 'x', _ww_xh)) {
-    return;
-  }
-  if(is >> ch && ch != ',') {
-    is.putback(ch);
-    is.setstate(std::ios_base::failbit);
-    return;
-  }
-  if(!read(is, 'b', 'h', _bb_h)) {
-    return;
-  }
-  if(is >> ch && ch != ',') {
-    is.putback(ch);
-    is.setstate(std::ios_base::failbit);
-    return;
-  }
-  if(!read(is, 'w', 'a', _ww_ha)) {
-    return;
-  }
-  if(is >> ch && ch != ',') {
-    is.putback(ch);
-    is.setstate(std::ios_base::failbit);
-    return;
-  }
-  if(!read(is, 'b', 'a', _bb_a)) {
-    return;
-  }
-  if(is >> ch && ch != ')') {
-    is.putback(ch);
-    is.setstate(std::ios_base::failbit);
-    return;
-  }
+  read_char(is, '(');
+  read_object(is, "wh", _ww_hh);
+  read_char(is, ',');
+  read_object(is, "wx", _ww_xh);
+  read_char(is, ',');
+  read_object(is, "bh", _bb_h);
+  read_char(is, ',');
+  read_object(is, "wa", _ww_ha);
+  read_char(is, ',');
+  read_object(is, "ba", _bb_a);
+  read_char(is, ')');
 }
 
 // the format is (wh:<_ww_hh>,wx:<_ww_xh>,bh:<_bb_h>,wa:<_ww_ha>,ba:<_bb_a>)
 void yann::RecurrentLayer::write(std::ostream & os) const
 {
   Base::write(os);
-  os << "(wh:" << _ww_hh
-     << ",wx:" << _ww_xh
-     << ",bh:" << _bb_h
-     << ",wa:" << _ww_ha
-     << ",ba:" << _bb_a
-     << ")";
+
+  os << "(";
+  write_object(os, "wh", _ww_hh);
+  os << ",";
+  write_object(os, "wx", _ww_xh);
+  os << ",";
+  write_object(os, "bh", _bb_h);
+  os << ",";
+  write_object(os, "wa", _ww_ha);
+  os << ",";
+  write_object(os, "ba", _bb_a);
+  os << ")";
 }
 

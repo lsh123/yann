@@ -97,27 +97,17 @@ void yann::ContainerLayer::read(std::istream & is)
 {
   Base::read(is);
 
-  char ch;
-  if(is >> ch && ch != '(') {
-    is.putback(ch);
-    is.setstate(std::ios_base::failbit);
-    return;
-  }
+  read_char(is, '(');
+
   size_t ii = 0;
   for(auto & layer: _layers) {
-    if(ii > 0 && is >> ch && ch != ',') {
-      is.putback(ch);
-      is.setstate(std::ios_base::failbit);
-      return;
+    if(ii > 0) {
+      read_char(is, ',');
     }
     layer->read(is);
     ++ii;
   }
-  if(is >> ch && ch != ')') {
-    is.putback(ch);
-    is.setstate(std::ios_base::failbit);
-    return;
-  }
+  read_char(is, ')');
 }
 
 // the format is (<layer0>,<layer1>,...)

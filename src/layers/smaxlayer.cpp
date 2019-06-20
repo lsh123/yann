@@ -266,6 +266,7 @@ void yann::SoftmaxLayer::update(Context * context, const size_t & batch_size)
 void yann::SoftmaxLayer::read(std::istream & is)
 {
   Base::read(is);
+
   // nothing to do
 }
 

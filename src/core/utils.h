@@ -11,6 +11,7 @@
 #include <iomanip>
 #include <string>
 #include <sstream>
+#include <exception>
 
 #include <boost/assert.hpp>
 
@@ -73,6 +74,45 @@
 
 namespace yann {
 
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// read/write helpers for <name>:<object> format
+//
+inline void read_char(std::istream & is, const char & expected)
+{
+  char ch;
+  if(is >> ch && ch != expected) {
+    is.putback(ch);
+    is.setstate(std::ios_base::failbit);
+    throw std::runtime_error(
+        std::string("expected char: '") + expected +
+        std::string("', actual char: '") + ch + std::string("'")
+    );
+  }
+}
+
+template<typename ObjectType>
+inline void read_object(std::istream & is, const std::string & name, ObjectType & obj)
+{
+  for(size_t pos = 0; pos < name.size(); ++pos) {
+    read_char(is, name[pos]);
+  }
+  read_char(is, ':');
+
+  is >> obj;
+
+  if(is.fail()) {
+    throw std::runtime_error(std::string("failed to read \"") + name + std::string("\""));
+  }
+}
+
+template<typename ObjectType>
+inline std::ostream & write_object(std::ostream & os, const std::string & name, const ObjectType & obj)
+{
+  os << name << ":" << obj;
+  return os;
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //
