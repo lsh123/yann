@@ -373,7 +373,7 @@ pair<double, Value> yann::test::MnistTest::test(
 
 pair<double, Value> yann::test::MnistTest::train_and_test(
     Network & nn,
-    const Trainer & trainer,
+    Trainer & trainer,
     DataSource_Stochastic::Mode mode,
     const MatrixSize & training_batch_size,
     const size_t & epochs,
@@ -387,54 +387,64 @@ pair<double, Value> yann::test::MnistTest::train_and_test(
   // training
   double test_success_rate = 0, training_success_rate = 0;
   Value test_cost = 0, training_cost = 0;
+  auto epochs_callback = [&](const MatrixSize & epoch, const MatrixSize & epochs, const std::string & message) {
+    {
+      Timer timer("Testing against training dataset");
+      pair<double, Value> res = test(nn, _training, test_batch_size);
+      training_success_rate = res.first;
+      training_cost = res.second;
+      BOOST_TEST_MESSAGE(timer);
+    }
+    {
+      Timer timer("Testing against test dataset");
+      pair<double, Value> res = test(nn, _testing, test_batch_size);
+      test_success_rate = res.first;
+      test_cost = res.second;
+      BOOST_TEST_MESSAGE(timer);
+    }
+
+    string extra = (epoch <= 0) ? " (before training)" : "";
+    BOOST_TEST_MESSAGE(
+        "Success rate for epoch " << epoch << extra << ":"
+            << " against training dataset: " << training_success_rate * 100 << "%"
+            << " against test dataset: " << test_success_rate* 100 << "%"
+    );
+    BOOST_TEST_MESSAGE(
+        "Cost per test for epoch " << epoch << extra << ":"
+            << " against training dataset: " << training_cost
+            << " against test dataset: " << test_cost
+    );
+
+    BOOST_TEST_MESSAGE("\n");
+
+    if(epoch + 1 < epochs) {
+      if(!message.empty()) {
+        BOOST_TEST_MESSAGE("*** Training epoch " << (epoch + 1) << " out of " << epochs << " (" << message << ")");
+      } else {
+        BOOST_TEST_MESSAGE("*** Training epoch " << (epoch + 1) << " out of " << epochs);
+      }
+    }
+  };
+
+  // test ones before training
+  BOOST_TEST_MESSAGE("\n");
+  BOOST_TEST_MESSAGE("*** Testing before training");
+  epochs_callback(0, epochs, "");
+
+  // train
   {
     Timer timer("Total training/testing");
-    for (size_t epoch = 0; epoch <= epochs; ++epoch) {
-      // epoch 0 is to run tests before training
-      if(epoch > 0) {
-        BOOST_TEST_MESSAGE("Training epoch " << epoch << " out of " << epochs);
-        {
-          DataSource_Stochastic data_source(
-              _training.images(),
-              _training.labels(),
-              mode,
-              training_batch_size);
+    DataSource_Stochastic data_source(
+                _training.images(),
+                _training.labels(),
+                mode,
+                training_batch_size);
+    trainer.set_epochs_progress_callback(epochs_callback);
+    trainer.train(nn, data_source, epochs);
 
-          Timer timer("Training");
-          trainer.train(nn, data_source);
-          BOOST_TEST_MESSAGE(timer);
-        }
-      }
-
-      {
-        Timer timer("Testing against training dataset");
-        pair<double, Value> res = test(nn, _training, test_batch_size);
-        training_success_rate = res.first;
-        training_cost = res.second;
-        BOOST_TEST_MESSAGE(timer);
-      }
-      {
-        Timer timer("Testing against test dataset");
-        pair<double, Value> res = test(nn, _testing, test_batch_size);
-        test_success_rate = res.first;
-        test_cost = res.second;
-        BOOST_TEST_MESSAGE(timer);
-      }
-
-      string extra = (epoch == 0) ? " (before training)" : "";
-      BOOST_TEST_MESSAGE(
-          "Success rate for epoch " << epoch << extra << ":"
-              << " against training dataset: " << training_success_rate * 100 << "%"
-              << " against test dataset: " << test_success_rate* 100 << "%"
-      );
-      BOOST_TEST_MESSAGE(
-          "Cost/loss per test for epoch " << epoch << extra << ":"
-              << " against training dataset: " << training_cost
-              << " against test dataset: " << test_cost
-      );
-    }
     BOOST_TEST_MESSAGE(timer << "\n");
   }
+
 
   // done
   return make_pair(test_success_rate, test_cost);

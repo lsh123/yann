@@ -1,11 +1,12 @@
 /*
- * nntraining.h
+ * training.h
  *
  */
-#ifndef NNTRAINING_H_
-#define NNTRAINING_H_
+#ifndef TRAINING_H_
+#define TRAINING_H_
 
 #include <iostream>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -14,63 +15,10 @@
 
 namespace yann {
 
-// Updates the values according to the gradient descent with weight decay
-class Updater_GradientDescent :
-    public Layer::Updater
-{
-public:
-  Updater_GradientDescent(double learning_rate = 1.0, double regularization_parameter = 0.0);
-
-  // Layer::Updater overwrites
-  virtual std::string get_info() const;
-  virtual std::unique_ptr<Layer::Updater> copy() const;
-
-  virtual void init(const MatrixSize & rows, const MatrixSize & cols);
-  virtual void reset();
-  virtual void update(const RefConstMatrix & delta, const size_t & batch_size, RefMatrix value);
-  virtual void update(const Value & delta, const size_t & batch_size, Value & value);
-
-private:
-  double learning_factor(const size_t & batch_size) const;
-  double decay_factor(const size_t & batch_size) const;
-
-private:
-  double _learning_rate;
-  double _regularization_parameter;
-}; // Updater_GradientDescent
-
-// Updates the values according to the gradient descent with momentum and weight decay:
-//
-class Updater_GradientDescentWithMomentum :
-    public Layer::Updater
-{
-public:
-  Updater_GradientDescentWithMomentum(double learning_rate = 1.0, double regularization_parameter = 0.0);
-
-  // Layer::Updater overwrites
-  virtual std::string get_info() const;
-  virtual std::unique_ptr<Layer::Updater> copy() const;
-
-  virtual void init(const MatrixSize & rows, const MatrixSize & cols);
-  virtual void reset();
-  virtual void update(const RefConstMatrix & delta, const size_t & batch_size, RefMatrix value);
-  virtual void update(const Value & delta, const size_t & batch_size, Value & value);
-
-private:
-  double learning_factor(const size_t & batch_size) const;
-  double decay_factor(const size_t & batch_size) const;
-
-private:
-  double _learning_rate;
-  double _regularization_parameter;
-  Matrix _velocity;
-}; // Updater_GradientDescentWithMomentum
-
-
 class Trainer
 {
 public:
-  typedef void (*ProgressCallback)(const MatrixSize & cur, const MatrixSize & total, const std::string & message);
+  typedef std::function<void(const MatrixSize & cur, const MatrixSize & total, const std::string & message)> ProgressCallback;
 
   class DataSource {
   public:
@@ -115,11 +63,13 @@ public:
   virtual ~Trainer();
 
   std::string get_info() const;
-  Value train(Network & nn, DataSource & data_source) const;
   Value train(Network & nn, DataSource & data_source, const size_t & epochs) const;
 
   void set_batch_progress_callback(ProgressCallback callback) {  _batch_progress_callback = callback; }
   void set_epochs_progress_callback(ProgressCallback callback) {  _epochs_progress_callback = callback; }
+
+private:
+  Value train(Network & nn, DataSource & data_source, TrainingContext * ctx) const;
 
 protected:
   std::unique_ptr<Layer::Updater> _updater;
@@ -167,4 +117,4 @@ private:
 
 }; // namespace yann
 
-#endif /* NNTRAINING_H_ */
+#endif /* TRAINING_H_ */

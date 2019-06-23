@@ -76,6 +76,8 @@ public:
   // Layer::Context overwrites
   virtual void reset_state()
   {
+    Base::reset_state();
+
     _pos = 0;
   }
 
@@ -139,8 +141,31 @@ public:
   }
 
   // Layer::Context overwrites
+  virtual void start_epoch()
+  {
+    YANN_SLOW_CHECK(_ww_hh_updater);
+    YANN_SLOW_CHECK(_ww_xh_updater);
+    YANN_SLOW_CHECK(_bb_h_updater);
+    YANN_SLOW_CHECK(_ww_ha_updater);
+    YANN_SLOW_CHECK(_bb_a_updater);
+
+    Base::start_epoch();
+
+    _ww_hh_updater->start_epoch();
+    _ww_xh_updater->start_epoch();
+    _bb_h_updater->start_epoch();
+    _ww_ha_updater->start_epoch();
+    _bb_a_updater->start_epoch();
+  }
+
   virtual void reset_state()
   {
+    YANN_SLOW_CHECK(_ww_hh_updater);
+    YANN_SLOW_CHECK(_ww_xh_updater);
+    YANN_SLOW_CHECK(_bb_h_updater);
+    YANN_SLOW_CHECK(_ww_ha_updater);
+    YANN_SLOW_CHECK(_bb_a_updater);
+
     Base::reset_state();
 
     _gradient_h.setZero();

@@ -413,6 +413,12 @@ RefConstVectorBatch yann::Context::get_output(const MatrixSize & pos) const
   return ctx->get_output(pos);
 }
 
+void yann::Context::start_epoch()
+{
+  YANN_CHECK(is_valid());
+  _container_ctx->start_epoch();
+}
+
 void yann::Context::reset_state()
 {
   YANN_CHECK(is_valid());

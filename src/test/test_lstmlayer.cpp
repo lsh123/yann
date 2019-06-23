@@ -90,6 +90,7 @@ BOOST_AUTO_TEST_CASE(FeedForward_Test)
       0.5, 0.6, 0.7, 0.8;
 
   auto layer = make_unique<LstmLayer>(input_size, output_size);
+  BOOST_CHECK(layer);
   layer->set_values(ww_x, ww_h, bb);
 
   // identity
@@ -150,6 +151,7 @@ BOOST_AUTO_TEST_CASE(Backprop_Test)
       0.1593, 0.1593, 0.1593;
 
   auto layer = make_unique<LstmLayer>(input_size, output_size);
+  BOOST_CHECK(layer);
   layer->set_values(ww_x, ww_h, bb);
   layer->set_activation_functions(
       make_unique<IdentityFunction>(),
@@ -177,9 +179,10 @@ BOOST_AUTO_TEST_CASE(RandomBackprop_Test)
   const size_t epochs = 15000;
 
   auto layer = make_unique<LstmLayer>(input_size, output_size);
+  BOOST_CHECK(layer);
   layer->set_activation_functions(
-      make_unique<TanhFunction>(),
-      make_unique<SigmoidFunction>());
+      make_unique<SigmoidFunction>(),
+      make_unique<TanhFunction>());
   layer->init(Layer::InitMode_Random, Layer::InitContext(123));
 
   test_layer_backprop_from_random(
@@ -280,9 +283,10 @@ BOOST_AUTO_TEST_CASE(RandomTraining_Test)
   const size_t epochs = 10000;
 
   auto layer = make_unique<LstmLayer>(input_size, output_size);
+  BOOST_CHECK(layer);
   layer->set_activation_functions(
-      make_unique<TanhFunction>(),
-      make_unique<SigmoidFunction>());
+      make_unique<SigmoidFunction>(),
+      make_unique<TanhFunction>());
 
   test_layer_training_from_random(
       *layer,

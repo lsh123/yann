@@ -82,7 +82,7 @@ void yann::test::batch_progress_callback(const MatrixSize & cur_pos, const Matri
   }
 }
 
-void yann::test::ecpoch_progress_callback(const MatrixSize & cur_pos, const MatrixSize & total, const std::string & message)
+void yann::test::epoch_progress_callback(const MatrixSize & cur_pos, const MatrixSize & total, const std::string & message)
 {
   if(!message.empty()) {
     BOOST_TEST_MESSAGE("*** Epoch " << cur_pos << " out of " << total << " (" << message << ")");

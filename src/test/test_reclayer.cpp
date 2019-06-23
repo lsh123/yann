@@ -102,6 +102,7 @@ BOOST_AUTO_TEST_CASE(FeedForward_Test)
       0.5, 0.6, 0.7, 0.8;
 
   auto layer = make_unique<RecurrentLayer>(input_size, state_size, output_size);
+  BOOST_CHECK(layer);
   layer->set_values(ww_hh, ww_xh, bb_h, ww_ha, bb_a);
 
   // identity
@@ -172,6 +173,7 @@ BOOST_AUTO_TEST_CASE(Backprop_Test)
       -0.282, 0.936;
 
   auto layer = make_unique<RecurrentLayer>(input_size, state_size, output_size);
+  BOOST_CHECK(layer);
   layer->set_values(ww_hh, ww_xh, bb_h, ww_ha, bb_a);
   layer->set_activation_functions(
       make_unique<IdentityFunction>(),
@@ -200,15 +202,16 @@ BOOST_AUTO_TEST_CASE(RandomBackprop_Test)
   const size_t epochs = 10000;
 
   auto layer = make_unique<RecurrentLayer>(input_size, state_size, output_size);
+  BOOST_CHECK(layer);
   layer->set_activation_functions(
       make_unique<SigmoidFunction>(),
-      make_unique<TanhFunction>());
+      make_unique<SigmoidFunction>());
   layer->init(Layer::InitMode_Random, Layer::InitContext(123));
 
   test_layer_backprop_from_random(
       *layer,
       batch_size,
-      make_unique<QuadraticCost>(),
+      make_unique<CrossEntropyCost>(),
       learning_rate,
       epochs
   );
@@ -298,6 +301,31 @@ BOOST_AUTO_TEST_CASE(Training_WithSigmoid_Test)
   );
 }
 
+BOOST_AUTO_TEST_CASE(RandomTraining_Test)
+{
+  BOOST_TEST_MESSAGE("*** RecurrentLayer training with random inputs ...");
+
+  const MatrixSize input_size  = 6;
+  const MatrixSize state_size  = 5;
+  const MatrixSize output_size = 3;
+  const MatrixSize batch_size = 5;
+  const double learning_rate = 0.1;
+  const size_t epochs = 10000;
+
+  auto layer = make_unique<RecurrentLayer>(input_size, state_size, output_size);
+  BOOST_CHECK(layer);
+  layer->set_activation_functions(
+      make_unique<SigmoidFunction>(),
+      make_unique<SigmoidFunction>());
+
+  test_layer_training_from_random(
+      *layer,
+      batch_size,
+      make_unique<CrossEntropyCost>(),
+      learning_rate,
+      epochs
+  );
+}
 
 BOOST_AUTO_TEST_SUITE_END()
 

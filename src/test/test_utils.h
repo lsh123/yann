@@ -55,7 +55,7 @@ private:
 
 // Progress callback for Trainer::ProgressCallback
 void batch_progress_callback(const MatrixSize & cur_pos, const MatrixSize & total, const std::string & message);
-void ecpoch_progress_callback(const MatrixSize & cur_pos, const MatrixSize & total, const std::string & message);
+void epoch_progress_callback(const MatrixSize & cur_pos, const MatrixSize & total, const std::string & message);
 
 }; // namespace yann::test
 

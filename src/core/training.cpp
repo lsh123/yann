@@ -1,5 +1,5 @@
 /*
- * nntraining.cpp
+ * training.cpp
  *
  */
 #include <algorithm>
@@ -13,136 +13,6 @@
 
 using namespace std;
 using namespace yann;
-
-
-////////////////////////////////////////////////////////////////////////////////////////////////
-//
-// Updater_GradientDescent implementation
-//
-yann::Updater_GradientDescent::Updater_GradientDescent(
-    double learning_rate,
-    double regularization_parameter) :
-    _learning_rate(learning_rate),
-    _regularization_parameter(regularization_parameter)
-{
-
-}
-
-std::string yann::Updater_GradientDescent::get_info() const
-{
-  ostringstream oss;
-  oss << "GradientDescent["
-      << "learning_rate=" << _learning_rate
-      << ", regularization_parameter=" << _regularization_parameter
-      << "]";
-  return oss.str();
-}
-
-std::unique_ptr<Layer::Updater> yann::Updater_GradientDescent::copy() const
-{
-  return make_unique<Updater_GradientDescent>(*this);
-}
-
-void yann::Updater_GradientDescent::init(const MatrixSize & rows, const MatrixSize & cols)
-{
-  // do nothing
-}
-
-void yann::Updater_GradientDescent::reset()
-{
-  // do nothing
-}
-
-double yann::Updater_GradientDescent::learning_factor(const size_t & batch_size) const
-{
-  YANN_CHECK_GT(batch_size, 0);
-  return _learning_rate / (double) batch_size;
-}
-
-double yann::Updater_GradientDescent::decay_factor(const size_t & batch_size) const
-{
-  YANN_CHECK_GT(batch_size, 0);
-  YANN_CHECK_GT(batch_size, _regularization_parameter * _learning_rate);
-  return 1 - _regularization_parameter * _learning_rate / (double) batch_size;
-}
-
-void yann::Updater_GradientDescent::update(const RefConstMatrix & delta, const size_t & batch_size, RefMatrix value)
-{
-  YANN_CHECK(is_same_size(delta, value));
-  value = decay_factor(batch_size) * value - learning_factor(batch_size) * delta;
-}
-
-void yann::Updater_GradientDescent::update(const Value & delta, const size_t & batch_size, Value & value)
-{
-  value = decay_factor(batch_size) * value - learning_factor(batch_size) * delta;
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////
-//
-// Updater_GradientDescentWithMomentum implementation
-//
-yann::Updater_GradientDescentWithMomentum::Updater_GradientDescentWithMomentum(
-    double learning_rate,
-    double regularization_parameter) :
-    _learning_rate(learning_rate),
-    _regularization_parameter(regularization_parameter)
-{
-}
-
-std::string yann::Updater_GradientDescentWithMomentum::get_info() const
-{
-  ostringstream oss;
-  oss << "GradientDescentWithMomentum["
-      << "learning_rate=" << _learning_rate
-      << ", regularization_parameter=" << _regularization_parameter
-      << "]";
-  return oss.str();
-}
-
-std::unique_ptr<Layer::Updater> yann::Updater_GradientDescentWithMomentum::copy() const
-{
-  return make_unique<Updater_GradientDescentWithMomentum>(*this);
-}
-
-void yann::Updater_GradientDescentWithMomentum::init(const MatrixSize & rows, const MatrixSize & cols)
-{
-  _velocity.resize(rows, cols);
-}
-
-void yann::Updater_GradientDescentWithMomentum::reset()
-{
-  _velocity.setZero();
-}
-
-double yann::Updater_GradientDescentWithMomentum::learning_factor(const size_t & batch_size) const
-{
-  YANN_CHECK_GT(batch_size, 0);
-  return _learning_rate / (double) batch_size;
-}
-
-double yann::Updater_GradientDescentWithMomentum::decay_factor(const size_t & batch_size) const
-{
-  YANN_CHECK_GT(batch_size, 0);
-  YANN_CHECK_GT(batch_size, _regularization_parameter * _learning_rate);
-  return 1 - _regularization_parameter * _learning_rate / (double) batch_size;
-}
-
-void yann::Updater_GradientDescentWithMomentum::update(const RefConstMatrix & delta, const size_t & batch_size, RefMatrix value)
-{
-  YANN_CHECK(is_same_size(delta, value));
-  YANN_CHECK(is_same_size(_velocity, value));
-
-  _velocity = decay_factor(batch_size) * _velocity + learning_factor(batch_size) * delta;
-  value -= _velocity;
-}
-
-void yann::Updater_GradientDescentWithMomentum::update(const Value & delta, const size_t & batch_size, Value & value)
-{
-  YANN_CHECK_EQ(_velocity.size(), 1);
-
-  _velocity(0,0) = decay_factor(batch_size) * _velocity(0,0) + learning_factor(batch_size) * delta;
-  value -= _velocity(0,0);
-}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -167,14 +37,15 @@ string yann::Trainer::get_info() const
   return oss.str();
 }
 
-Value yann::Trainer::train(Network & nn, DataSource & data_source) const
+Value yann::Trainer::train(Network & nn, DataSource & data_source, TrainingContext * ctx) const
 {
+  YANN_CHECK(ctx);
+
   // prepare training
   auto num_batches = data_source.get_num_batches();
   auto batch_size = data_source.get_batch_size();
-  auto ctx = nn.create_training_context(batch_size, _updater);
-  YANN_CHECK(ctx);
 
+  ctx->start_epoch();
   data_source.start_epoch();
 
   Value total_cost = 0;
@@ -194,18 +65,18 @@ Value yann::Trainer::train(Network & nn, DataSource & data_source) const
       YANN_CHECK_LE(get_batch_size(inputs), batch_size);
       YANN_CHECK_LE(get_batch_size(outputs), batch_size);
 
-      total_cost += nn.train(inputs, outputs, ctx.get());
+      total_cost += nn.train(inputs, outputs, ctx);
     } else if(batch->_sparse_inputs) {
       const auto inputs = *(batch->_sparse_inputs);
       const auto outputs = batch->_outputs;
       YANN_CHECK_LE(get_batch_size(inputs), batch_size);
       YANN_CHECK_LE(get_batch_size(outputs), batch_size);
 
-      total_cost += nn.train(inputs, outputs, ctx.get());
+      total_cost += nn.train(inputs, outputs, ctx);
     } else {
       YANN_CHECK("we can't be here" == nullptr);
     }
-    nn.update(ctx.get(), batch_size);
+    nn.update(ctx, batch_size);
   }
 
   data_source.end_epoch();
@@ -215,10 +86,13 @@ Value yann::Trainer::train(Network & nn, DataSource & data_source) const
 
 Value yann::Trainer::train(Network & nn, DataSource & data_source, const size_t & epochs) const
 {
+  auto ctx = nn.create_training_context(data_source.get_batch_size(), _updater);
+  YANN_CHECK(ctx);
+
   auto tests_num = data_source.get_tests_num();
   Value cost = 0;
   for(size_t ii = 0; ii < epochs; ++ii) {
-    cost = train(nn, data_source);
+    cost = train(nn, data_source, ctx.get());
     if(_epochs_progress_callback != nullptr) {
       ostringstream oss;
       oss << "cost per test: " << cost / tests_num;

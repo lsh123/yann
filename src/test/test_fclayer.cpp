@@ -86,6 +86,7 @@ BOOST_AUTO_TEST_CASE(FeedForward_Test)
       0.4, 0.5, 0.6;
 
   auto layer = make_unique<FullyConnectedLayer>(input_size, output_size);
+  BOOST_CHECK(layer);
   layer->set_values(ww, bb);
 
   // identity
@@ -136,6 +137,7 @@ BOOST_AUTO_TEST_CASE(Backprop_Test)
       32.3, 77.7;
 
   auto layer = make_unique<FullyConnectedLayer>(input_size, output_size);
+  BOOST_CHECK(layer);
   layer->set_activation_function(make_unique<IdentityFunction>());
   layer->set_values(ww, bb);
 
@@ -184,6 +186,7 @@ BOOST_AUTO_TEST_CASE(Backprop_WithSampling_Test)
       32.3, 77.7;
 
   auto layer = make_unique<FullyConnectedLayer>(input_size, output_size);
+  BOOST_CHECK(layer);
   layer->set_activation_function(make_unique<IdentityFunction>());
   layer->set_values(ww, bb);
   layer->set_sampling_rate(sampling_rate);
@@ -194,6 +197,30 @@ BOOST_AUTO_TEST_CASE(Backprop_WithSampling_Test)
       boost::none,
       expected_output,
       make_unique<QuadraticCost>(),
+      learning_rate,
+      epochs
+  );
+}
+
+BOOST_AUTO_TEST_CASE(RandomBackprop_Test)
+{
+  BOOST_TEST_MESSAGE("*** FullyConnectedLayer backprop with random inputs and weights ...");
+
+  const MatrixSize input_size  = 4;
+  const MatrixSize output_size = 3;
+  const MatrixSize batch_size  = 5;
+  const double learning_rate = 0.75;
+  const size_t epochs = 200;
+
+  auto layer = make_unique<FullyConnectedLayer>(input_size, output_size);
+  BOOST_CHECK(layer);
+  layer->set_activation_function(make_unique<SigmoidFunction>());
+  layer->init(Layer::InitMode_Random, Layer::InitContext(123));
+
+  test_layer_backprop_from_random(
+      *layer,
+      batch_size,
+      make_unique<CrossEntropyCost>(),
       learning_rate,
       epochs
   );
@@ -374,6 +401,29 @@ BOOST_AUTO_TEST_CASE(Training_WithSigmoidAndSampling_Test)
       make_unique<CrossEntropyCost>(),
       3.0,  // learning rate
       5000 // epochs
+  );
+}
+
+BOOST_AUTO_TEST_CASE(RandomTraining_Test)
+{
+  BOOST_TEST_MESSAGE("*** FullyConnectedLayer training with random inputs ...");
+
+  const MatrixSize input_size  = 18;
+  const MatrixSize output_size = 3;
+  const MatrixSize batch_size = 5;
+  const double learning_rate = 0.5;
+  const size_t epochs = 1000;
+
+  auto layer = make_unique<FullyConnectedLayer>(input_size, output_size);
+  BOOST_CHECK(layer);
+  layer->set_activation_function(make_unique<SigmoidFunction>());
+
+  test_layer_training_from_random(
+      *layer,
+      batch_size,
+      make_unique<CrossEntropyCost>(),
+      learning_rate,
+      epochs
   );
 }
 

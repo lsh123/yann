@@ -116,8 +116,24 @@ public:
   }
 
   // Layer::Context  overwrites
+  virtual void start_epoch()
+  {
+    YANN_SLOW_CHECK(_ww_updater);
+    YANN_SLOW_CHECK(_bb_updater);
+
+    Base::start_epoch();
+
+    _ww_updater->start_epoch();
+    _bb_updater->start_epoch();
+  }
+
   virtual void reset_state()
   {
+    YANN_SLOW_CHECK(_ww_updater);
+    YANN_SLOW_CHECK(_bb_updater);
+
+    Base::reset_state();
+
     _delta_ww = 0;
     _delta_bb = 0;
 

@@ -45,9 +45,8 @@ public:
    MatrixSize  _window_size;
    MatrixSize  _dimensions;
    boost::optional<Layer::InitContext> _training_init_context;
+   std::unique_ptr<Layer::Updater> _updater;
    double      _training_sampling_rate;
-   double      _learning_rate;
-   double      _regularization;
    MatrixSize  _training_batch_size;
    size_t      _epochs;
    Trainer::ProgressCallback _epochs_callback;

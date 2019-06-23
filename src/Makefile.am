@@ -2,7 +2,7 @@
 # Targets
 #
 lib_LTLIBRARIES=libyann.la libyann_word2vec.la libyann_test.la
-bin_PROGRAMS=test-funcs test-layers test-fcnn test-cnn test-rnn test-custom test-word2vec
+bin_PROGRAMS=test-funcs test-updaters test-layers test-fcnn test-cnn test-rnn test-custom test-word2vec
 
 AM_CXXFLAGS=\
 	@AM_CXXFLAGS@ \
@@ -43,8 +43,9 @@ libyann_la_SOURCES = \
 	core/random.cpp \
 	core/layer.cpp \
 	core/functions.cpp \
-	core/nn.cpp \
+	core/updaters.cpp \
 	core/training.cpp \
+	core/nn.cpp \
 	layers/contlayer.cpp \
 	layers/fclayer.cpp \
 	layers/polllayer.cpp \
@@ -95,6 +96,16 @@ test_funcs_SOURCES=\
 test_funcs_CXXFLAGS= $(AM_CXXFLAGS) $(AM_CXXFLAGS_TEST)
 test_funcs_LDFLAGS=$(AM_LDFLAGS) $(AM_LDFLAGS_TEST)
 test_funcs_LDADD=$(AM_LDADD_TEST)
+
+#
+# Updaters unit test program
+#
+test_updaters_SOURCES= \
+	test/test_updaters.cpp \
+	$(NULL)
+test_updaters_CXXFLAGS=$(AM_CXXFLAGS) $(AM_CXXFLAGS_TEST)
+test_updaters_LDFLAGS=$(AM_LDFLAGS) $(AM_LDFLAGS_TEST)
+test_updaters_LDADD=$(AM_LDADD_TEST)
 
 #
 # Layers unit test program
@@ -159,6 +170,6 @@ test_word2vec_LDADD=$(AM_LDADD_TEST)
 check-%: test-%
 	./$< --log_level=all --show_progress=no
 
-check: check-funcs check-layers check-fcnn check-cnn check-rnn check-word2vec
+check: check-funcs check-updaters check-layers check-fcnn check-cnn check-rnn check-word2vec
 
 	

@@ -70,6 +70,7 @@ public:
     inline RefVectorBatch get_output(const MatrixSize & pos)            { return _output->topRows(pos); } // RowMajor
 
 
+    virtual void start_epoch() { }
     virtual void reset_state() { }
 
   protected:
@@ -84,6 +85,7 @@ public:
     virtual std::unique_ptr<Layer::Updater> copy() const = 0;
 
     virtual void init(const MatrixSize & rows, const MatrixSize & cols) = 0;
+    virtual void start_epoch() = 0;
     virtual void reset() = 0;
     virtual void update(const RefConstMatrix & delta, const size_t & batch_size, RefMatrix value) = 0;
     virtual void update(const Value & delta, const size_t & batch_size, Value & value) = 0;

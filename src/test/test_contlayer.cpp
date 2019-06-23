@@ -263,7 +263,8 @@ BOOST_AUTO_TEST_CASE(MergeLayer_FeedForward_Test)
   const MatrixSize batch_size = 2;
 
   auto layer = make_unique<MergeLayer>(input_frames_num);
-  YANN_CHECK(layer);
+  BOOST_CHECK(layer);
+
   layer->append_layer(make_unique<AvgLayer>(input_size));
   YANN_CHECK_EQ(layer->get_input_size(), input_size * input_frames_num); //
   YANN_CHECK_EQ(layer->get_output_size(), 1 * 1); // 1 output for AvgLayer and for MergeLayer
@@ -298,7 +299,8 @@ BOOST_AUTO_TEST_CASE(MergeLayer_Backprop_Test)
   const size_t epochs = 10;
 
   auto layer = make_unique<MergeLayer>(input_frames_num);
-  YANN_CHECK(layer);
+  BOOST_CHECK(layer);
+
   layer->append_layer(make_unique<AvgLayer>(input_size));
   YANN_CHECK_EQ(layer->get_input_size(), input_size * input_frames_num); //
   YANN_CHECK_EQ(layer->get_output_size(), 1 * 1); // 1 output for AvgLayer and for MergeLayer

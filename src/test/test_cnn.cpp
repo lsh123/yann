@@ -10,6 +10,7 @@
 #include "core/functions.h"
 #include "core/utils.h"
 #include "core/random.h"
+#include "core/updaters.h"
 #include "core/training.h"
 #include "layers/smaxlayer.h"
 
@@ -213,10 +214,8 @@ BOOST_AUTO_TEST_CASE(Training_GradientDescent_Test)
   BOOST_TEST_MESSAGE("trainer: " << trainer.get_info());
   {
     Timer timer("Training");
-    for (size_t epoch = 1; epoch <= epochs; ++epoch) {
-      // BOOST_TEST_MESSAGE("Training epoch " << epoch << " out of " << epochs);
-      trainer.train(*cnn, data_source);
-    }
+    trainer.train(*cnn, data_source, epochs);
+
     BOOST_TEST_MESSAGE(timer);
   }
   BOOST_TEST_MESSAGE("After training: " << (*cnn));
@@ -265,7 +264,7 @@ BOOST_AUTO_TEST_CASE(Mnist_OneLayer_Two_Labels_Test)
   trainer->set_batch_progress_callback(batch_progress_callback);
 
   // print info
-  BOOST_TEST_MESSAGE("*** Testing against MNIST dataset with ");
+  BOOST_TEST_MESSAGE("*** Training against MNIST dataset with ");
   BOOST_TEST_MESSAGE(" ConvolutionalNetwork: " << cnn->get_info());
   BOOST_TEST_MESSAGE(" trainer: " << trainer->get_info());
   BOOST_TEST_MESSAGE(" epochs: " << epochs);
@@ -309,7 +308,7 @@ BOOST_AUTO_TEST_CASE(Mnist_OneLayer_Full_Test, * disabled())
   trainer->set_batch_progress_callback(batch_progress_callback);
 
   // print info
-  BOOST_TEST_MESSAGE("*** Testing against MNIST dataset with ");
+  BOOST_TEST_MESSAGE("*** Training against MNIST dataset with ");
   BOOST_TEST_MESSAGE(" ConvolutionalNetwork: " << cnn->get_info());
   BOOST_TEST_MESSAGE(" trainer: " << trainer->get_info());
   BOOST_TEST_MESSAGE(" epochs: " << epochs);
@@ -336,8 +335,8 @@ BOOST_AUTO_TEST_CASE(LeNet1_Two_Labels_Test)
   _mnist_test.filter(1, 1000, 1000); // only allow 0,1 images; 1000 count
   BOOST_TEST_MESSAGE("*** Filtered test set: " << "\n" << _mnist_test);
 
-  const double learning_rate = 0.5;
-  const double regularization = 0.0;
+  const double alpha = 0.5;
+  const double beta = 0.9;
   const MatrixSize training_batch_size = 10;
   const size_t epochs = 3;
 
@@ -358,12 +357,12 @@ BOOST_AUTO_TEST_CASE(LeNet1_Two_Labels_Test)
 
   // Trainer
   auto trainer = make_unique<Trainer>(
-      make_unique<Updater_GradientDescentWithMomentum>(learning_rate, regularization));
+      make_unique<Updater_GradientDescentWithMomentum>(alpha, beta));
   BOOST_CHECK(trainer);
   trainer->set_batch_progress_callback(batch_progress_callback);
 
   // print info
-  BOOST_TEST_MESSAGE("*** Testing against MNIST dataset with ");
+  BOOST_TEST_MESSAGE("*** Training against MNIST dataset with ");
   BOOST_TEST_MESSAGE(" CustomlNetwork: " << nn->get_info());
   BOOST_TEST_MESSAGE(" trainer: " << trainer->get_info());
   BOOST_TEST_MESSAGE(" epochs: " << epochs);
@@ -452,7 +451,7 @@ BOOST_AUTO_TEST_CASE(LeNet1_Full_Test, * disabled())
   trainer->set_batch_progress_callback(batch_progress_callback);
 
   // print info
-  BOOST_TEST_MESSAGE("*** Testing against MNIST dataset with ");
+  BOOST_TEST_MESSAGE("*** Training against MNIST dataset with ");
   BOOST_TEST_MESSAGE(" CustomlNetwork: " << nn->get_info());
   BOOST_TEST_MESSAGE(" trainer: " << trainer->get_info());
   BOOST_TEST_MESSAGE(" epochs: " << epochs);
@@ -499,8 +498,8 @@ BOOST_AUTO_TEST_CASE(BoostedLeNet1_Full_Test, * disabled())
   const MatrixSize paths_num = 2;
   const MatrixSize fc_size = 50;
   const auto init_mode = Layer::InitMode_Random;
-  const double learning_rate = 0.5;
-  const double regularization = 0.0001;
+  const double alpha = 0.5;
+  const double beta = 0.9;
   const MatrixSize training_batch_size = 10;
   const size_t epochs = 100;
 
@@ -524,16 +523,12 @@ BOOST_AUTO_TEST_CASE(BoostedLeNet1_Full_Test, * disabled())
 
   // Trainer
   auto trainer = make_unique<Trainer>(
-      make_unique<Updater_GradientDescentWithMomentum>(
-          learning_rate,
-          regularization
-      )
-  );
+      make_unique<Updater_GradientDescentWithMomentum>(alpha, beta));
   BOOST_CHECK(trainer);
   trainer->set_batch_progress_callback(batch_progress_callback);
 
   // print info
-  BOOST_TEST_MESSAGE("*** Testing against MNIST dataset with ");
+  BOOST_TEST_MESSAGE("*** Training against MNIST dataset with ");
   BOOST_TEST_MESSAGE(" CustomlNetwork: " << nn->get_info());
   BOOST_TEST_MESSAGE(" trainer: " << trainer->get_info());
   BOOST_TEST_MESSAGE(" epochs: " << epochs);
@@ -591,7 +586,7 @@ BOOST_AUTO_TEST_CASE(LeNet5_Two_Labels_Test)
   trainer->set_batch_progress_callback(batch_progress_callback);
 
   // print info
-  BOOST_TEST_MESSAGE("*** Testing against MNIST dataset with ");
+  BOOST_TEST_MESSAGE("*** Training against MNIST dataset with ");
   BOOST_TEST_MESSAGE(" CustomlNetwork: " << nn->get_info());
   BOOST_TEST_MESSAGE(" trainer: " << trainer->get_info());
   BOOST_TEST_MESSAGE(" epochs: " << epochs);
@@ -646,8 +641,8 @@ BOOST_AUTO_TEST_CASE(LeNet5_Full_Test, * disabled())
   const MatrixSize fc1_size = 120;
   const MatrixSize fc2_size = 84;
   auto init_mode = Layer::InitMode_Random;
-  const double learning_rate = 0.01;
-  const double regularization = 0.0001;
+  const double alpha = 0.01;
+  const double beta = 0.9;
   const MatrixSize training_batch_size = 10;
   const size_t epochs = 50;
 
@@ -671,12 +666,12 @@ BOOST_AUTO_TEST_CASE(LeNet5_Full_Test, * disabled())
 
   // Trainer
   auto trainer = make_unique<Trainer>(
-      make_unique<Updater_GradientDescentWithMomentum>(learning_rate, regularization));
+      make_unique<Updater_GradientDescentWithMomentum>(alpha, beta));
   BOOST_CHECK(trainer);
   trainer->set_batch_progress_callback(batch_progress_callback);
 
   // print info
-  BOOST_TEST_MESSAGE("*** Testing against MNIST dataset with ");
+  BOOST_TEST_MESSAGE("*** Training against MNIST dataset with ");
   BOOST_TEST_MESSAGE(" CustomlNetwork: " << nn->get_info());
   BOOST_TEST_MESSAGE(" trainer: " << trainer->get_info());
   BOOST_TEST_MESSAGE(" epochs: " << epochs);

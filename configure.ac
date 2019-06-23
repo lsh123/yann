@@ -12,6 +12,7 @@ AC_PROG_CXX
 
 AM_EXTRA_RECURSIVE_TARGETS([
   check-funcs 
+  check-updaters
   check-layers
   check-fcnn
   check-cnn

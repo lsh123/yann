@@ -10,6 +10,7 @@
 #include "core/functions.h"
 #include "core/utils.h"
 #include "core/random.h"
+#include "core/updaters.h"
 #include "core/training.h"
 #include "core/nn.h"
 #include "layers/contlayer.h"
@@ -121,7 +122,7 @@ BOOST_AUTO_TEST_CASE(Test, * disabled())
   trainer->set_batch_progress_callback(batch_progress_callback);
 
   // print info
-  BOOST_TEST_MESSAGE("*** Testing against MNIST dataset with ");
+  BOOST_TEST_MESSAGE("*** Training against MNIST dataset with ");
   BOOST_TEST_MESSAGE(" Network: " << nn->get_info());
   BOOST_TEST_MESSAGE(" Trainer: " << trainer->get_info());
   BOOST_TEST_MESSAGE(" Epochs: " << epochs);

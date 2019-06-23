@@ -8,9 +8,11 @@
 #include <sstream>
 
 #include "core/training.h"
+#include "core/updaters.h"
 #include "core/utils.h"
 #include "core/functions.h"
 #include "layers/reclayer.h"
+#include "layers/lstmlayer.h"
 #include "layers/smaxlayer.h"
 
 #include "timer.h"
@@ -173,7 +175,7 @@ struct RnnTestFixture
     VectorBatch _outputs_batch;
   }; // class DataSource_Words
 
-  unique_ptr<Network> create_one_layer_rnn(
+  unique_ptr<Network> create_rnnlayer_net(
       const MatrixSize & input_size,
       const MatrixSize & state_size,
       const MatrixSize & output_size,
@@ -187,6 +189,24 @@ struct RnnTestFixture
     auto layer = make_unique<RecurrentLayer>(input_size, state_size, output_size);
     BOOST_CHECK(layer);
     layer->set_activation_functions(state_activation_function, output_activation_function);
+    nn->append_layer(std::move(layer));
+
+    return nn;
+  }
+
+  unique_ptr<Network> create_lstmlayer_net(
+      const MatrixSize & input_size,
+      const MatrixSize & output_size,
+      const std::unique_ptr<ActivationFunction> & gate_activation_function,
+      const std::unique_ptr<ActivationFunction> & io_activation_function)
+  {
+    // create the network
+    auto nn = make_unique<Network>();
+    YANN_CHECK(nn);
+
+    auto layer = make_unique<LstmLayer>(input_size, output_size);
+    BOOST_CHECK(layer);
+    layer->set_activation_functions(gate_activation_function, io_activation_function);
     nn->append_layer(std::move(layer));
 
     return nn;
@@ -230,10 +250,9 @@ struct RnnTestFixture
 
 BOOST_FIXTURE_TEST_SUITE(RnnTest, RnnTestFixture);
 
-
-BOOST_AUTO_TEST_CASE(Training_TwoFruits_Test)
+BOOST_AUTO_TEST_CASE(Training_RnnLayer_TwoFruits_Test)
 {
-  BOOST_TEST_MESSAGE("*** RecurrentNeuralNetwork training test ...");
+  BOOST_TEST_MESSAGE("*** RNN Layer two fruits test ...");
   const MatrixSize state_size = 50;
   const double learning_rate = 0.9;
   const double regularization = 0.0;
@@ -241,7 +260,7 @@ BOOST_AUTO_TEST_CASE(Training_TwoFruits_Test)
 
   DataSource_Words data_source({"lemon", "apple"});
 
-  auto nn = create_one_layer_rnn(
+  auto nn = create_rnnlayer_net(
       DataSource_Words::MAX_CHAR, // input_size
       state_size,
       DataSource_Words::MAX_CHAR, // output_size
@@ -257,7 +276,7 @@ BOOST_AUTO_TEST_CASE(Training_TwoFruits_Test)
   Trainer trainer(make_unique<Updater_GradientDescent>(
       learning_rate, regularization));
   // trainer.set_batch_progress_callback(batch_progress_callback);
-  // trainer.set_epochs_progress_callback(ecpoch_progress_callback);
+  // trainer.set_epochs_progress_callback(epoch_progress_callback);
 
   Value cost = trainer.train(*nn, data_source, epochs);
   BOOST_CHECK_LE(cost, 10.0);
@@ -266,18 +285,18 @@ BOOST_AUTO_TEST_CASE(Training_TwoFruits_Test)
   BOOST_CHECK_EQUAL(get_word(*nn, "l"), "lemon");
 }
 
-
-BOOST_AUTO_TEST_CASE(Training_AllFruits_Test)
+BOOST_AUTO_TEST_CASE(Training_RnnLayer_AllFruits_Test)
 {
-  BOOST_TEST_MESSAGE("*** RecurrentNeuralNetwork training test ...");
+  BOOST_TEST_MESSAGE("*** RNN Layer all fruits training test ...");
   const MatrixSize state_size = 50;
-  const double learning_rate = 0.5;
+  const double learning_rate = 0.9;
   const double regularization = 0.0;
-  const size_t epochs = 200;
+  const size_t search_epochs = 30;
+  const size_t epochs = 100;
 
   DataSource_Words data_source(FRUITS);
 
-  auto nn = create_one_layer_rnn(
+  auto nn = create_rnnlayer_net(
       DataSource_Words::MAX_CHAR, // input_size
       state_size,
       DataSource_Words::MAX_CHAR, // output_size
@@ -294,25 +313,26 @@ BOOST_AUTO_TEST_CASE(Training_AllFruits_Test)
 
   // train the network
   Trainer trainer(make_unique<Updater_GradientDescent>(
-      learning_rate, regularization));
+      learning_rate, regularization, search_epochs));
   // trainer.set_batch_progress_callback(batch_progress_callback);
-  // trainer.set_epochs_progress_callback(ecpoch_progress_callback);
+  // trainer.set_epochs_progress_callback(epoch_progress_callback);
 
   Value cost = trainer.train(*nn, data_source, epochs);
-  BOOST_CHECK_LE(cost, 10.0);
-  BOOST_CHECK_EQUAL(get_word(*nn),        "raspberry");
+  BOOST_CHECK_LE(cost, 7.0);
+  BOOST_CHECK_EQUAL(get_word(*nn),        "pomelo");
   BOOST_CHECK_EQUAL(get_word(*nn, "a"),   "apricot");
   BOOST_CHECK_EQUAL(get_word(*nn, "b"),   "blueberry");
   BOOST_CHECK_EQUAL(get_word(*nn, "ba"),  "banana");
-  BOOST_CHECK_EQUAL(get_word(*nn, "l"),   "loquat");
+  BOOST_CHECK_EQUAL(get_word(*nn, "l"),   "lychee");
+  BOOST_CHECK_EQUAL(get_word(*nn, "lo"),  "loquat");
   BOOST_CHECK_EQUAL(get_word(*nn, "le"),  "lemon");
   BOOST_CHECK_EQUAL(get_word(*nn, "o"),   "orange");
   BOOST_CHECK_EQUAL(get_word(*nn, "to"),  "tomato");
 }
 
-BOOST_AUTO_TEST_CASE(Training_AllFruits_Tanh_Test, * disabled())
+BOOST_AUTO_TEST_CASE(Training_RnnLayer_AllFruits_Tanh_Test, * disabled())
 {
-  BOOST_TEST_MESSAGE("*** RecurrentNeuralNetwork training test ...");
+  BOOST_TEST_MESSAGE("*** RNN Layer all fruits with Tanh training test ...");
   const MatrixSize state_size = 100;
   const double learning_rate = 0.0001;
   const double regularization = 0.0;
@@ -320,7 +340,7 @@ BOOST_AUTO_TEST_CASE(Training_AllFruits_Tanh_Test, * disabled())
 
   DataSource_Words data_source({"apple", "lemon"});
 
-  auto nn = create_one_layer_rnn(
+  auto nn = create_rnnlayer_net(
       DataSource_Words::MAX_CHAR, // input_size
       state_size,
       DataSource_Words::MAX_CHAR, // output_size
@@ -339,7 +359,7 @@ BOOST_AUTO_TEST_CASE(Training_AllFruits_Tanh_Test, * disabled())
   Trainer trainer(make_unique<Updater_GradientDescent>(
       learning_rate, regularization));
   // trainer.set_batch_progress_callback(batch_progress_callback);
-  // trainer.set_epochs_progress_callback(ecpoch_progress_callback);
+  // trainer.set_epochs_progress_callback(epoch_progress_callback);
 
   for(int ii = 0; ii < 10; ++ ii) {
     DBG(ii);
@@ -352,6 +372,83 @@ BOOST_AUTO_TEST_CASE(Training_AllFruits_Tanh_Test, * disabled())
     DBG(get_word(*nn, "o"));
     DBG(get_word(*nn, "w"));
   }
+}
+
+BOOST_AUTO_TEST_CASE(Training_LstmLayer_TwoFruits_Test)
+{
+  BOOST_TEST_MESSAGE("*** lstm Layer two fruits test ...");
+  const double learning_rate = 2.0;
+  const double regularization = 0.0;
+  const size_t epochs = 100;
+
+  //DataSource_Words data_source(FRUITS);
+  DataSource_Words data_source({"lemon", "apple"});
+
+  auto nn = create_lstmlayer_net(
+      DataSource_Words::MAX_CHAR, // input_size
+      DataSource_Words::MAX_CHAR, // output_size
+      make_unique<SigmoidFunction>(),
+      make_unique<SigmoidFunction>()
+  );
+  YANN_CHECK(nn);
+
+  nn->set_cost_function(make_unique<CrossEntropyCost>());
+  nn->init(Layer::InitMode_Random, Layer::InitContext(123));
+
+  // train the network
+  Trainer trainer(make_unique<Updater_GradientDescent>(
+      learning_rate, regularization));
+  // trainer.set_batch_progress_callback(batch_progress_callback);
+  // trainer.set_epochs_progress_callback(epoch_progress_callback);
+
+  Value cost = trainer.train(*nn, data_source, epochs);
+  BOOST_CHECK_LE(cost, 5.0);
+  BOOST_CHECK_EQUAL(get_word(*nn), "apple");
+  BOOST_CHECK_EQUAL(get_word(*nn, "a"), "apple");
+  BOOST_CHECK_EQUAL(get_word(*nn, "l"), "lemon");
+}
+
+BOOST_AUTO_TEST_CASE(Training_LstmLayer_AllFruits_Test, * disabled())
+{
+  BOOST_TEST_MESSAGE("*** lstm Layer all fruits test ...");
+  const double alpha = 0.1;
+  const double beta = 0.7;
+  const size_t search_epochs = 500;
+  const size_t epochs = 1000;
+
+  DataSource_Words data_source(FRUITS);
+
+  auto nn = create_lstmlayer_net(
+      DataSource_Words::MAX_CHAR, // input_size
+      DataSource_Words::MAX_CHAR, // output_size
+      make_unique<SigmoidFunction>(),
+      make_unique<SigmoidFunction>()
+  );
+  YANN_CHECK(nn);
+
+  nn->set_cost_function(make_unique<CrossEntropyCost>());
+  nn->init(Layer::InitMode_Random, Layer::InitContext(123456789));
+
+  auto epochs_callback = [&](const MatrixSize & cur_pos, const MatrixSize & total, const std::string & message) {
+    epoch_progress_callback(cur_pos, total, message);
+    DBG(get_word(*nn, ""));
+    DBG(get_word(*nn, "a"));
+    DBG(get_word(*nn, "l"));
+  };
+
+  // train the network
+  Trainer trainer(make_unique<Updater_GradientDescentWithMomentum>(
+      alpha, beta, search_epochs));
+  // trainer.set_batch_progress_callback(batch_progress_callback);
+  trainer.set_epochs_progress_callback(epochs_callback);
+
+  Value cost = trainer.train(*nn, data_source, epochs);
+  BOOST_CHECK_LE(cost, 10.0);
+  // BOOST_CHECK_EQUAL(get_word(*nn), "apple");
+  // BOOST_CHECK_EQUAL(get_word(*nn, "a"), "apple");
+  // BOOST_CHECK_EQUAL(get_word(*nn, "b"), "blueberry");
+  // BOOST_CHECK_EQUAL(get_word(*nn, "l"), "loquat");
+  // BOOST_CHECK_EQUAL(get_word(*nn, "t"), "loquat");
 }
 
 BOOST_AUTO_TEST_SUITE_END()

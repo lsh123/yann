@@ -179,8 +179,18 @@ public:
   }
 
   // Layer::Context overwrites
+  virtual void start_epoch()
+  {
+    Base::start_epoch();
+
+    for(auto & context : _contexts) {
+      context->start_epoch();
+    }
+  }
   virtual void reset_state()
   {
+    Base::reset_state();
+
     for(auto & context : _contexts) {
       context->reset_state();
     }
@@ -596,8 +606,20 @@ public:
   }
 
   // Layer::Context overwrites
+  virtual void start_epoch()
+  {
+    Base::start_epoch();
+
+    for(auto & layer_contexts : _contexts) {
+      for(auto & pair_in_ctx : layer_contexts) {
+        pair_in_ctx.second->start_epoch();
+      }
+    }
+  }
   virtual void reset_state()
   {
+    Base::reset_state();
+
     for(auto & layer_contexts : _contexts) {
       for(auto & pair_in_ctx : layer_contexts) {
         pair_in_ctx.second->reset_state();

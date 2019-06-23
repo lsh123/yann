@@ -51,8 +51,8 @@ public:
   virtual ~LstmLayer();
 
   void set_activation_functions(
-      const std::unique_ptr<ActivationFunction> & io_activation_function,
-      const std::unique_ptr<ActivationFunction> & gate_activation_function);
+      const std::unique_ptr<ActivationFunction> & gate_activation_function,
+      const std::unique_ptr<ActivationFunction> & io_activation_function);
 
   void set_values(
       const Matrix (& ww_x)[Gate_Max],
@@ -133,8 +133,8 @@ private:
   Matrix _ww_h[Gate_Max];
   Vector _bb[Gate_Max];
 
-  std::unique_ptr<ActivationFunction> _io_activation_function;
   std::unique_ptr<ActivationFunction> _gate_activation_function;
+  std::unique_ptr<ActivationFunction> _io_activation_function;
 }; // class LstmLayer
 
 }; // namespace yann

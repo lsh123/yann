@@ -9,6 +9,7 @@
 #include "core/random.h"
 #include "core/functions.h"
 #include "core/training.h"
+#include "core/updaters.h"
 
 #include "timer.h"
 #include "test_utils.h"

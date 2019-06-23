@@ -729,6 +729,7 @@ BOOST_AUTO_TEST_CASE(FeedForward_Test)
       5.5, 0.5, 4.5;
 
   auto layer = make_unique<ConvolutionalLayer>(image_size, image_size, filter_size);
+  BOOST_CHECK(layer);
   layer->set_activation_function(make_unique<IdentityFunction>());
   layer->set_values(ww, 0.5);
 
@@ -774,6 +775,7 @@ BOOST_AUTO_TEST_CASE(Backprop_Test)
       1, 0;
 
   auto layer = make_unique<ConvolutionalLayer>(image_size, image_size, filter_size);
+  BOOST_CHECK(layer);
   layer->set_activation_function(make_unique<IdentityFunction>());
   layer->set_values(ww, 0.0);
 
@@ -830,6 +832,7 @@ BOOST_AUTO_TEST_CASE(Backprop_OnVector_Test)
       1, 0;
 
   auto layer = make_unique<ConvolutionalLayer>(image_size, image_size, filter_size);
+  BOOST_CHECK(layer);
   layer->set_activation_function(make_unique<IdentityFunction>());
   layer->set_values(ww, 0.0);
 

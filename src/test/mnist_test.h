@@ -53,7 +53,7 @@ public:
   void read(const std::string & base_folder);
   std::pair<double, Value> train_and_test(
       yann::Network & nn,
-      const yann::Trainer & trainer,
+      yann::Trainer & trainer,
       DataSource_Stochastic::Mode mode,
       const MatrixSize & training_batch_size,
       const size_t & epochs,

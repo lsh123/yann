@@ -77,6 +77,7 @@ BOOST_AUTO_TEST_CASE(SoftmaxLayer_FeedForward_Test)
       0.98169, 0.00033, 0.01798;
 
   auto layer = make_unique<SoftmaxLayer>(size);
+  BOOST_CHECK(layer);
   test_layer_feedforward(*layer, input, expected_output);
 }
 
@@ -104,6 +105,7 @@ BOOST_AUTO_TEST_CASE(SoftmaxLayer_Backprop_Test)
       0.2, 0.3, 0.5;
 
   auto layer = make_unique<SoftmaxLayer>(size);
+  BOOST_CHECK(layer);
   test_layer_backprop(
       *layer,
       input,
@@ -114,5 +116,28 @@ BOOST_AUTO_TEST_CASE(SoftmaxLayer_Backprop_Test)
       epochs
   );
 }
+
+BOOST_AUTO_TEST_CASE(RandomBackprop_Test)
+{
+  BOOST_TEST_MESSAGE("*** SoftmaxLayer backprop with random inputs and weights ...");
+
+  const MatrixSize size = 10;
+  const MatrixSize batch_size = 5;
+  const double learning_rate = 1.0;
+  const size_t epochs = 20000;
+
+  auto layer = make_unique<SoftmaxLayer>(size);
+  BOOST_CHECK(layer);
+  layer->init(Layer::InitMode_Random, Layer::InitContext(123));
+
+  test_layer_backprop_from_random(
+      *layer,
+      batch_size,
+      make_unique<QuadraticCost>(),
+      learning_rate,
+      epochs
+  );
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 

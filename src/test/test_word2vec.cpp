@@ -11,6 +11,7 @@
 #include <boost/iostreams/filter/gzip.hpp>
 
 #include "core/utils.h"
+#include "core/updaters.h"
 #include "word2vec/text_parser.h"
 #include "word2vec/word2vec.h"
 
@@ -211,12 +212,11 @@ BOOST_AUTO_TEST_CASE(Word2Vec_SkipGram_Hotels100_Test)
     params._window_size = 5;
     params._dimensions = 50;
     params._training_init_context = Layer::InitContext(12345);
+    params._updater = make_unique<Updater_GradientDescent>(0.75);
     params._training_sampling_rate = 0.0;
-    params._learning_rate = 0.75;
-    params._regularization = 0.0;
     params._training_batch_size = 10;
     params._epochs = 5;
-    params._epochs_callback = ecpoch_progress_callback;
+    params._epochs_callback = epoch_progress_callback;
     params._batch_callback = batch_progress_callback;
     w2v = Word2Vec::train_skip_gram(*text, params);
     BOOST_CHECK(w2v);
@@ -255,12 +255,11 @@ BOOST_AUTO_TEST_CASE(Word2Vec_CBOW_Hotels100_Test)
     params._window_size = 3;
     params._dimensions = 50;
     params._training_init_context = Layer::InitContext(12345);
+    params._updater = make_unique<Updater_GradientDescent>(0.75);
     params._training_sampling_rate = 0.0;
-    params._learning_rate = 0.75;
-    params._regularization = 0.0;
     params._training_batch_size = 10;
     params._epochs = 5;
-    params._epochs_callback = ecpoch_progress_callback;
+    params._epochs_callback = epoch_progress_callback;
     params._batch_callback = batch_progress_callback;
     w2v = Word2Vec::train_cbow(*text, params);
     BOOST_CHECK(w2v);
@@ -298,12 +297,11 @@ BOOST_AUTO_TEST_CASE(Word2Vec_SkipGram_Hotels10000_Test, * disabled())
     Word2Vec::TrainingParams params;
     params._window_size = 5;
     params._dimensions = 100;
+    params._updater = make_unique<Updater_GradientDescent>(0.75);
     params._training_sampling_rate = 0.0;
-    params._learning_rate = 0.75;
-    params._regularization = 0.0;
     params._training_batch_size = 100;
     params._epochs = 5;
-    params._epochs_callback = ecpoch_progress_callback;
+    params._epochs_callback = epoch_progress_callback;
     params._batch_callback = batch_progress_callback;
     w2v = Word2Vec::train_skip_gram(*text, params);
     BOOST_CHECK(w2v);
@@ -348,14 +346,13 @@ BOOST_AUTO_TEST_CASE(Word2Vec_CBOW_Hotels10000_Test, * disabled())
   {
     Timer timer("Word2Vec::train_cbow");
     Word2Vec::TrainingParams params;
-    params._window_size = 5;
+    params._window_size = 8;
     params._dimensions = 100;
+    params._updater = make_unique<Updater_GradientDescent>(0.75);
     params._training_sampling_rate = 0.0;
-    params._learning_rate = 0.75;
-    params._regularization = 0.0;
     params._training_batch_size = 10;
-    params._epochs = 5;
-    params._epochs_callback = ecpoch_progress_callback;
+    params._epochs = 3;
+    params._epochs_callback = epoch_progress_callback;
     params._batch_callback = batch_progress_callback;
     w2v = Word2Vec::train_cbow(*text, params);
     BOOST_CHECK(w2v);
@@ -403,12 +400,11 @@ BOOST_AUTO_TEST_CASE(Word2Vec_SkipGram_HotelsFull_Test, * disabled())
     Word2Vec::TrainingParams params;
     params._window_size = 5;
     params._dimensions = 100;
+    params._updater = make_unique<Updater_GradientDescent>(0.75);
     params._training_sampling_rate = 0.01;
-    params._learning_rate = 0.75;
-    params._regularization = 0.0;
     params._training_batch_size = 10;
     params._epochs = 5;
-    params._epochs_callback = ecpoch_progress_callback;
+    params._epochs_callback = epoch_progress_callback;
     params._batch_callback = batch_progress_callback;
     w2v = Word2Vec::train_skip_gram(*text, params);
     BOOST_CHECK(w2v);
@@ -455,12 +451,11 @@ BOOST_AUTO_TEST_CASE(Word2Vec_CBOW_HotelsFull_Test, * disabled())
     Word2Vec::TrainingParams params;
     params._window_size = 3;
     params._dimensions = 100;
+    params._updater = make_unique<Updater_GradientDescent>(0.75);
     params._training_sampling_rate = 0.001;
-    params._learning_rate = 0.75;
-    params._regularization = 0.0;
     params._training_batch_size = 10;
     params._epochs = 3;
-    params._epochs_callback = ecpoch_progress_callback;
+    params._epochs_callback = epoch_progress_callback;
     params._batch_callback = batch_progress_callback;
     w2v = Word2Vec::train_cbow(*text, params);
     BOOST_CHECK(w2v);

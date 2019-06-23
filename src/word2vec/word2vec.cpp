@@ -12,6 +12,7 @@
 
 #include "core/utils.h"
 #include "core/functions.h"
+#include "core/updaters.h"
 #include "layers/contlayer.h"
 #include "layers/fclayer.h"
 #include "layers/smaxlayer.h"
@@ -357,9 +358,8 @@ private:
 yann::word2vec::Word2Vec::TrainingParams::TrainingParams():
     _window_size(5),
     _dimensions(100),
+    _updater(make_unique<Updater_GradientDescent>(0.9)),
     _training_sampling_rate(0.0),
-    _learning_rate(0.9),
-    _regularization(0),
     _training_batch_size(100),
     _epochs(10),
     _epochs_callback(nullptr),
@@ -613,10 +613,7 @@ std::unique_ptr<Word2Vec> yann::word2vec::Word2Vec::train(
   nn->init(Layer::InitMode_Random, params._training_init_context);
 
   // train the network
-  Trainer trainer(make_unique<Updater_GradientDescent>(
-      params._learning_rate,
-      params._regularization
-  ));
+  Trainer trainer(params._updater);
   trainer.set_batch_progress_callback(params._batch_callback);
   trainer.set_epochs_progress_callback(params._epochs_callback);
   trainer.train(*nn, data_source, params._epochs);

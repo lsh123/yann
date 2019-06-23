@@ -80,6 +80,8 @@ public:
   // Layer::Context overwrites
   virtual void reset_state()
   {
+    Base::reset_state();
+
     _pos = 0;
   }
 
@@ -139,6 +141,24 @@ public:
   }
 
   // Layer::Context overwrites
+  virtual void start_epoch()
+  {
+    Base::start_epoch();
+
+    for(auto & ww_x_updater: _ww_x_updater) {
+      YANN_SLOW_CHECK(ww_x_updater);
+      ww_x_updater->start_epoch();
+    }
+    for(auto & ww_h_updater: _ww_h_updater) {
+      YANN_SLOW_CHECK(ww_h_updater);
+      ww_h_updater->start_epoch();
+    }
+    for(auto & bb_updater: _bb_updater) {
+      YANN_SLOW_CHECK(bb_updater);
+      bb_updater->start_epoch();
+    }
+  }
+
   virtual void reset_state()
   {
     Base::reset_state();
@@ -239,8 +259,8 @@ private:
 yann::LstmLayer::LstmLayer(
     const MatrixSize & input_size,
     const MatrixSize & output_size) :
-    _io_activation_function(new TanhFunction()),
-    _gate_activation_function(new SigmoidFunction())
+    _gate_activation_function(new SigmoidFunction()),
+    _io_activation_function(new TanhFunction())
 {
   YANN_CHECK_GT(input_size, 0);
 
@@ -276,13 +296,13 @@ void yann::LstmLayer::set_values(
 }
 
 void yann::LstmLayer::set_activation_functions(
-    const std::unique_ptr<ActivationFunction> & io_activation_function,
-    const std::unique_ptr<ActivationFunction> & gate_activation_function)
+    const std::unique_ptr<ActivationFunction> & gate_activation_function,
+    const std::unique_ptr<ActivationFunction> & io_activation_function)
 {
-  YANN_CHECK(io_activation_function);
   YANN_CHECK(gate_activation_function);
-  _io_activation_function = io_activation_function->copy();
+  YANN_CHECK(io_activation_function);
   _gate_activation_function = gate_activation_function->copy();
+  _io_activation_function = io_activation_function->copy();
 }
 
 // Layer overwrites
@@ -580,7 +600,7 @@ void yann::LstmLayer::backprop_internal(
 
   for(MatrixSize ii = get_batch_size(gradient_output) - 1; ii >= 0 && (--ctx->_pos) >= 0; --ii) {
     const auto in = get_batch(input, ii);
-    auto gradient_in = make_optional((bool)gradient_input, get_batch(*gradient_input, ii));
+    auto gradient_in = gradient_input ? make_optional(get_batch(*gradient_input, ii)) : boost::none;
     const auto gate_aa  = get_batch(ctx->_gate[Gate_A], ctx->_pos);
     const auto gate_ii  = get_batch(ctx->_gate[Gate_I], ctx->_pos);
     const auto gate_ff  = get_batch(ctx->_gate[Gate_F], ctx->_pos);
