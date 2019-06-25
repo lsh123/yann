@@ -547,7 +547,7 @@ void yann::FullyConnectedLayer::init(enum InitMode mode, boost::optional<InitCon
   }
 }
 
-void yann::FullyConnectedLayer::update(Context * context, const size_t & batch_size)
+void yann::FullyConnectedLayer::update(Context * context, const size_t & tests_num)
 {
   auto ctx = dynamic_cast<FullyConnectedLayer_TrainingContext *>(context);
   YANN_CHECK(ctx);
@@ -557,9 +557,9 @@ void yann::FullyConnectedLayer::update(Context * context, const size_t & batch_s
   YANN_CHECK(is_same_size(_bb, ctx->_delta_bb));
 
   if(!is_sampled()) {
-    ctx->_ww_updater->update(ctx->_delta_ww, batch_size, _ww);
+    ctx->_ww_updater->update(ctx->_delta_ww, tests_num, _ww);
     if(!_fixed_bias) {
-      ctx->_bb_updater->update(ctx->_delta_bb, batch_size, _bb);
+      ctx->_bb_updater->update(ctx->_delta_bb, tests_num, _bb);
     }
   } else {
     const auto & sampling_counter = *(ctx->_sampling_counter);

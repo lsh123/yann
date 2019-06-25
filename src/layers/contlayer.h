@@ -102,7 +102,7 @@ public:
       boost::optional<RefVectorBatch> gradient_input,
       Context * context) const;
 
-  virtual void update(Context * context, const size_t & batch_size);
+  virtual void update(Context * context, const size_t & tests_num);
 
 private:
   template<typename InputType>
@@ -176,7 +176,7 @@ public:
       boost::optional<RefVectorBatch> gradient_input,
       Context * context) const;
 
-  virtual void update(Context * context, const size_t & batch_size);
+  virtual void update(Context * context, const size_t & tests_num);
 
 private:
   template<typename InputType>

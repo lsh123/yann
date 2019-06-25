@@ -271,6 +271,7 @@ BOOST_AUTO_TEST_CASE(Max_Training_WithIdentity_Test)
       *layer,
       input,
       expected,
+      batch_size, // tests num
       make_unique<QuadraticCost>(),
       0.07,  // learning rate
       5000  // epochs
@@ -321,6 +322,7 @@ BOOST_AUTO_TEST_CASE(Max_Training_WithSigmoid_Test)
       *layer,
       input,
       expected,
+      batch_size, // tests num
       make_unique<QuadraticCost>(),
       0.5,  // learning rate
       100000  // epochs
@@ -497,6 +499,7 @@ BOOST_AUTO_TEST_CASE(Avg_Training_WithIdentity_Test)
       *layer,
       input,
       expected,
+      batch_size, // tests num
       make_unique<QuadraticCost>(),
       0.01,     // learning rate
       100000  // epochs
@@ -548,6 +551,7 @@ BOOST_AUTO_TEST_CASE(Avg_Training_WithSigmoid_Test)
       *layer,
       input,
       expected,
+      batch_size, // tests num
       make_unique<CrossEntropyCost>(),
       1.0,  // learning rate
       10000  // epochs

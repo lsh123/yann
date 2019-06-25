@@ -17,6 +17,7 @@ AM_EXTRA_RECURSIVE_TARGETS([
   check-fcnn
   check-cnn
   check-rnn
+  check-s2s
   check-custom
   check-word2vec
 ])

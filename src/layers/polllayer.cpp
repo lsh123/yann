@@ -571,15 +571,15 @@ void yann::PollingLayer::init(enum InitMode mode, boost::optional<InitContext> i
   }
 }
 
-void yann::PollingLayer::update(Context * context, const size_t & batch_size)
+void yann::PollingLayer::update(Context * context, const size_t & tests_num)
 {
   auto ctx = dynamic_cast<PollingLayer_TrainingContext *>(context);
   YANN_CHECK(ctx);
   YANN_CHECK(ctx->_ww_updater);
   YANN_CHECK(ctx->_bb_updater);
 
-  ctx->_ww_updater->update(ctx->_delta_ww, batch_size, _ww);
-  ctx->_bb_updater->update(ctx->_delta_bb, batch_size, _bb);
+  ctx->_ww_updater->update(ctx->_delta_ww, tests_num, _ww);
+  ctx->_bb_updater->update(ctx->_delta_bb, tests_num, _bb);
 }
 
 // the format is (w:<weight>,b:<bias>)

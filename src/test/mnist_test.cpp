@@ -383,7 +383,6 @@ pair<double, Value> yann::test::MnistTest::train_and_test(
   YANN_CHECK_EQ(get_batch_size(_training.labels()), get_batch_size(_training.images()));
   YANN_CHECK_EQ(get_batch_size(_testing.labels()), get_batch_size(_testing.images()));
 
-
   // training
   double test_success_rate = 0, training_success_rate = 0;
   Value test_cost = 0, training_cost = 0;
@@ -440,7 +439,7 @@ pair<double, Value> yann::test::MnistTest::train_and_test(
                 mode,
                 training_batch_size);
     trainer.set_epochs_progress_callback(epochs_callback);
-    trainer.train(nn, data_source, epochs);
+    trainer.train(nn, data_source, training_batch_size, epochs);
 
     BOOST_TEST_MESSAGE(timer << "\n");
   }

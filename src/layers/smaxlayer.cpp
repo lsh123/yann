@@ -256,7 +256,7 @@ void yann::SoftmaxLayer::init(enum InitMode mode, boost::optional<InitContext> i
   // nothing to do
 }
 
-void yann::SoftmaxLayer::update(Context * context, const size_t & batch_size)
+void yann::SoftmaxLayer::update(Context * context, const size_t & tests_num)
 {
   // auto ctx = dynamic_cast<SoftmaxLayer_Context *>(context);
   // YANN_CHECK(ctx);

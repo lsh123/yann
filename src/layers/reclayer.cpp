@@ -68,11 +68,6 @@ public:
     init(state_size);
   }
 
-  inline MatrixSize get_pos() const
-  {
-    return _pos;
-  }
-
   // Layer::Context overwrites
   virtual void reset_state()
   {
@@ -429,7 +424,7 @@ void yann::RecurrentLayer::feedforward_internal(
   for(MatrixSize ii = 0; ii < get_batch_size(input); ++ii, ++ctx->_pos) {
     // hh(t) = state_activation_function(ww_hh * hh(t-1) + ww_xh*x(t) + b_h)  // state
     auto in = get_batch(input, ii);
-    auto out = get_batch(ctx->get_output(), ii);
+    auto out = get_batch(ctx->get_output(), ctx->_pos);
     auto hh = get_batch(ctx->_hh, ctx->_pos);
     auto zz_h = get_batch(ctx->_zz_h, ctx->_pos);
     auto zz_a = get_batch(ctx->_zz_a, ctx->_pos);
@@ -606,7 +601,7 @@ void yann::RecurrentLayer::init(enum InitMode mode, boost::optional<InitContext>
   }
 }
 
-void yann::RecurrentLayer::update(Context * context, const size_t & batch_size)
+void yann::RecurrentLayer::update(Context * context, const size_t & tests_num)
 {
   auto ctx = dynamic_cast<RecurrentLayer_TrainingContext *>(context);
   YANN_CHECK(ctx);
@@ -621,12 +616,11 @@ void yann::RecurrentLayer::update(Context * context, const size_t & batch_size)
   YANN_SLOW_CHECK(is_same_size(_ww_ha, ctx->_delta_ww_ha));
   YANN_SLOW_CHECK(is_same_size(_bb_a, ctx->_delta_bb_a));
 
-  // set batch_size to 1 since we don't really operate on batches
-  ctx->_ww_hh_updater->update(ctx->_delta_ww_hh, 1, _ww_hh);
-  ctx->_ww_xh_updater->update(ctx->_delta_ww_xh, 1, _ww_xh);
-  ctx->_bb_h_updater->update(ctx->_delta_bb_h, 1, _bb_h);
-  ctx->_ww_ha_updater->update(ctx->_delta_ww_ha, 1, _ww_ha);
-  ctx->_bb_a_updater->update(ctx->_delta_bb_a, 1, _bb_a);
+  ctx->_ww_hh_updater->update(ctx->_delta_ww_hh, tests_num, _ww_hh);
+  ctx->_ww_xh_updater->update(ctx->_delta_ww_xh, tests_num, _ww_xh);
+  ctx->_bb_h_updater->update(ctx->_delta_bb_h, tests_num, _bb_h);
+  ctx->_ww_ha_updater->update(ctx->_delta_ww_ha, tests_num, _ww_ha);
+  ctx->_bb_a_updater->update(ctx->_delta_bb_a, tests_num, _bb_a);
 }
 
 // the format is (wh:<_ww_hh>,wx:<_ww_xh>,bh:<_bb_h>,wa:<_ww_ha>,ba:<_bb_a>)

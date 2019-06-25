@@ -82,7 +82,7 @@ public:
   void init(enum Layer::InitMode mode, boost::optional<Layer::InitContext> init_context = boost::none);
   Value train(const RefConstVectorBatch & input, const RefConstVectorBatch & output, TrainingContext * ctx) const;
   Value train(const RefConstSparseVectorBatch & input, const RefConstVectorBatch & output, TrainingContext * ctx) const;
-  void update(const TrainingContext * ctx, const size_t & batch_size);
+  void update(const TrainingContext * ctx, const size_t & tests_num);
 
   // access to layers
   size_t get_layers_num() const;

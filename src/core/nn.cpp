@@ -63,8 +63,8 @@ void yann::Network::save(const string & filename) const
     throw runtime_error("can't write to file " + filename);
   }
   ofs.close();
-
 }
+
 void yann::Network::load(const std::string & filename)
 {
   ifstream ifs(filename, ifstream::in);
@@ -354,11 +354,11 @@ Value yann::Network::train(
   return train_internal(input, output, ctx);
 }
 
-void yann::Network::update(const TrainingContext * ctx, const size_t & batch_size)
+void yann::Network::update(const TrainingContext * ctx, const size_t & tests_num)
 {
   YANN_CHECK(is_valid());
   YANN_CHECK(ctx);
-  _container->update(ctx->_container_ctx.get(), batch_size);
+  _container->update(ctx->_container_ctx.get(), tests_num);
 }
 
 // format:

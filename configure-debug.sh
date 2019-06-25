@@ -8,3 +8,8 @@ LDFLAGS="-g3"
 
 $SRC_PATH/configure CFLAGS= CPPFLAGS= CXXFLAGS="$CXXFLAGS" LD_FLAGS="$LDFLAGS" 
 
+if [ ! -e data ]; then
+  ln -s $SRC_PATH/data .
+fi
+
+

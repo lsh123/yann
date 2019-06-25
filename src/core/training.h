@@ -26,31 +26,43 @@ public:
     public:
       Batch(
           const RefConstVectorBatch inputs,
-          const RefConstVectorBatch outputs) :
+          const RefConstVectorBatch outputs,
+          const size_t & tests_num) :
         _inputs(inputs),
-        _outputs(outputs)
+        _outputs(outputs),
+        _tests_num(tests_num)
       {
       }
+
       Batch(
           const RefConstSparseVectorBatch sparse_inputs,
-          const RefConstVectorBatch outputs) :
+          const RefConstVectorBatch outputs,
+          const size_t & tests_num) :
         _sparse_inputs(sparse_inputs),
-        _outputs(outputs)
+        _outputs(outputs),
+        _tests_num(tests_num)
       {
       }
+
       inline bool is_valid() const
       {
         return _inputs || _sparse_inputs;
       }
+
+      inline size_t get_tests_num() const
+      {
+        return _tests_num;
+      }
+
     public:
       boost::optional<RefConstVectorBatch> _inputs;
       boost::optional<RefConstSparseVectorBatch> _sparse_inputs;
       RefConstVectorBatch _outputs;
+      const size_t _tests_num;
     }; // Batch;
 
   public:
     virtual std::string get_info() const = 0;
-    virtual MatrixSize get_tests_num() const = 0;
     virtual MatrixSize get_batch_size() const = 0;
     virtual MatrixSize get_num_batches() const = 0;
     virtual void start_epoch() = 0;
@@ -63,13 +75,13 @@ public:
   virtual ~Trainer();
 
   std::string get_info() const;
-  Value train(Network & nn, DataSource & data_source, const size_t & epochs) const;
+  Value train(Network & nn, DataSource & data_source, const size_t & batch_tests_num, const size_t & epochs) const;
 
   void set_batch_progress_callback(ProgressCallback callback) {  _batch_progress_callback = callback; }
   void set_epochs_progress_callback(ProgressCallback callback) {  _epochs_progress_callback = callback; }
 
 private:
-  Value train(Network & nn, DataSource & data_source, TrainingContext * ctx) const;
+  Value train(Network & nn, DataSource & data_source, const size_t & batch_tests_num, TrainingContext * ctx) const;
 
 protected:
   std::unique_ptr<Layer::Updater> _updater;
@@ -99,7 +111,6 @@ public:
   virtual std::string get_info() const;
   virtual MatrixSize get_batch_size() const;
   virtual MatrixSize get_num_batches() const;
-  virtual MatrixSize get_tests_num() const;
   virtual void start_epoch();
   virtual boost::optional<Batch> get_next_batch();
   virtual void end_epoch();

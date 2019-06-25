@@ -14,7 +14,7 @@ class RateProvider {
 public:
   virtual std::string get_info() const = 0;
   virtual void start_epoch() = 0;
-  virtual double get(const size_t & batch_size) = 0;
+  virtual double get(const size_t & tests_num) = 0;
   virtual std::unique_ptr<RateProvider> copy() const = 0;
 }; // RateProvider
 
@@ -31,7 +31,7 @@ public:
   // RateProvider overwrites
   virtual std::string get_info() const;
   virtual void start_epoch();
-  virtual double get(const size_t & batch_size);
+  virtual double get(const size_t & tests_num);
   virtual std::unique_ptr<RateProvider> copy() const;
 
 private:
@@ -63,8 +63,8 @@ public:
   virtual void init(const MatrixSize & rows, const MatrixSize & cols);
   virtual void start_epoch();
   virtual void reset();
-  virtual void update(const RefConstMatrix & delta, const size_t & batch_size, RefMatrix value);
-  virtual void update(const Value & delta, const size_t & batch_size, Value & value);
+  virtual void update(const RefConstMatrix & delta, const size_t & tests_num, RefMatrix value);
+  virtual void update(const Value & delta, const size_t & tests_num, Value & value);
 
 private:
   std::unique_ptr<RateProvider> _learning_rate;
@@ -95,8 +95,8 @@ public:
   virtual void init(const MatrixSize & rows, const MatrixSize & cols);
   virtual void start_epoch();
   virtual void reset();
-  virtual void update(const RefConstMatrix & delta, const size_t & batch_size, RefMatrix value);
-  virtual void update(const Value & delta, const size_t & batch_size, Value & value);
+  virtual void update(const RefConstMatrix & delta, const size_t & tests_num, RefMatrix value);
+  virtual void update(const Value & delta, const size_t & tests_num, Value & value);
 
 private:
   std::unique_ptr<RateProvider> _alpha;
@@ -121,8 +121,8 @@ public:
   virtual void init(const MatrixSize & rows, const MatrixSize & cols);
   virtual void start_epoch();
   virtual void reset();
-  virtual void update(const RefConstMatrix & delta, const size_t & batch_size, RefMatrix value);
-  virtual void update(const Value & delta, const size_t & batch_size, Value & value);
+  virtual void update(const RefConstMatrix & delta, const size_t & tests_num, RefMatrix value);
+  virtual void update(const Value & delta, const size_t & tests_num, Value & value);
 
 private:
   const double _rate;
@@ -149,8 +149,8 @@ public:
   virtual void init(const MatrixSize & rows, const MatrixSize & cols);
   virtual void start_epoch();
   virtual void reset();
-  virtual void update(const RefConstMatrix & delta, const size_t & batch_size, RefMatrix value);
-  virtual void update(const Value & delta, const size_t & batch_size, Value & value);
+  virtual void update(const RefConstMatrix & delta, const size_t & tests_num, RefMatrix value);
+  virtual void update(const Value & delta, const size_t & tests_num, Value & value);
 
 private:
   const double _beta;

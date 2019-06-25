@@ -106,6 +106,7 @@ void test_layer_training(
     Layer & layer,
     const RefConstVectorBatch & input,
     const RefConstVectorBatch & expected_output,
+    const size_t & tests_num,
     const std::unique_ptr<CostFunction> & cost_func,
     const double learning_rate,
     const size_t & epochs);
@@ -114,6 +115,7 @@ void test_layer_training(
 void test_layer_training_from_random(
     Layer & layer,
     const MatrixSize & batch_size,
+    const size_t & tests_num,
     const std::unique_ptr<CostFunction> & cost_func,
     const double learning_rate,
     const size_t & epochs);

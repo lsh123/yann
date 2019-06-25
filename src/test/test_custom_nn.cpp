@@ -30,7 +30,6 @@ using namespace yann;
 using namespace yann::test;
 
 #define MNIST_TEST_FOLDER   "../data/mnist/"
-#define TMP_FOLDER  "/tmp/"
 
 struct CustomNNTestFixture
 {

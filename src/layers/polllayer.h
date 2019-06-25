@@ -80,7 +80,7 @@ public:
       Context * context) const;
 
   virtual void init(enum InitMode mode, boost::optional<InitContext> init_context);
-  virtual void update(Context * context, const size_t & batch_size);
+  virtual void update(Context * context, const size_t & tests_num);
 
   virtual void read(std::istream & is);
   virtual void write(std::ostream & os) const;

@@ -127,10 +127,6 @@ struct RnnTestFixture
     {
       return _words.size();
     }
-    virtual MatrixSize get_tests_num() const
-    {
-      return get_num_batches();
-    }
     virtual void start_epoch()
     {
       _cur_word = 0;
@@ -143,7 +139,7 @@ struct RnnTestFixture
       }
       auto res = create_batch(_words[_cur_word], _inputs_batch, _outputs_batch);
       ++_cur_word;
-      return Batch(_inputs_batch.topRows(res), _outputs_batch.topRows(res));  // RowMajor
+      return Batch(_inputs_batch.topRows(res), _outputs_batch.topRows(res), 1);  // RowMajor, the whole batch is one test
     }
     virtual void end_epoch()
     {
@@ -232,7 +228,7 @@ struct RnnTestFixture
       nn.calculate(input, ctx.get());
 
       if(ii >= (MatrixSize)prefix.size()) {
-        cur_ch = DataSource_Words::get_char(get_batch(ctx->get_output(), 0));
+        cur_ch = DataSource_Words::get_char(get_batch(ctx->get_output(), ii));
         if(cur_ch == DataSource_Words::SEPARATOR_CHAR) {
           break;
         }
@@ -256,6 +252,7 @@ BOOST_AUTO_TEST_CASE(Training_RnnLayer_TwoFruits_Test)
   const MatrixSize state_size = 50;
   const double learning_rate = 0.9;
   const double regularization = 0.0;
+  const size_t training_batch_size = 1;
   const size_t epochs = 50;
 
   DataSource_Words data_source({"lemon", "apple"});
@@ -278,7 +275,7 @@ BOOST_AUTO_TEST_CASE(Training_RnnLayer_TwoFruits_Test)
   // trainer.set_batch_progress_callback(batch_progress_callback);
   // trainer.set_epochs_progress_callback(epoch_progress_callback);
 
-  Value cost = trainer.train(*nn, data_source, epochs);
+  Value cost = trainer.train(*nn, data_source, training_batch_size, epochs);
   BOOST_CHECK_LE(cost, 10.0);
   BOOST_CHECK_EQUAL(get_word(*nn), "apple");
   BOOST_CHECK_EQUAL(get_word(*nn, "a"), "apple");
@@ -291,6 +288,7 @@ BOOST_AUTO_TEST_CASE(Training_RnnLayer_AllFruits_Test)
   const MatrixSize state_size = 50;
   const double learning_rate = 0.9;
   const double regularization = 0.0;
+  const size_t training_batch_size = 1;
   const size_t search_epochs = 30;
   const size_t epochs = 100;
 
@@ -317,15 +315,16 @@ BOOST_AUTO_TEST_CASE(Training_RnnLayer_AllFruits_Test)
   // trainer.set_batch_progress_callback(batch_progress_callback);
   // trainer.set_epochs_progress_callback(epoch_progress_callback);
 
-  Value cost = trainer.train(*nn, data_source, epochs);
-  BOOST_CHECK_LE(cost, 7.0);
+  Value cost = trainer.train(*nn, data_source, training_batch_size, epochs);
+  BOOST_CHECK_LE(cost, 8.0);
   BOOST_CHECK_EQUAL(get_word(*nn),        "pomelo");
-  BOOST_CHECK_EQUAL(get_word(*nn, "a"),   "apricot");
+  BOOST_CHECK_EQUAL(get_word(*nn, "a"),   "apple");
   BOOST_CHECK_EQUAL(get_word(*nn, "b"),   "blueberry");
   BOOST_CHECK_EQUAL(get_word(*nn, "ba"),  "banana");
-  BOOST_CHECK_EQUAL(get_word(*nn, "l"),   "lychee");
+  BOOST_CHECK_EQUAL(get_word(*nn, "l"),   "loquat");
   BOOST_CHECK_EQUAL(get_word(*nn, "lo"),  "loquat");
   BOOST_CHECK_EQUAL(get_word(*nn, "le"),  "lemon");
+  BOOST_CHECK_EQUAL(get_word(*nn, "ly"),  "lychee");
   BOOST_CHECK_EQUAL(get_word(*nn, "o"),   "orange");
   BOOST_CHECK_EQUAL(get_word(*nn, "to"),  "tomato");
 }
@@ -336,6 +335,7 @@ BOOST_AUTO_TEST_CASE(Training_RnnLayer_AllFruits_Tanh_Test, * disabled())
   const MatrixSize state_size = 100;
   const double learning_rate = 0.0001;
   const double regularization = 0.0;
+  const size_t training_batch_size = 1;
   const size_t epochs = 5000;
 
   DataSource_Words data_source({"apple", "lemon"});
@@ -363,7 +363,7 @@ BOOST_AUTO_TEST_CASE(Training_RnnLayer_AllFruits_Tanh_Test, * disabled())
 
   for(int ii = 0; ii < 10; ++ ii) {
     DBG(ii);
-    Value cost = trainer.train(*nn, data_source, epochs);
+    Value cost = trainer.train(*nn, data_source, training_batch_size, epochs);
     DBG(cost);
     DBG(get_word(*nn, ""));
     DBG(get_word(*nn, "a"));
@@ -379,6 +379,7 @@ BOOST_AUTO_TEST_CASE(Training_LstmLayer_TwoFruits_Test)
   BOOST_TEST_MESSAGE("*** lstm Layer two fruits test ...");
   const double learning_rate = 2.0;
   const double regularization = 0.0;
+  const size_t training_batch_size = 1;
   const size_t epochs = 100;
 
   //DataSource_Words data_source(FRUITS);
@@ -401,7 +402,7 @@ BOOST_AUTO_TEST_CASE(Training_LstmLayer_TwoFruits_Test)
   // trainer.set_batch_progress_callback(batch_progress_callback);
   // trainer.set_epochs_progress_callback(epoch_progress_callback);
 
-  Value cost = trainer.train(*nn, data_source, epochs);
+  Value cost = trainer.train(*nn, data_source, training_batch_size, epochs);
   BOOST_CHECK_LE(cost, 5.0);
   BOOST_CHECK_EQUAL(get_word(*nn), "apple");
   BOOST_CHECK_EQUAL(get_word(*nn, "a"), "apple");
@@ -414,6 +415,7 @@ BOOST_AUTO_TEST_CASE(Training_LstmLayer_AllFruits_Test, * disabled())
   const double alpha = 0.1;
   const double beta = 0.7;
   const size_t search_epochs = 500;
+  const size_t training_batch_size = 1;
   const size_t epochs = 1000;
 
   DataSource_Words data_source(FRUITS);
@@ -442,7 +444,7 @@ BOOST_AUTO_TEST_CASE(Training_LstmLayer_AllFruits_Test, * disabled())
   // trainer.set_batch_progress_callback(batch_progress_callback);
   trainer.set_epochs_progress_callback(epochs_callback);
 
-  Value cost = trainer.train(*nn, data_source, epochs);
+  Value cost = trainer.train(*nn, data_source, training_batch_size, epochs);
   BOOST_CHECK_LE(cost, 10.0);
   // BOOST_CHECK_EQUAL(get_word(*nn), "apple");
   // BOOST_CHECK_EQUAL(get_word(*nn, "a"), "apple");

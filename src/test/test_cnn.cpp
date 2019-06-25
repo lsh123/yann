@@ -27,7 +27,6 @@ using namespace yann;
 using namespace yann::test;
 
 #define MNIST_TEST_FOLDER   "../data/mnist/"
-#define TMP_FOLDER  "/tmp/"
 
 struct CnnTestFixture
 {
@@ -41,14 +40,6 @@ struct CnnTestFixture
   }
   ~CnnTestFixture()
   {
-  }
-
-  void save_to_file(const unique_ptr<Network> & nn)
-  {
-    // save
-    string filename = TMP_FOLDER + Timer::get_time() + ".nn";
-    nn->save(filename);
-    BOOST_TEST_MESSAGE("*** Saved to file: " << filename);
   }
 
   // Creates CNN with one Conv+Poll layer, FC layer and Softmax layer
@@ -158,6 +149,7 @@ BOOST_AUTO_TEST_CASE(Training_GradientDescent_Test)
   const MatrixSize output_size = 2;
   const MatrixSize training_batch_size = 4;
   const MatrixSize testing_batch_size = 2;
+  const MatrixSize tests_per_batch = 1;
   VectorBatch training_inputs, training_outputs;
   VectorBatch testing_inputs, testing_outputs;
 
@@ -210,15 +202,15 @@ BOOST_AUTO_TEST_CASE(Training_GradientDescent_Test)
       training_inputs,
       training_outputs,
       DataSource_Stochastic::Sequential,
-      1);
+      tests_per_batch);
   BOOST_TEST_MESSAGE("trainer: " << trainer.get_info());
   {
     Timer timer("Training");
-    trainer.train(*cnn, data_source, epochs);
+    trainer.train(*cnn, data_source, tests_per_batch, epochs);
 
     BOOST_TEST_MESSAGE(timer);
   }
-  BOOST_TEST_MESSAGE("After training: " << (*cnn));
+  // BOOST_TEST_MESSAGE("After training: " << (*cnn));
 
   // testing
   VectorBatch res;
@@ -383,7 +375,7 @@ BOOST_AUTO_TEST_CASE(LeNet1_Two_Labels_Test)
   BOOST_TEST_MESSAGE(" trainer: " << trainer->get_info());
   BOOST_TEST_MESSAGE(" epochs: " << epochs);
 
-  // save_to_file(nn);
+  // save_to_file(*nn, "nn");
 
   // check
   BOOST_CHECK_GE(res.first, 0.99);  // > 99%%

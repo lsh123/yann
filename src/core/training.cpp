@@ -37,7 +37,7 @@ string yann::Trainer::get_info() const
   return oss.str();
 }
 
-Value yann::Trainer::train(Network & nn, DataSource & data_source, TrainingContext * ctx) const
+Value yann::Trainer::train(Network & nn, DataSource & data_source, const size_t & batch_tests_num, TrainingContext * ctx) const
 {
   YANN_CHECK(ctx);
 
@@ -49,7 +49,9 @@ Value yann::Trainer::train(Network & nn, DataSource & data_source, TrainingConte
   data_source.start_epoch();
 
   Value total_cost = 0;
-  for (size_t ii = 0; ; ++ii) {
+  size_t total_tests_num = 0;
+  size_t cur_tests_num = 0;
+  for (MatrixSize ii = 0; ii < num_batches; ++ii) {
     auto batch = data_source.get_next_batch();
     if(!batch || !batch->is_valid()) {
       break;
@@ -57,7 +59,6 @@ Value yann::Trainer::train(Network & nn, DataSource & data_source, TrainingConte
     if(_batch_progress_callback != nullptr) {
       _batch_progress_callback(ii, num_batches, "");
     }
-
     ctx->reset_state();
     if(batch->_inputs) {
       const auto inputs = *(batch->_inputs);
@@ -76,30 +77,38 @@ Value yann::Trainer::train(Network & nn, DataSource & data_source, TrainingConte
     } else {
       YANN_CHECK("we can't be here" == nullptr);
     }
-    nn.update(ctx, batch_size);
+
+    auto tests_num = batch->get_tests_num();
+    YANN_CHECK_GT(tests_num, 0);
+
+    cur_tests_num += tests_num;
+    if(cur_tests_num >= batch_tests_num) {
+      nn.update(ctx, cur_tests_num);
+      total_tests_num += cur_tests_num;
+      cur_tests_num = 0;
+    }
   }
 
   data_source.end_epoch();
 
-  return total_cost;
+  return total_tests_num > 0 ? total_cost / total_tests_num : 0.0;
 }
 
-Value yann::Trainer::train(Network & nn, DataSource & data_source, const size_t & epochs) const
+Value yann::Trainer::train(Network & nn, DataSource & data_source, const size_t & batch_tests_num, const size_t & epochs) const
 {
   auto ctx = nn.create_training_context(data_source.get_batch_size(), _updater);
   YANN_CHECK(ctx);
 
-  auto tests_num = data_source.get_tests_num();
   Value cost = 0;
   for(size_t ii = 0; ii < epochs; ++ii) {
-    cost = train(nn, data_source, ctx.get());
+    cost = train(nn, data_source, batch_tests_num, ctx.get());
     if(_epochs_progress_callback != nullptr) {
       ostringstream oss;
-      oss << "cost per test: " << cost / tests_num;
+      oss << "cost per test: " << cost;
       _epochs_progress_callback(ii + 1, epochs, oss.str());
     }
   }
-  return cost / tests_num;
+  return cost;
 }
 
 
@@ -156,11 +165,6 @@ MatrixSize yann::DataSource_Stochastic::get_num_batches() const
   return yann::get_batch_size(_inputs) / _batch_size;
 }
 
-MatrixSize yann::DataSource_Stochastic::get_tests_num() const
-{
-  return get_num_batches() * get_batch_size();
-}
-
 void yann::DataSource_Stochastic::start_epoch()
 {
   _cur_batch = 0;
@@ -199,7 +203,7 @@ boost::optional<yann::Trainer::DataSource::Batch> yann::DataSource_Stochastic::g
   }
   ++_cur_batch;
 
-  return Batch(_inputs_batch,_outputs_batch);
+  return Batch(_inputs_batch, _outputs_batch, get_batch_size()); // each row in the batch is a test
 }
 
 void yann::DataSource_Stochastic::end_epoch()

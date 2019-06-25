@@ -705,7 +705,7 @@ void yann::ConvolutionalLayer::init(enum InitMode mode, optional<InitContext> in
   }
 }
 
-void yann::ConvolutionalLayer::update(Context * context, const size_t & batch_size)
+void yann::ConvolutionalLayer::update(Context * context, const size_t & tests_num)
 {
   auto ctx = dynamic_cast<ConvolutionalLayer_TrainingContext *>(context);
   YANN_CHECK(ctx);
@@ -713,8 +713,8 @@ void yann::ConvolutionalLayer::update(Context * context, const size_t & batch_si
   YANN_CHECK(ctx->_bb_updater);
   YANN_CHECK(is_same_size(_ww, ctx->_delta_ww));
 
-  ctx->_ww_updater->update(ctx->_delta_ww, batch_size, _ww);
-  ctx->_bb_updater->update(ctx->_delta_bb, batch_size, _bb);
+  ctx->_ww_updater->update(ctx->_delta_ww, tests_num, _ww);
+  ctx->_bb_updater->update(ctx->_delta_bb, tests_num, _bb);
 }
 
 // the format is (w:<weights>,b:<bias>)

@@ -145,7 +145,7 @@ void yann::test::AvgLayer::init(enum InitMode mode, boost::optional<InitContext>
 {
   // do nothing
 }
-void yann::test::AvgLayer::update(Context * context, const size_t & batch_size)
+void yann::test::AvgLayer::update(Context * context, const size_t & tests_num)
 {
   // do nothing
 }
@@ -247,6 +247,10 @@ void yann::test::test_layer_backprop(
       ctx->reset_state();
       layer.feedforward(in, ctx.get());
 
+      // DBG(ii);
+      // DBG(in);
+      // DBG(ctx->get_output());
+
       // calculate cost
       auto cost = cost_func->f(ctx->get_output(), expected_output);
       if(ii % tenth == 0) {
@@ -316,6 +320,7 @@ void yann::test::test_layer_training(
     Layer & layer,
     const RefConstVectorBatch & input,
     const RefConstVectorBatch & expected_output,
+    const size_t & tests_num,
     const std::unique_ptr<CostFunction> & cost_func,
     const double learning_rate,
     const size_t & epochs)
@@ -341,6 +346,10 @@ void yann::test::test_layer_training(
       ctx->reset_state();
       layer.feedforward(input, ctx.get());
 
+      if(ii == 0) {
+        BOOST_TEST_MESSAGE("Output before trainig: " << ctx->get_output());
+      }
+
       // calculate cost
       auto cost = cost_func->f(ctx->get_output(), expected_output);
       if(ii % tenth == 0) {
@@ -355,7 +364,7 @@ void yann::test::test_layer_training(
                       ctx.get());
 
       // update
-      layer.update(ctx.get(), get_batch_size(input));
+      layer.update(ctx.get(), tests_num);
     }
 
     // one more time
@@ -372,6 +381,7 @@ void yann::test::test_layer_training(
 void yann::test::test_layer_training_from_random(
     Layer & layer,
     const MatrixSize & batch_size,
+    const size_t & tests_num,
     const std::unique_ptr<CostFunction> & cost_func,
     const double learning_rate,
     const size_t & epochs)
@@ -393,6 +403,7 @@ void yann::test::test_layer_training_from_random(
       layer,
       input,
       ctx->get_output(),
+      tests_num,
       cost_func,
       learning_rate,
       epochs);

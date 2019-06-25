@@ -74,10 +74,7 @@ public:
     YANN_CHECK(_batch_size > 0);
     return _tests.size() / _batch_size;
   }
-  virtual MatrixSize get_tests_num() const
-  {
-    return get_num_batches() * get_batch_size();
-  }
+
   virtual void start_epoch()
   {
     _cur_pos = 0;
@@ -95,7 +92,7 @@ public:
       return boost::none;
     }
     _cur_pos += res;
-    return Batch(_inputs_batch, _outputs_batch);
+    return Batch(_inputs_batch, _outputs_batch, get_batch_size()); // each row in the batch is a test
   }
   virtual void end_epoch()
   {
@@ -234,10 +231,6 @@ public:
     YANN_CHECK(_batch_size > 0);
     return _tests.size() / _batch_size;
   }
-  virtual MatrixSize get_tests_num() const
-  {
-    return get_num_batches() * get_batch_size();
-  }
   virtual void start_epoch()
   {
     _cur_pos = 0;
@@ -255,7 +248,7 @@ public:
       return boost::none;
     }
     _cur_pos += res;
-    return Batch(_inputs_batch, _outputs_batch);
+    return Batch(_inputs_batch, _outputs_batch, get_batch_size()); // each row in the batch is a test
   }
 
   virtual void end_epoch()
@@ -600,6 +593,9 @@ std::unique_ptr<Word2Vec> yann::word2vec::Word2Vec::train(
       text.get_dictionary_size(), params._dimensions);
   fc_layer1->set_fixed_bias(0.0);
   fc_layer1->set_activation_function(make_unique<IdentityFunction>());
+  if(0 < params._training_sampling_rate && params._training_sampling_rate < 1.0) {
+    fc_layer1->set_sampling_rate(params._training_sampling_rate);
+  }
   nn->append_layer(std::move(fc_layer1));
 
   auto fc_layer2 = make_unique<FullyConnectedLayer>(
@@ -616,7 +612,7 @@ std::unique_ptr<Word2Vec> yann::word2vec::Word2Vec::train(
   Trainer trainer(params._updater);
   trainer.set_batch_progress_callback(params._batch_callback);
   trainer.set_epochs_progress_callback(params._epochs_callback);
-  trainer.train(*nn, data_source, params._epochs);
+  trainer.train(*nn, data_source, params._training_batch_size,  params._epochs);
 
   // extract the weights
   auto fc_layer = dynamic_cast<const FullyConnectedLayer*>(nn->get_layer(0));

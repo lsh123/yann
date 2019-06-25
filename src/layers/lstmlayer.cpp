@@ -72,11 +72,6 @@ public:
     init();
   }
 
-  inline MatrixSize get_pos() const
-  {
-    return _pos;
-  }
-
   // Layer::Context overwrites
   virtual void reset_state()
   {
@@ -435,21 +430,20 @@ void yann::LstmLayer::feedforward_internal(
     //  zz_f(t) = ww_xf*x(t) + ww_hf * h(t-1) + bb_g  -- forget gate
     //  zz_o(t) = ww_xo*x(t) + ww_ho * h(t-1) + bb_o  -- output gate
     auto in  = get_batch(input, ii);
-    auto out = get_batch(ctx->get_output(), ii);
+    auto out = get_batch(ctx->get_output(), ctx->_pos);
     auto hh  = get_batch(ctx->_hh, ctx->_pos);
     if(ctx->_pos > 0) {
       const auto & hh_prev = get_batch(ctx->_hh, ctx->_pos - 1);
       for(auto jj = 0; jj < Gate_Max; ++jj) {
         auto zz_gate = get_batch(ctx->_zz_gate[jj], ctx->_pos);
-        zz_gate = MatrixFunctions<InputType>::product(in, _ww_x[jj]) +
-                  MatrixFunctions<InputType>::product(hh_prev, _ww_h[jj]) +
-                  _bb[jj];
+        zz_gate.noalias() = MatrixFunctions<InputType>::product(in, _ww_x[jj]);
+        zz_gate.noalias() += MatrixFunctions<RefConstMatrix>::product(hh_prev, _ww_h[jj]) + _bb[jj];
       }
     } else {
       for(auto jj = 0; jj < Gate_Max; ++jj) {
         auto zz_gate = get_batch(ctx->_zz_gate[jj], ctx->_pos);
-        zz_gate = MatrixFunctions<InputType>::product(in, _ww_x[jj]) +
-                 _bb[jj];
+        zz_gate.noalias() = MatrixFunctions<InputType>::product(in, _ww_x[jj]);
+        zz_gate.noalias() += _bb[jj];
       }
     }
 
@@ -512,7 +506,7 @@ void yann::LstmLayer::feedforward(
     Context * context,
     enum OperationMode mode) const
 {
-  feedforward_internal(input, context, mode);
+  feedforward_internal<RefConstSparseMatrix>(input, context, mode);
 }
 
 template<
@@ -719,7 +713,7 @@ void yann::LstmLayer::init(enum InitMode mode, boost::optional<InitContext> init
   }
 }
 
-void yann::LstmLayer::update(Context * context, const size_t & batch_size)
+void yann::LstmLayer::update(Context * context, const size_t & tests_num)
 {
   auto ctx = dynamic_cast<LstmLayer_TrainingContext *>(context);
   YANN_CHECK(ctx);
@@ -729,10 +723,9 @@ void yann::LstmLayer::update(Context * context, const size_t & batch_size)
     YANN_SLOW_CHECK(ctx->_ww_h_updater[ii]);
     YANN_SLOW_CHECK(ctx->_bb_updater[ii]);
 
-    // set batch_size to 1 since we don't really operate on batches
-    ctx->_ww_x_updater[ii]->update(ctx->_delta_ww_x[ii], 1, _ww_x[ii]);
-    ctx->_ww_h_updater[ii]->update(ctx->_delta_ww_h[ii], 1, _ww_h[ii]);
-    ctx->_bb_updater[ii]->update(ctx->_delta_bb[ii], 1, _bb[ii]);
+    ctx->_ww_x_updater[ii]->update(ctx->_delta_ww_x[ii], tests_num, _ww_x[ii]);
+    ctx->_ww_h_updater[ii]->update(ctx->_delta_ww_h[ii], tests_num, _ww_h[ii]);
+    ctx->_bb_updater[ii]->update(ctx->_delta_bb[ii], tests_num, _bb[ii]);
   }
 }
 

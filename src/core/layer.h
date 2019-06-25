@@ -69,7 +69,6 @@ public:
     inline RefConstVectorBatch get_output(const MatrixSize & pos) const { return _output->topRows(pos); } // RowMajor
     inline RefVectorBatch get_output(const MatrixSize & pos)            { return _output->topRows(pos); } // RowMajor
 
-
     virtual void start_epoch() { }
     virtual void reset_state() { }
 
@@ -87,8 +86,8 @@ public:
     virtual void init(const MatrixSize & rows, const MatrixSize & cols) = 0;
     virtual void start_epoch() = 0;
     virtual void reset() = 0;
-    virtual void update(const RefConstMatrix & delta, const size_t & batch_size, RefMatrix value) = 0;
-    virtual void update(const Value & delta, const size_t & batch_size, Value & value) = 0;
+    virtual void update(const RefConstMatrix & delta, const size_t & tests_num, RefMatrix value) = 0;
+    virtual void update(const Value & delta, const size_t & tests_num, Value & value) = 0;
   }; // class Updater
 
 public:
@@ -130,7 +129,7 @@ public:
       Context * context) const = 0;
 
   virtual void init(enum InitMode mode, boost::optional<InitContext> init_context = boost::none) = 0;
-  virtual void update(Context * context, const size_t & batch_size) = 0;
+  virtual void update(Context * context, const size_t & tests_num) = 0;
 
   virtual void read(std::istream & is);
   virtual void write(std::ostream & os) const;

@@ -8,70 +8,27 @@
 
 #include <iostream>
 #include <string>
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 #include <boost/optional.hpp>
 
+#include "core/dict.h"
 #include "core/nn.h"
 
 // Forward declarations
 namespace yann::word2vec {
-class Dictionary;
 class Text;
 }; // namespace yann::word2vec
 
 
 // Overwrites from std:: namespace
 namespace std {
-ostream& operator<<(ostream & os, const yann::word2vec::Dictionary & dictionary);
-istream& operator>>(istream & is, yann::word2vec::Dictionary & dictionary);
-
 ostream& operator<<(ostream & os, const yann::word2vec::Text & text);
 istream& operator>>(istream & is, yann::word2vec::Text & text);
 }; // namespace std
 
 
 namespace yann::word2vec {
-
-// Mapping word <-> number.
-class Dictionary {
-  typedef std::unordered_map<std::string, MatrixSize> Word2Num;
-  typedef std::unordered_map<MatrixSize, std::string> Num2Word;
-
-  friend std::ostream& std::operator<<(std::ostream & os, const Dictionary & dictionary);
-  friend std::istream& std::operator>>(std::istream & is, Dictionary & dictionary);
-
-public:
-  Dictionary();
-  virtual ~Dictionary();
-
-  bool operator==(const Dictionary & other) const;
-
-  bool empty() const;
-  size_t get_size() const;
-  MatrixSize add_word(const std::string & word, bool fail_if_duplicate = false);
-
-  bool has_word(const MatrixSize & num) const;
-  boost::optional<MatrixSize> find_word(const std::string & word) const;
-  boost::optional<const std::string &> find_word(const MatrixSize & num) const;
-
-  void erase(const MatrixSize & deleted);
-  void erase(const std::unordered_set<MatrixSize> & deleted);
-  std::unordered_map<MatrixSize, MatrixSize> compact();
-
-  // throws is word is not found
-  MatrixSize get_word(const std::string & word) const;
-  const std::string & get_word(const MatrixSize & num) const;
-
-private:
-  MatrixSize add_word(const std::string & word, const MatrixSize & num, bool fail_if_duplicate = false);
-
-private:
-  Word2Num _w2n;
-  Num2Word _n2w;
-}; // Dictionary
 
 // Class representing a text parser
 class TextParser {
@@ -118,10 +75,6 @@ private:
 class Text {
   friend std::ostream& std::operator<<(std::ostream & os, const yann::word2vec::Text & text);
   friend std::istream& std::operator>>(std::istream & is, yann::word2vec::Text & text);
-
-public:
-  // A single sentence represented by word's numbers.
-  typedef std::vector<MatrixSize> Sentence;
 
 public:
   Text();

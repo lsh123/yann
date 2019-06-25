@@ -251,7 +251,7 @@ BOOST_AUTO_TEST_CASE(Training_StochasticGD_Test)
 
   {
     Timer timer("Training");
-    trainer.train(*fcnn, data_source, epochs);
+    trainer.train(*fcnn, data_source, training_batch_size, epochs);
 
     BOOST_TEST_MESSAGE(timer);
   }

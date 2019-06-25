@@ -46,9 +46,9 @@ double yann::RateProvider_Annealing::get_current_rate() const
       : _rate;
 }
 
-double yann::RateProvider_Annealing::get(const size_t & batch_size)
+double yann::RateProvider_Annealing::get(const size_t & tests_num)
 {
-  return batch_size > 0 ? (get_current_rate() / batch_size) : get_current_rate();
+  return tests_num > 0 ? (get_current_rate() / tests_num) : get_current_rate();
 }
 
 std::unique_ptr<RateProvider> yann::RateProvider_Annealing::copy() const
@@ -120,29 +120,29 @@ void yann::Updater_GradientDescent::reset()
   // do nothing
 }
 
-void yann::Updater_GradientDescent::update(const RefConstMatrix & delta, const size_t & batch_size, RefMatrix value)
+void yann::Updater_GradientDescent::update(const RefConstMatrix & delta, const size_t & tests_num, RefMatrix value)
 {
   YANN_SLOW_CHECK(is_same_size(delta, value));
-  YANN_SLOW_CHECK_GT(batch_size, 0);
+  YANN_SLOW_CHECK_GT(tests_num, 0);
   YANN_SLOW_CHECK(_learning_rate);
   YANN_SLOW_CHECK(_regularization_rate);
 
-  auto learning_factor = _learning_rate->get(batch_size);
-  auto decay_factor = 1 - _regularization_rate->get(batch_size);
+  auto learning_factor = _learning_rate->get(tests_num);
+  auto decay_factor = 1 - _regularization_rate->get(tests_num);
   YANN_SLOW_CHECK_GE(learning_factor, 0.0);
   YANN_SLOW_CHECK_GE(decay_factor, 0.0);
 
   value = decay_factor * value - learning_factor * delta;
 }
 
-void yann::Updater_GradientDescent::update(const Value & delta, const size_t & batch_size, Value & value)
+void yann::Updater_GradientDescent::update(const Value & delta, const size_t & tests_num, Value & value)
 {
-  YANN_SLOW_CHECK_GT(batch_size, 0);
+  YANN_SLOW_CHECK_GT(tests_num, 0);
   YANN_SLOW_CHECK(_learning_rate);
   YANN_SLOW_CHECK(_regularization_rate);
 
-  auto learning_factor = _learning_rate->get(batch_size);
-  auto decay_factor = 1 - _regularization_rate->get(batch_size);
+  auto learning_factor = _learning_rate->get(tests_num);
+  auto decay_factor = 1 - _regularization_rate->get(tests_num);
   YANN_SLOW_CHECK_GE(learning_factor, 0.0);
   YANN_SLOW_CHECK_GE(decay_factor, 0.0);
 
@@ -211,27 +211,26 @@ void yann::Updater_GradientDescentWithMomentum::reset()
 
 // ww(t+1) = w(t) - alpha * vv(t)
 // vv(t) = beta * vv(t-1) + (1-beta) * delta_ww
-void yann::Updater_GradientDescentWithMomentum::update(const RefConstMatrix & delta, const size_t & batch_size, RefMatrix value)
+void yann::Updater_GradientDescentWithMomentum::update(const RefConstMatrix & delta, const size_t & tests_num, RefMatrix value)
 {
   YANN_CHECK(is_same_size(delta, value));
   YANN_CHECK(is_same_size(_velocity, value));
-  YANN_SLOW_CHECK_GT(batch_size, 0);
+  YANN_SLOW_CHECK_GT(tests_num, 0);
   YANN_SLOW_CHECK(_alpha);
 
-  auto alpha = _alpha->get(batch_size);
-
-  _velocity.array() = _beta * _velocity.array() + (1 - _beta) * delta.array();
+  auto alpha = _alpha->get(1);
+  _velocity.array() = _beta * _velocity.array() + ((1 - _beta) / tests_num) * delta.array();
   value.array() -= alpha * _velocity.array();
 }
 
-void yann::Updater_GradientDescentWithMomentum::update(const Value & delta, const size_t & batch_size, Value & value)
+void yann::Updater_GradientDescentWithMomentum::update(const Value & delta, const size_t & tests_num, Value & value)
 {
   YANN_CHECK_EQ(_velocity.size(), 1);
-  YANN_SLOW_CHECK_GT(batch_size, 0);
+  YANN_SLOW_CHECK_GT(tests_num, 0);
   YANN_SLOW_CHECK(_alpha);
 
-  auto alpha = _alpha->get(batch_size);
-  _velocity(0,0) = _beta * _velocity(0,0) + (1 - _beta) * delta;
+  auto alpha = _alpha->get(1);
+  _velocity(0,0) = _beta * _velocity(0,0) + ((1 - _beta) / tests_num) * delta;
   value -= alpha * _velocity(0,0);
 }
 
@@ -280,20 +279,20 @@ void yann::Updater_AdaGrad::reset()
 
 // S(t) = S(t-1) + delta^2
 // ww(t+1) = w(t) - rate * elem_prod(delta * 1/sqrt(S(t) + epsilon))
-void yann::Updater_AdaGrad::update(const RefConstMatrix & delta, const size_t & batch_size, RefMatrix value)
+void yann::Updater_AdaGrad::update(const RefConstMatrix & delta, const size_t & tests_num, RefMatrix value)
 {
   YANN_CHECK(is_same_size(delta, value));
   YANN_CHECK(is_same_size(_ss, value));
-  YANN_SLOW_CHECK_GT(batch_size, 0);
+  YANN_SLOW_CHECK_GT(tests_num, 0);
 
   _ss.array() += delta.array().square();
   value.array() -= _rate * (_ss.array() + _epsilon).rsqrt() * delta.array();
 }
 
-void yann::Updater_AdaGrad::update(const Value & delta, const size_t & batch_size, Value & value)
+void yann::Updater_AdaGrad::update(const Value & delta, const size_t & tests_num, Value & value)
 {
   YANN_CHECK_EQ(_ss.size(), 1);
-  YANN_SLOW_CHECK_GT(batch_size, 0);
+  YANN_SLOW_CHECK_GT(tests_num, 0);
 
   _ss(0,0) += delta * delta;
   value -= _rate * delta / sqrt(_ss(0,0) + _epsilon);
@@ -351,11 +350,13 @@ void yann::Updater_AdaDelta::reset()
 // D(t) = beta * D(t-1) + (1 - beta) * delta_ww(t - 1) ^2
 // delta_ww(t) = sqrt(D(t) + epsilon) / sqrt(S(t) + epsilon) * delta
 // ww(t+1) = w(t) - delta_ww(t)
-void yann::Updater_AdaDelta::update(const RefConstMatrix & delta, const size_t & batch_size, RefMatrix value)
+void yann::Updater_AdaDelta::update(const RefConstMatrix & delta, const size_t & tests_num, RefMatrix value)
 {
   YANN_CHECK(is_same_size(delta, value));
   YANN_CHECK(is_same_size(_ss, value));
-  YANN_SLOW_CHECK_GT(batch_size, 0);
+  YANN_CHECK(is_same_size(_dd, value));
+  YANN_CHECK(is_same_size(_delta, value));
+  YANN_SLOW_CHECK_GT(tests_num, 0);
 
   _ss.array() = _beta * _ss.array() + (1 - _beta) * delta.array().square();
   _dd.array() = _beta * _dd.array() + (1 - _beta) * _delta.array().square();
@@ -363,12 +364,12 @@ void yann::Updater_AdaDelta::update(const RefConstMatrix & delta, const size_t &
   value.array() -= _delta.array();
 }
 
-void yann::Updater_AdaDelta::update(const Value & delta, const size_t & batch_size, Value & value)
+void yann::Updater_AdaDelta::update(const Value & delta, const size_t & tests_num, Value & value)
 {
   YANN_CHECK_EQ(_ss.size(), 1);
   YANN_CHECK_EQ(_dd.size(), 1);
   YANN_CHECK_EQ(_delta.size(), 1);
-  YANN_SLOW_CHECK_GT(batch_size, 0);
+  YANN_SLOW_CHECK_GT(tests_num, 0);
 
   _ss(0,0) = _beta * _ss(0,0) + (1 - _beta) * delta * delta;
   _dd(0,0) = _beta * _dd(0,0) + (1 - _beta) * _delta(0,0) * _delta(0,0);

@@ -15,3 +15,6 @@ LDFLAGS="$LDFLAGS -L${MKL_LIB_PATH}"
 
 $SRC_PATH/configure CFLAGS= CPPFLAGS= CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" --enable-mkl
 
+if [ ! -e data ]; then
+  ln -s $SRC_PATH/data .
+fi

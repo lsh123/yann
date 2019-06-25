@@ -2,7 +2,7 @@
 # Targets
 #
 lib_LTLIBRARIES=libyann.la libyann_word2vec.la libyann_test.la
-bin_PROGRAMS=test-funcs test-updaters test-layers test-fcnn test-cnn test-rnn test-custom test-word2vec
+bin_PROGRAMS=test-funcs test-updaters test-layers test-fcnn test-cnn test-rnn test-s2s test-custom test-word2vec
 
 AM_CXXFLAGS=\
 	@AM_CXXFLAGS@ \
@@ -41,6 +41,7 @@ libyann_la_SOURCES = \
 	core/types.cpp \
 	core/utils.cpp \
 	core/random.cpp \
+	core/dict.cpp \
 	core/layer.cpp \
 	core/functions.cpp \
 	core/updaters.cpp \
@@ -53,6 +54,7 @@ libyann_la_SOURCES = \
 	layers/smaxlayer.cpp \
 	layers/reclayer.cpp \
 	layers/lstmlayer.cpp \
+	layers/s2slayer.cpp \
 	networks/fcnn.cpp \
 	networks/cnn.cpp \
 	$(NULL)
@@ -119,6 +121,7 @@ test_layers_SOURCES= \
 	test/test_smaxlayer.cpp \
 	test/test_reclayer.cpp \
 	test/test_lstmlayer.cpp \
+	test/test_s2slayer.cpp \
 	$(NULL)	
 test_layers_CXXFLAGS= $(AM_CXXFLAGS) $(AM_CXXFLAGS_TEST)
 test_layers_LDFLAGS=$(AM_LDFLAGS) $(AM_LDFLAGS_TEST)
@@ -149,6 +152,15 @@ test_rnn_LDFLAGS=$(AM_LDFLAGS) $(AM_LDFLAGS_TEST)
 test_rnn_LDADD=$(AM_LDADD_TEST)
 
 #
+# S2S unit test program
+#
+test_s2s_SOURCES=test/test_s2s.cpp
+test_s2s_CXXFLAGS=$(AM_CXXFLAGS) $(AM_CXXFLAGS_TEST)
+test_s2s_LDFLAGS=$(AM_LDFLAGS) $(AM_LDFLAGS_TEST)
+test_s2s_LDADD=$(AM_LDADD_TEST)
+
+
+#
 # Custom NN tests (not included in the "check"!)
 #
 test_custom_SOURCES=test/test_custom_nn.cpp
@@ -170,6 +182,6 @@ test_word2vec_LDADD=$(AM_LDADD_TEST)
 check-%: test-%
 	./$< --log_level=all --show_progress=no
 
-check: check-funcs check-updaters check-layers check-fcnn check-cnn check-rnn check-word2vec
+check: check-funcs check-updaters check-layers check-fcnn check-cnn check-rnn check-s2s check-word2vec
 
 	

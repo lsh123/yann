@@ -6,9 +6,14 @@
 #ifndef TEST_UTILS_H_
 #define TEST_UTILS_H_
 
+#include <fstream>
+
 #include <boost/assert.hpp>
 
+#include "timer.h"
+
 #define TEST_TOLERANCE    0.001
+#define TMP_FOLDER  "/tmp/"
 
 namespace yann::test {
 
@@ -57,6 +62,22 @@ private:
 void batch_progress_callback(const MatrixSize & cur_pos, const MatrixSize & total, const std::string & message);
 void epoch_progress_callback(const MatrixSize & cur_pos, const MatrixSize & total, const std::string & message);
 
+template<typename ObjectType>
+void save_to_file(const ObjectType & obj, const std::string & ext)
+{
+  // save
+  std::string filename = TMP_FOLDER + Timer::get_time() + "." + ext;
+  std::ofstream ofs(filename, std::ofstream::out | std::ofstream::trunc);
+  if(!ofs || ofs.fail()) {
+    throw std::runtime_error("can't open file " + filename);
+  }
+  ofs << obj;
+  if(!ofs || ofs.fail()) {
+    throw std::runtime_error("can't write to file " + filename);
+  }
+  ofs.close();
+  BOOST_TEST_MESSAGE("*** Saved to file: " << filename);
+}
 }; // namespace yann::test
 
 #endif /* TEST_UTILS_H_ */

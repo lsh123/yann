@@ -31,8 +31,6 @@ using namespace yann::test;
 #define HOTELS_10000_TEST_PATH  "../data/hotels-10000.txt.gz"
 #define HOTELS_FULL_TEST_PATH   "../data/hotels-full.txt.gz"
 
-#define TMP_FOLDER  "/tmp/"
-
 struct Word2VecTestFixture
 {
 
@@ -63,14 +61,6 @@ struct Word2VecTestFixture
     BOOST_TEST_MESSAGE("Parsed text: " << text->get_info());
 
     return text;
-  }
-
-  void save_to_file(const unique_ptr<Word2Vec> & w2v)
-  {
-    // save
-    string filename = TMP_FOLDER + Timer::get_time() + ".w2v";
-    w2v->save(filename);
-    BOOST_TEST_MESSAGE("*** Saved to file: " << filename);
   }
 
   const string some_text1 = "We shall defend our Island, whatever the cost may be."
@@ -306,7 +296,7 @@ BOOST_AUTO_TEST_CASE(Word2Vec_SkipGram_Hotels10000_Test, * disabled())
     w2v = Word2Vec::train_skip_gram(*text, params);
     BOOST_CHECK(w2v);
   }
-  save_to_file(w2v);
+  save_to_file(*w2v, "w2v");
 
   {
     Timer timer("Word2Vec::find_closest/find_farthest");
@@ -348,16 +338,16 @@ BOOST_AUTO_TEST_CASE(Word2Vec_CBOW_Hotels10000_Test, * disabled())
     Word2Vec::TrainingParams params;
     params._window_size = 8;
     params._dimensions = 100;
-    params._updater = make_unique<Updater_GradientDescent>(0.75);
+    params._updater = make_unique<Updater_GradientDescent>(1.0, 0.0);
     params._training_sampling_rate = 0.0;
     params._training_batch_size = 10;
-    params._epochs = 3;
+    params._epochs = 1;
     params._epochs_callback = epoch_progress_callback;
     params._batch_callback = batch_progress_callback;
     w2v = Word2Vec::train_cbow(*text, params);
     BOOST_CHECK(w2v);
   }
-  save_to_file(w2v);
+  save_to_file(*w2v, "w2v");
 
   {
     Timer timer("Word2Vec::find_closest/find_farthest");
@@ -398,18 +388,18 @@ BOOST_AUTO_TEST_CASE(Word2Vec_SkipGram_HotelsFull_Test, * disabled())
   {
     Timer timer("Word2Vec::train_skip_gram");
     Word2Vec::TrainingParams params;
-    params._window_size = 5;
+    params._window_size = 8;
     params._dimensions = 100;
-    params._updater = make_unique<Updater_GradientDescent>(0.75);
-    params._training_sampling_rate = 0.01;
-    params._training_batch_size = 10;
-    params._epochs = 5;
+    params._updater = make_unique<Updater_GradientDescent>(2.0, 0.0, 10);
+    params._training_sampling_rate = 0.0;
+    params._training_batch_size = 20;
+    params._epochs = 20;
     params._epochs_callback = epoch_progress_callback;
     params._batch_callback = batch_progress_callback;
     w2v = Word2Vec::train_skip_gram(*text, params);
     BOOST_CHECK(w2v);
   }
-  save_to_file(w2v);
+  save_to_file(*w2v, "w2v");
 
   {
     Timer timer("Word2Vec::find_closest/find_farthest");
@@ -449,18 +439,18 @@ BOOST_AUTO_TEST_CASE(Word2Vec_CBOW_HotelsFull_Test, * disabled())
   {
     Timer timer("Word2Vec::train_cbow");
     Word2Vec::TrainingParams params;
-    params._window_size = 3;
-    params._dimensions = 100;
-    params._updater = make_unique<Updater_GradientDescent>(0.75);
-    params._training_sampling_rate = 0.001;
-    params._training_batch_size = 10;
-    params._epochs = 3;
+    params._window_size = 8;
+    params._dimensions = 200;
+    params._updater = make_unique<Updater_GradientDescent>(2.0, 0.0, 10);
+    params._training_sampling_rate = 0.0;
+    params._training_batch_size = 5;
+    params._epochs = 20;
     params._epochs_callback = epoch_progress_callback;
     params._batch_callback = batch_progress_callback;
     w2v = Word2Vec::train_cbow(*text, params);
     BOOST_CHECK(w2v);
   }
-  save_to_file(w2v);
+  save_to_file(*w2v, "w2v");
 
   {
     Timer timer("Word2Vec::find_closest/find_farthest");
