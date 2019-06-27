@@ -111,20 +111,36 @@ protected:
 // yann::Seq2SeqLayer implementation
 //
 std::unique_ptr<Seq2SeqLayer> yann::Seq2SeqLayer::create_lstm(
+      const MatrixSize & input_size,
+      const MatrixSize & output_size,
+      const std::unique_ptr<ActivationFunction> & gate_activation_function,
+      const std::unique_ptr<ActivationFunction> & io_activation_function)
+{
+  YANN_CHECK_GT(input_size, 0);
+  YANN_CHECK_GT(output_size, 0);
+  YANN_CHECK(gate_activation_function);
+  YANN_CHECK(io_activation_function);
+
+  auto encoder = make_unique<LstmLayer>(input_size, output_size);
+  YANN_CHECK(encoder);
+  encoder->set_activation_functions(gate_activation_function, io_activation_function);
+
+  auto decoder = make_unique<LstmLayer>(output_size, output_size);
+  YANN_CHECK(decoder);
+  decoder->set_activation_functions(gate_activation_function, io_activation_function);
+
+  return make_unique<Seq2SeqLayer>(std::move(encoder), std::move(decoder));
+}
+
+std::unique_ptr<Seq2SeqLayer> yann::Seq2SeqLayer::create_lstm(
     const MatrixSize & input_size,
     const MatrixSize & output_size,
     const std::unique_ptr<ActivationFunction> & activation_function)
 {
-  auto encoder = make_unique<LstmLayer>(input_size, output_size);
-  YANN_CHECK(encoder);
-  encoder->set_activation_functions(activation_function, activation_function);
-
-  auto decoder = make_unique<LstmLayer>(output_size, output_size);
-  YANN_CHECK(decoder);
-  decoder->set_activation_functions(activation_function, activation_function);
-
-  return make_unique<Seq2SeqLayer>(std::move(encoder), std::move(decoder));
+  YANN_CHECK(activation_function);
+  return create_lstm(input_size, output_size, activation_function, activation_function);
 }
+
 
 yann::Seq2SeqLayer::Seq2SeqLayer(std::unique_ptr<Layer> encoder, std::unique_ptr<Layer> decoder) :
     _encoder(std::move(encoder)),

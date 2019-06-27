@@ -298,6 +298,78 @@ void yann::Updater_AdaGrad::update(const Value & delta, const size_t & tests_num
   value -= _rate * delta / sqrt(_ss(0,0) + _epsilon);
 }
 
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Updater_RMSprop implementation
+//
+yann::Updater_RMSprop::Updater_RMSprop(
+    const double & rate,
+    const double & gamma,
+    const double & epsilon) :
+    _rate(rate),
+    _gamma(gamma),
+    _epsilon(epsilon)
+{
+  YANN_CHECK_GT(_rate, 0);
+  YANN_CHECK_GT(_gamma, 0.0);
+  YANN_CHECK_LT(_gamma, 1.0);
+  YANN_CHECK_GT(_epsilon, 0);
+}
+
+std::string yann::Updater_RMSprop::get_info() const
+{
+  ostringstream oss;
+  oss << "Updater_RMSprop["
+      << "rate=" << _rate
+      << ", gamma=" << _gamma
+      << ", epsilon=" << _epsilon
+      << "]";
+  return oss.str();
+}
+
+std::unique_ptr<Layer::Updater> yann::Updater_RMSprop::copy() const
+{
+  return make_unique<Updater_RMSprop>(_rate, _gamma, _epsilon);
+}
+
+void yann::Updater_RMSprop::init(const MatrixSize & rows, const MatrixSize & cols)
+{
+  _ss.resize(rows, cols);
+  _ss.setZero();
+}
+
+void yann::Updater_RMSprop::start_epoch()
+{
+  // do nothing
+}
+
+void yann::Updater_RMSprop::reset()
+{
+  // do nothing
+}
+
+// S(t) = gamma * S(t-1) + (1 - gamma) * delta^2
+// ww(t+1) = w(t) - rate * elem_prod(delta * 1/sqrt(S(t) + epsilon))
+void yann::Updater_RMSprop::update(const RefConstMatrix & delta, const size_t & tests_num, RefMatrix value)
+{
+  YANN_CHECK(is_same_size(delta, value));
+  YANN_CHECK(is_same_size(_ss, value));
+  YANN_SLOW_CHECK_GT(tests_num, 0);
+
+  _ss.array() = _gamma * _ss.array() + (1 - _gamma) * (delta.array().square());
+  value.array() -= _rate * (_ss.array() + _epsilon).rsqrt() * delta.array();
+}
+
+void yann::Updater_RMSprop::update(const Value & delta, const size_t & tests_num, Value & value)
+{
+  YANN_CHECK_EQ(_ss.size(), 1);
+  YANN_SLOW_CHECK_GT(tests_num, 0);
+
+  _ss(0,0) = _gamma * _ss(0, 0) + (1 - _gamma) * (delta * delta);
+  value -= _rate * delta / sqrt(_ss(0,0) + _epsilon);
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //
 // Updater_AdaDelta implementation

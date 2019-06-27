@@ -71,6 +71,12 @@ public:
       const MatrixSize & output_size,
       const std::unique_ptr<ActivationFunction> & activation_function);
 
+  static std::unique_ptr<Seq2SeqLayer> create_lstm(
+      const MatrixSize & input_size,
+      const MatrixSize & output_size,
+      const std::unique_ptr<ActivationFunction> & gate_activation_function,
+      const std::unique_ptr<ActivationFunction> & io_activation_function);
+
 private:
   template<typename InputType>
   void feedforward_internal(

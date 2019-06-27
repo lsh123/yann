@@ -130,6 +130,36 @@ private:
   Matrix _ss;
 }; // Updater_AdaGrad
 
+//
+// S(t) = gamma * S(t-1) + (1 - gamma) * delta^2
+// ww(t+1) = w(t) - rate * elem_prod(delta * 1/sqrt(S(t) + epsilon))
+//
+class Updater_RMSprop :
+    public Layer::Updater
+{
+public:
+  Updater_RMSprop(
+      const double & rate = 0.01,
+      const double & gamma = 0.9,
+      const double & epsilon = 1.0e-07);
+
+  // Layer::Updater overwrites
+  virtual std::string get_info() const;
+  virtual std::unique_ptr<Layer::Updater> copy() const;
+
+  virtual void init(const MatrixSize & rows, const MatrixSize & cols);
+  virtual void start_epoch();
+  virtual void reset();
+  virtual void update(const RefConstMatrix & delta, const size_t & tests_num, RefMatrix value);
+  virtual void update(const Value & delta, const size_t & tests_num, Value & value);
+
+private:
+  const double _rate;
+  const double _gamma;
+  const double _epsilon;
+  Matrix _ss;
+}; // Updater_RMSprop
+
 
 //
 // S(t) = beta * S(t-1) + (1 - beta) * delta^2

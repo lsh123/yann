@@ -6,6 +6,7 @@
 #include <boost/test/unit_test.hpp>
 
 #include <fstream>
+#include <random>
 #include <sstream>
 #include <vector>
 #include <codecvt>
@@ -19,6 +20,8 @@
 #include "core/dict.h"
 #include "core/functions.h"
 #include "layers/s2slayer.h"
+#include "layers/fclayer.h"
+#include "layers/smaxlayer.h"
 
 #include "timer.h"
 #include "test_utils.h"
@@ -86,6 +89,17 @@ typedef struct _Sentences {
     return res;
   }
 
+  void shuffle(const vector<size_t> & shuffled_pos)
+  {
+    YANN_CHECK_EQ(_sentences.size(), shuffled_pos.size());
+
+    vector<Sentence> tmp(_sentences.size());
+    for(size_t ii = 0; ii < tmp.size(); ++ii) {
+      tmp[ii] = _sentences[shuffled_pos[ii]];
+    }
+    swap(tmp, _sentences);
+  }
+
   Dictionary _dict;
   vector<Sentence> _sentences;
 } Sentences;
@@ -132,6 +146,19 @@ public:
     }
     // done
     YANN_CHECK_EQ(_sentences1._sentences.size(), _sentences2._sentences.size());
+  }
+
+  void shuffle()
+  {
+    vector<size_t> shuffled_pos(get_size());
+    for(size_t ii = 0; ii < shuffled_pos.size(); ++ii) {
+      shuffled_pos[ii] = ii;
+    }
+    auto rng = default_random_engine { };
+    std::shuffle(shuffled_pos.begin(), shuffled_pos.end(), rng);
+
+    _sentences1.shuffle(shuffled_pos);
+    _sentences2.shuffle(shuffled_pos);
   }
 
   size_t get_dict1_size() const
@@ -335,7 +362,7 @@ public:
     return ii;
   }
 
-  static Sentence get_sentence(const RefConstVectorBatch & vectors, const Value & epsilon = 1.0e-05)
+  static Sentence get_sentence(const RefConstVectorBatch & vectors, const Value & epsilon)
   {
     Sentence res;
     res.reserve(yann::get_batch_size(vectors));
@@ -351,7 +378,7 @@ public:
     return res;
   }
 
-  static Sentence get_sentence(const RefConstSparseVectorBatch & vectors, const Value & epsilon = 1.0e-05)
+  static Sentence get_sentence(const RefConstSparseVectorBatch & vectors, const Value & epsilon)
   {
     Sentence res;
     res.reserve(yann::get_batch_size(vectors));
@@ -393,20 +420,51 @@ struct S2STestFixture
   {
   }
 
-  unique_ptr<Network> create_s2slayer_net(
+  unique_ptr<Network> create_s2s_net(
       const Translator & translator,
-      const std::unique_ptr<ActivationFunction> & activation_function)
+      const MatrixSize & encoder_size,
+      const MatrixSize & decoder_size)
   {
     // create the network
     auto nn = make_unique<Network>();
     YANN_CHECK(nn);
 
-    auto layer = Seq2SeqLayer::create_lstm(
-        translator.get_dict1_size(),
-        translator.get_dict2_size(),
-        activation_function);
-    BOOST_CHECK(layer);
-    nn->append_layer(std::move(layer));
+    // encoder embeddings layer
+    auto fc1_layer = make_unique<FullyConnectedLayer>(
+        translator.get_dict1_size(), encoder_size);
+    YANN_CHECK(fc1_layer);
+    fc1_layer->set_activation_function(make_unique<TanhFunction>());
+    nn->append_layer(std::move(fc1_layer));
+
+    // encoder/decoder
+    auto lstm_layer = Seq2SeqLayer::create_lstm(
+        encoder_size,
+        decoder_size,
+        make_unique<SigmoidFunction>(),
+        make_unique<TanhFunction>());
+    BOOST_CHECK(lstm_layer);
+    nn->append_layer(std::move(lstm_layer));
+
+    // decoder embeddings layer
+    auto fc2_layer = make_unique<FullyConnectedLayer>(
+        decoder_size, translator.get_dict2_size());
+    YANN_CHECK(fc2_layer);
+    fc2_layer->set_activation_function(make_unique<SigmoidFunction>());
+    nn->append_layer(std::move(fc2_layer));
+
+    // add softmax
+    /*
+    auto smax_layer = make_unique<SoftmaxLayer>(
+        translator.get_dict2_size()
+    );
+    YANN_CHECK(smax_layer);
+    nn->append_layer(std::move(smax_layer));
+    */
+
+    // done
+    nn->set_cost_function(make_unique<CrossEntropyCost>());
+    //nn->set_cost_function(make_unique<QuadraticCost>());
+
 
     return nn;
   }
@@ -415,7 +473,9 @@ struct S2STestFixture
       const Translator & translator,
       Network & nn,
       const size_t & tests_start,
-      const size_t & tests_size)
+      const size_t & tests_size,
+      const double & epsilon,
+      bool output_results = false)
   {
     DataSource_Translator data_source(translator, tests_start, tests_size);
 
@@ -439,17 +499,20 @@ struct S2STestFixture
 
         ctx->reset_state();
         const auto outputs = batch->_outputs;
+        string input_sentence;
         if(batch->_inputs) {
           const auto inputs = *(batch->_inputs);
-          // auto sentence_input = DataSource_Translator::get_sentence(inputs);
-          // DBG(translator.get_sentence1(sentence_input));
-
+          if(output_results) {
+            input_sentence = translator.get_sentence1(
+                 DataSource_Translator::get_sentence(inputs, epsilon));
+          }
           nn.calculate(inputs, ctx.get());
         } else if(batch->_sparse_inputs) {
           const auto inputs = *(batch->_sparse_inputs);
-          // auto sentence_input = DataSource_Translator::get_sentence(inputs);
-          // DBG(translator.get_sentence1(sentence_input));
-
+          if(output_results) {
+            input_sentence = translator.get_sentence1(
+                 DataSource_Translator::get_sentence(inputs, epsilon));
+          }
           nn.calculate(inputs, ctx.get());
         } else {
           YANN_CHECK("we can't be here" == nullptr);
@@ -459,8 +522,12 @@ struct S2STestFixture
         total_cost += cost;
         ++total_count;
 
-        auto sentence_actual = DataSource_Translator::get_sentence(ctx->get_output());
-        auto sentence_expected = DataSource_Translator::get_sentence(outputs);
+        auto sentence_actual = DataSource_Translator::get_sentence(
+            ctx->get_output(),
+            epsilon);
+        auto sentence_expected = DataSource_Translator::get_sentence(
+            outputs,
+            epsilon);
         for(size_t ii = 0; ii < sentence_expected.size(); ++ii) {
           if(ii < sentence_actual.size() && sentence_actual[ii] == sentence_expected[ii]) {
             ++success_words_count;
@@ -468,9 +535,12 @@ struct S2STestFixture
           ++total_words_count;
         }
 
-        // DBG(translator.get_sentence2(sentence_expected));
-        // DBG(translator.get_sentence2(sentence_actual));
-        // DBG(cost);
+        if(output_results) {
+          cout << input_sentence << "\t"
+               << translator.get_sentence2(sentence_expected) << "\t"
+               << translator.get_sentence2(sentence_actual) << "\t"
+               << cost << endl;
+        }
       }
     }
 
@@ -486,26 +556,29 @@ struct S2STestFixture
       const size_t & training_size,
       const size_t & test_size,
       const size_t & training_tests_num,
-      const size_t & epochs)
+      const size_t & epochs,
+      const double & epsilon)
   {
     YANN_CHECK_GT(epochs, 0);
 
     // training
+    // double training_success_rate = 0;
+    // Value training_cost = 0;
     double test_success_rate = 0;
-    double training_success_rate = 0;
     Value test_cost = 0;
-    Value training_cost = 0;
     auto epochs_callback = [&](const MatrixSize & epoch, const MatrixSize & epochs, const std::string & message) {
+      /*
       {
         Timer timer("Testing against training dataset");
-        pair<double, Value> res = test(translator, nn, 0, training_size);
+        pair<double, Value> res = test(translator, nn, 0, training_size, epsilon);
         training_success_rate = res.first;
         training_cost = res.second;
         BOOST_TEST_MESSAGE(timer);
       }
+      */
       {
         Timer timer("Testing against test dataset");
-        pair<double, Value> res = test(translator, nn, training_size, test_size);
+        pair<double, Value> res = test(translator, nn, training_size, test_size, epsilon);
         test_success_rate = res.first;
         test_cost = res.second;
         BOOST_TEST_MESSAGE(timer);
@@ -514,19 +587,21 @@ struct S2STestFixture
       string extra = (epoch <= 0) ? " (before training)" : "";
       BOOST_TEST_MESSAGE(
           "Success rate for epoch " << epoch << extra << ":"
-              << " against training dataset: " << training_success_rate * 100 << "%"
+              // << " against training dataset: " << training_success_rate * 100 << "%"
               << " against test dataset: " << test_success_rate* 100 << "%"
       );
       BOOST_TEST_MESSAGE(
           "Cost per test for epoch " << epoch << extra << ":"
-              << " against training dataset: " << training_cost
+              // << " against training dataset: " << training_cost
               << " against test dataset: " << test_cost
       );
 
       // TODO: remove
-      DBG(translate(translator, nn, { "go", "away" }));
-      DBG(translate(translator, nn, { "help", "me" }));
+      if(epoch % 2 == 0) {
+        test_sentences(translator, nn);
+      }
 
+      save_to_file(nn, "nn");
       BOOST_TEST_MESSAGE("\n");
 
       if(epoch + 1 < epochs) {
@@ -553,6 +628,9 @@ struct S2STestFixture
       BOOST_TEST_MESSAGE(timer << "\n");
     }
 
+    // print results
+    test(translator, nn, training_size, test_size, epsilon, true);
+
     // done
     return make_pair(test_success_rate, test_cost);
   }
@@ -560,30 +638,45 @@ struct S2STestFixture
   string translate(
       const Translator & translator,
       const Network & nn,
-      const vector<string> & sentence)
+      const vector<string> & sentence,
+      const Value & epsilon)
   {
-    // step 1: convert sentence into integers
-    auto sentence1 = translator.get_sentence1(sentence);
-    DBG(sentence1);
+    try {
+      // step 1: convert sentence into integers
+      auto sentence1 = translator.get_sentence1(sentence);
 
-    // step 2: prep inputs
-    auto max_batch_size = translator.get_max_sentence_length();
-    max_batch_size = max(max_batch_size, sentence1.size()) + 1;
+      // step 2: prep inputs
+      auto max_batch_size = translator.get_max_sentence_length();
+      max_batch_size = max(max_batch_size, sentence1.size()) + 1;
 
-    SparseVectorBatch inputs;
-    resize_batch(inputs, max_batch_size, translator.get_dict1_size());
-    DataSource_Translator::convert(sentence1, inputs);
+      SparseVectorBatch inputs;
+      resize_batch(inputs, max_batch_size, translator.get_dict1_size());
+      DataSource_Translator::convert(sentence1, inputs);
 
-    // step 3: calculate output
-    unique_ptr<Context> ctx = nn.create_context(max_batch_size);
-    YANN_CHECK(ctx);
-    nn.calculate(inputs, ctx.get());
-    // DBG(ctx->get_output());
+      // step 3: calculate output
+      unique_ptr<Context> ctx = nn.create_context(max_batch_size);
+      YANN_CHECK(ctx);
+      nn.calculate(inputs, ctx.get());
+      // DBG(ctx->get_output());
 
-    // step 4: convert output to sentence
-    auto sentence2 = DataSource_Translator::get_sentence(ctx->get_output());
-    DBG(sentence2);
-    return translator.get_sentence2(sentence2);
+      // step 4: convert output to sentence
+      auto sentence2 = DataSource_Translator::get_sentence(ctx->get_output(), epsilon);
+      return translator.get_sentence2(sentence2);
+    } catch(std::exception & ex) {
+      return "CANT TRANSLATE";
+    }
+  }
+
+
+  void test_sentences(
+      const Translator & translator,
+      const Network & nn,
+      const double & epsilon =  0.0001)
+  {
+    DBG(translate(translator, nn, { "go", "away" }, epsilon));
+    DBG(translate(translator, nn, { "help", "me" }, epsilon));
+    DBG(translate(translator, nn, { "i", "am", "going", "to", "play", "soccer", "after", "school" }, epsilon));
+    DBG(translate(translator, nn, { "i", "am", "going", "to", "play", "basketball", "after", "school" }, epsilon));
   }
 
 };
@@ -593,25 +686,24 @@ BOOST_FIXTURE_TEST_SUITE(S2STest, S2STestFixture);
 
 BOOST_AUTO_TEST_CASE(Training_500_Test, * disabled())
 {
-  const double learning_rate = 0.2;
-  const double regularization = 0.0;
+  const size_t encdec_size = 100;
   const size_t training_size = 500;
   const size_t test_size = 100;
   const size_t total_size = training_size + test_size;
-  const size_t training_tests_num = 1;
-  const size_t epochs = 10;
+  const size_t training_tests_num = 10;
+  const size_t epochs = 100;
+  const double epsilon = 0.001;
 
   auto translator = Translator::parse_gzip_file(RUS_ENG_TEST_PATH, total_size);
   YANN_CHECK(translator);
+  translator->shuffle();
 
-  auto nn = create_s2slayer_net(*translator, make_unique<SigmoidFunction>());
+  auto nn = create_s2s_net(*translator, encdec_size, encdec_size);
   YANN_CHECK(nn);
-  nn->set_cost_function(make_unique<CrossEntropyCost>());
   nn->init(Layer::InitMode_Random, Layer::InitContext(123456));
 
   // create trainer
-  auto trainer = make_unique<Trainer>(
-      make_unique<Updater_GradientDescentWithMomentum>(learning_rate, regularization));
+  auto trainer = make_unique<Trainer>(make_unique<Updater_AdaDelta>());
   YANN_CHECK(trainer);
   trainer->set_batch_progress_callback(batch_progress_callback);
 
@@ -622,7 +714,8 @@ BOOST_AUTO_TEST_CASE(Training_500_Test, * disabled())
       training_size,
       test_size,
       training_tests_num,
-      epochs
+      epochs,
+      epsilon
   );
 
   BOOST_TEST_MESSAGE("*** Success rate: " << (res.first * 100)
@@ -632,30 +725,31 @@ BOOST_AUTO_TEST_CASE(Training_500_Test, * disabled())
   BOOST_TEST_MESSAGE(" trainer: " << trainer->get_info());
   BOOST_TEST_MESSAGE(" translator: " << translator->get_info());
   BOOST_TEST_MESSAGE(" epochs: " << epochs);
-}
 
+  test_sentences(*translator, *nn, epsilon);
+}
 
 BOOST_AUTO_TEST_CASE(Training_10000_Test, * disabled())
 {
-  const double learning_rate = 0.2;
-  const double regularization = 0.0;
+  const size_t encdec_size = 100;
   const size_t training_size = 10000;
   const size_t test_size = 1000;
   const size_t total_size = training_size + test_size;
-  const size_t training_tests_num = 1;
-  const size_t epochs = 10;
+  const size_t training_tests_num = 10;
+  const size_t epochs = 100;
+  const double epsilon = 0.001;
 
   auto translator = Translator::parse_gzip_file(RUS_ENG_TEST_PATH, total_size);
   YANN_CHECK(translator);
+  translator->shuffle();
 
-  auto nn = create_s2slayer_net(*translator, make_unique<SigmoidFunction>());
+  auto nn = create_s2s_net(*translator, encdec_size, encdec_size);
   YANN_CHECK(nn);
-  nn->set_cost_function(make_unique<CrossEntropyCost>());
   nn->init(Layer::InitMode_Random, Layer::InitContext(123456));
 
   // create trainer
   auto trainer = make_unique<Trainer>(
-      make_unique<Updater_GradientDescentWithMomentum>(learning_rate, regularization));
+      make_unique<Updater_RMSprop>());
   YANN_CHECK(trainer);
   trainer->set_batch_progress_callback(batch_progress_callback);
 
@@ -666,9 +760,9 @@ BOOST_AUTO_TEST_CASE(Training_10000_Test, * disabled())
       training_size,
       test_size,
       training_tests_num,
-      epochs
+      epochs,
+      epsilon
   );
-  save_to_file(*nn, "nn");
 
   BOOST_TEST_MESSAGE("*** Success rate: " << (res.first * 100)
                      << "% Loss: " << res.second
@@ -677,7 +771,56 @@ BOOST_AUTO_TEST_CASE(Training_10000_Test, * disabled())
   BOOST_TEST_MESSAGE(" trainer: " << trainer->get_info());
   BOOST_TEST_MESSAGE(" translator: " << translator->get_info());
   BOOST_TEST_MESSAGE(" epochs: " << epochs);
+
+  test_sentences(*translator, *nn, epsilon);
 }
+
+BOOST_AUTO_TEST_CASE(Training_100000_Test, * disabled())
+{
+  const size_t encdec_size = 100;
+  const size_t training_size = 100000;
+  const size_t test_size = 1000;
+  const size_t total_size = training_size + test_size;
+  const size_t training_tests_num = 10;
+  const size_t epochs = 100;
+  const double epsilon = 0.01;
+
+  auto translator = Translator::parse_gzip_file(RUS_ENG_TEST_PATH, total_size);
+  YANN_CHECK(translator);
+  translator->shuffle();
+
+  auto nn = create_s2s_net(*translator, encdec_size, encdec_size);
+  YANN_CHECK(nn);
+  nn->init(Layer::InitMode_Random, Layer::InitContext(123456));
+
+  // create trainer
+  auto trainer = make_unique<Trainer>(
+      make_unique<Updater_RMSprop>());
+  YANN_CHECK(trainer);
+  trainer->set_batch_progress_callback(batch_progress_callback);
+
+  auto res = train_and_test(
+      *translator,
+      *nn,
+      *trainer,
+      training_size,
+      test_size,
+      training_tests_num,
+      epochs,
+      epsilon
+  );
+
+  BOOST_TEST_MESSAGE("*** Success rate: " << (res.first * 100)
+                     << "% Loss: " << res.second
+                     << " after " << epochs << " epochs");
+  BOOST_TEST_MESSAGE(" network: " << nn->get_info());
+  BOOST_TEST_MESSAGE(" trainer: " << trainer->get_info());
+  BOOST_TEST_MESSAGE(" translator: " << translator->get_info());
+  BOOST_TEST_MESSAGE(" epochs: " << epochs);
+
+  test_sentences(*translator, *nn, epsilon);
+}
+
 
 BOOST_AUTO_TEST_SUITE_END()
 

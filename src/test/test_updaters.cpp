@@ -215,6 +215,66 @@ BOOST_AUTO_TEST_CASE(Test_AdaGrad_Value)
   BOOST_CHECK_CLOSE(ww_expected, ww, TEST_TOLERANCE);
 }
 
+
+BOOST_AUTO_TEST_CASE(Test_RMSprop_Matrix)
+{
+  BOOST_TEST_MESSAGE("*** Updater_RMSprop matrix test ...");
+
+  const MatrixSize size = 2;
+
+  auto updater = make_unique<Updater_RMSprop>(0.01, 0.9, 1.0e-07);
+  BOOST_CHECK(updater);
+  updater->init(size, size);
+  updater->start_epoch();
+
+  Matrix ww(size, size);
+  Matrix ww_expected(size, size);
+  Matrix delta(size, size);
+
+  // first iteration
+  ww << 1, 2, 3, 4;
+  delta << 0.1, 0.2, 0.3, 0.4;
+  ww_expected << 0.9683788044, 1.968377619, 2.968377399, 3.968377322;
+  updater->update(delta, 1, ww);
+  BOOST_CHECK(ww_expected.isApprox(ww, TEST_TOLERANCE));
+
+  // second iteration
+  delta << 0.4, 0.3, 0.2, 0.1;
+  ww_expected << 0.9376096647, 1.941651601, 2.950195656, 3.960319119;
+  updater->update(delta, 1, ww);
+  BOOST_CHECK(ww_expected.isApprox(ww, TEST_TOLERANCE));
+}
+
+BOOST_AUTO_TEST_CASE(Test_RMSprop_Value)
+{
+  BOOST_TEST_MESSAGE("*** Updater_RMSprop value test ...");
+
+  auto updater = make_unique<Updater_RMSprop>(0.01, 0.9, 1.0e-07);
+  BOOST_CHECK(updater);
+  updater->init(1, 1);
+  updater->start_epoch();
+
+  Value ww;
+  Value ww_expected;
+  Value delta;
+
+  // first iteration
+  // s(0) = 0
+  ww = 1;
+  delta = 0.1;
+  // s(1) = 0.001
+  ww_expected = 0.9683788044;
+  updater->update(delta, 1, ww);
+  BOOST_CHECK_CLOSE(ww_expected, ww, TEST_TOLERANCE);
+
+  // second iteration
+  delta = 0.4;
+  // s(2) = 0.0169
+  ww_expected = 0.9376096647;
+  updater->update(delta, 1, ww);
+  BOOST_CHECK_CLOSE(ww_expected, ww, TEST_TOLERANCE);
+}
+
 BOOST_AUTO_TEST_CASE(Test_AdaDelta_Matrix)
 {
   BOOST_TEST_MESSAGE("*** Updater_AdaDelta matrix test ...");
