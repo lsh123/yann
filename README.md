@@ -5,6 +5,11 @@ the [Eigen](https://eigen.tuxfamily.org) library for matrix operations.
 The code uses many C++17 features (it was compiled and tested using
 g++ 8.3 and should compile on most modern compilers).
 
+### Features
+- Fully connected networks, CNN, RNN, LSTM, ...
+- Gradient descent, AdaGrad, AdaDelta, ...
+- Sigmoid, Tanh, Quadratic Cost, Entropy Cost, ...
+
 ### Installing
 
 Install [Boost](http://boost.org/) and [Eigen](https://eigen.tuxfamily.org),
